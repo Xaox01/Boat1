@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { Torpedo } from './Torpedo.js';
+import { Missile } from './Missile.js';
 
 const BALLAST_RATE      = 0.16;   // fraction/s at surface — slower at depth
 const BALLAST_CMD_RATE  = 0.45;
@@ -40,8 +42,37 @@ export class Submarine {
     this.impactVelocity = 0;
     this.onFloor        = false;
 
+    this.torpedoes     = [];
+    this.torpedoCount  = 4;
+    this.torpedoFireCD = 0;
+
+    this.missiles      = [];
+    this.missileCount  = 2;
+    this.missileFireCD = 0;
+    this.noiseSurge    = 0;   // chwilowy skok hałasu po odpaleniu rakiety
+
     this._prevY = y;   // for thermocline crossing detection
     this.trail  = [];
+  }
+
+  fireTorpedo(targetX, targetY) {
+    if (this.torpedoCount <= 0 || this.torpedoFireCD > 0) return false;
+    this.torpedoCount--;
+    this.torpedoFireCD = 1.8;
+    this.torpedoes.push(new Torpedo(this.scene, this.x, this.y, targetX, targetY));
+    return true;
+  }
+
+  // Rakieta wymaga głębokości ≤ 30m (prawie na powierzchni)
+  fireMissile(targetX) {
+    if (this.missileCount  <= 0)  return 'brak';
+    if (this.missileFireCD >  0)  return 'cd';
+    if (this.depthMetres   >  30) return 'za_gleboko';
+    this.missileCount--;
+    this.missileFireCD = 2.5;
+    this.noiseSurge    = 1.0;   // silne zakłócenie akustyczne — zdradza pozycję!
+    this.missiles.push(new Missile(this.scene, this.x, this.y, targetX));
+    return 'ok';
   }
 
   get depthMetres() {
@@ -58,6 +89,19 @@ export class Submarine {
     this._clampToWorld();
     this._updateSystems(dt);
     this._draw();
+    this._updateTorpedoes(dt);
+  }
+
+  _updateTorpedoes(dt) {
+    this.torpedoFireCD = Math.max(0, this.torpedoFireCD - dt);
+    for (const t of this.torpedoes) t.update(dt);
+    for (const t of this.torpedoes.filter(t => t.dead)) t.destroy();
+    this.torpedoes = this.torpedoes.filter(t => !t.dead);
+
+    this.missileFireCD = Math.max(0, this.missileFireCD - dt);
+    // Rakiety dostają listę celów przez GameScene (update wywołuje m.update z enemies)
+    for (const m of this.missiles.filter(m => m.dead)) m.destroy();
+    this.missiles = this.missiles.filter(m => !m.dead);
   }
 
   // ── Input ──────────────────────────────────────────────────────────────────
@@ -236,7 +280,9 @@ export class Submarine {
       this.cavitating = false;
       speedNoise      = (spd / CAVITATION_SPEED) * 0.22;
     }
-    this.noise = Phaser.Math.Clamp(engineNoise + speedNoise, 0, 1);
+    // Skok hałasu po odpaleniu rakiety — zanika w ~4s
+    this.noiseSurge = Math.max(0, this.noiseSurge - dt * 0.28);
+    this.noise = Phaser.Math.Clamp(engineNoise + speedNoise + this.noiseSurge, 0, 1);
 
     // ── Thermocline noise masking ──────────────────────────────────────────
     // Sound bends around the thermocline (acoustic shadow zone).

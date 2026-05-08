@@ -18,7 +18,9 @@ const hudBallast  = $('hud-ballast');
 const hudNoise    = $('hud-noise');
 const hudHull     = $('hud-hull');
 const hudBattery  = $('hud-battery');
-const hudOxygen   = $('hud-oxygen');
+const hudOxygen    = $('hud-oxygen');
+const hudTorpedoes = $('hud-torpedoes');
+const hudMissiles  = $('hud-missiles');
 const barBallast  = $('bar-ballast');
 const barNoise    = $('bar-noise');
 const barHull     = $('bar-hull');
@@ -53,12 +55,10 @@ export class GameScene extends Phaser.Scene {
     this.ocean = new Ocean(this);
     this.sub   = new Submarine(this, CAM_W / 2, SURFACE_Y + 55);
 
-    // Enemy destroyers — three patrol zones across the world
-    this.enemies = [
-      new Enemy(this,  900,   200,  1400, 'ORP-1'),
-      new Enemy(this, 2100,  1500,  2800, 'ORP-2'),
-      new Enemy(this, 3300,  2800,  4000, 'ORP-3'),
-    ];
+    // Niszczyciele pojawią się po opóźnieniu — gracz ma czas na zanurzenie
+    this.enemies          = [];
+    this._enemiesSpawned  = false;
+    this._enemySpawnTimer = 0;
 
     this._addDepthLabels();
     this.sonar = new Sonar(this, CAM_W - 90, CAM_H - 90, 75);
@@ -72,6 +72,38 @@ export class GameScene extends Phaser.Scene {
       shift: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
       space: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
     };
+
+    // LPM = torpeda, 2×LPM (szybko) = rakieta przeciwokrętowa
+    this.input.on('pointerdown', (pointer) => {
+      if (this._gameOver || !pointer.leftButtonDown()) return;
+      const worldX = pointer.x + this.camX;
+      const worldY = pointer.y;
+      const now    = this.time.now;
+
+      const timeSince = now - this._lastClickTime;
+      const nearX     = Math.abs(pointer.x - this._lastClickX) < 70;
+      const isDouble  = timeSince > 0 && timeSince < 420 && nearX;
+
+      if (isDouble) {
+        // Podwójny klik — rakieta
+        const result = this.sub.fireMissile(worldX);
+        if      (result === 'ok')         this._logEvent('Rakieta odpalona!');
+        else if (result === 'brak')       this._logEvent('Brak rakiet!');
+        else if (result === 'za_gleboko') this._logEvent('Za głęboko! Wynurzyć (max 30m).');
+        this._lastClickTime = 0; // blokuj kolejny jako potrójny
+      } else {
+        // Pojedynczy klik — torpeda
+        if (this.sub.fireTorpedo(worldX, worldY)) {
+          this._logEvent('Torpeda odpalona!');
+        } else if (this.sub.torpedoCount <= 0) {
+          this._logEvent('Brak torped!');
+        }
+        this._lastClickTime = now;
+        this._lastClickX    = pointer.x;
+      }
+    });
+
+    this.aimGfx = this.add.graphics().setDepth(18);
 
     this._drawCRT();
 
@@ -101,12 +133,24 @@ export class GameScene extends Phaser.Scene {
     this._groundedTimer   = 0;
     this._prevBelowThermo = false;
     this._prevCavitating  = false;
-    // Per-enemy state tracking: Map<Enemy, STATE>
-    this._prevEnemyState  = new Map(this.enemies.map(e => [e, STATE.PATROL]));
+    this._gameOver        = false;
+    this._prevEnemyState  = new Map();
+    this._lastClickTime   = 0;
+    this._lastClickX      = 0;
+
+    this._logEvent('Zanurz się — wrogie jednostki w pobliżu!');
   }
 
   update(time, delta) {
+    if (this._gameOver) return;
+
     const dt = delta / 1000;
+
+    // Opóźnione pojawienie się niszczycieli — gracz ma czas na zanurzenie
+    if (!this._enemiesSpawned) {
+      this._enemySpawnTimer += dt;
+      if (this._enemySpawnTimer >= 10) this._spawnEnemies();
+    }
 
     this.sub.update(delta, this.cursors, this.keys);
 
@@ -123,6 +167,7 @@ export class GameScene extends Phaser.Scene {
     // Update enemies + handle depth charge effects
     for (const enemy of this.enemies) {
       enemy.update(dt, this.sub);
+      if (enemy.recentPingHit) this._logEvent('PING! Aktywny sonar — wykryto echo!');
       for (const exp of enemy.recentExplosions) {
         const intensity = Phaser.Math.Clamp(1 - exp.dist / 85, 0, 1);
         if (intensity > 0.1) {
@@ -135,15 +180,71 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // Tykanie i trafienia rakiet gracza
+    for (const m of this.sub.missiles) {
+      m.update(dt, this.enemies.filter(e => !e.destroyed));
+      if (m.recentHit) {
+        const { enemy, damage } = m.recentHit;
+        enemy.hull -= damage;
+        this.cameras.main.shake(400, 0.014);
+        this.cameras.main.flash(200, 255, 160, 60, false);
+        if (enemy.hull <= 0) {
+          enemy.destroyed = true;
+          this._logEvent(`${enemy.label || 'Niszczyciel'} zatopiony rakietą!`);
+        } else {
+          this._logEvent(`Rakieta trafiła — ${enemy.label || 'niszczyciel'} uszkodzony!`);
+        }
+      }
+    }
+
+    // Player torpedo hits vs enemies
+    for (const t of this.sub.torpedoes) {
+      for (const target of this.enemies.filter(e => !e.destroyed)) {
+        const dmg = t.checkHit(target);
+        if (dmg > 0) {
+          target.hull -= dmg;
+          this.cameras.main.shake(300, 0.008);
+          this.cameras.main.flash(120, 200, 255, 120, false);
+          if (target.hull <= 0) {
+            target.destroyed = true;
+            this._logEvent(target.label
+              ? `${target.label} zatopiony!`
+              : 'Wróg zatopiony!');
+          } else {
+            this._logEvent('Trafienie! Wróg uszkodzony.');
+          }
+        }
+      }
+    }
+
+    // Remove destroyed enemies
+    for (const e of this.enemies.filter(e => e.destroyed)) e.gfx.destroy();
+    this.enemies = this.enemies.filter(e => !e.destroyed);
+
+    // Win condition — tylko gdy wrogowie już się spawnowali i wszyscy zatopieni
+    if (!this._gameOver && this._enemiesSpawned && this.enemies.length === 0) {
+      this._gameOver = true;
+      this._showEndScreen('MISJA ZAKOŃCZONA', 'Wszystkie jednostki wroga zatopione.', '#4aff9a');
+    }
+
+    // Lose condition
+    if (!this._gameOver && this.sub.hull <= 0) {
+      this._gameOver = true;
+      this._showEndScreen('OKRĘT ZATOPIONY', 'Kadłub nie wytrzymał. Misja nieudana.', '#ff4a4a');
+    }
+
     const targetCamX = this.sub.x - CAM_W / 2;
-    this.camX = Phaser.Math.Linear(this.camX, targetCamX, 0.08);
+    // Lerp niezależny od FPS: ten sam efekt wizualny przy każdej częstotliwości klatek
+    const lerpT = 1 - Math.pow(0.92, dt * 60);
+    this.camX = Phaser.Math.Linear(this.camX, targetCamX, lerpT);
     this.camX = Phaser.Math.Clamp(this.camX, 0, WORLD_W - CAM_W);
 
     this._applyCamera();
     this.ocean.update(delta, this.camX);
-    this.sonar.update(delta, this.sub, this.enemies);
+    this.sonar.update(delta, this.sub, this.enemies, this.sub.torpedoes);
     this._updateHUD();
     this._checkEvents();
+    this._drawAimReticle();
   }
 
   _applyCamera() {
@@ -152,10 +253,18 @@ export class GameScene extends Phaser.Scene {
     this.ocean.waveGfx.x = -this.camX;
     this.warnLine.x      = -this.camX;
     this.crushLine.x     = -this.camX;
-    for (const e of this.enemies) e.gfx.x = -this.camX;
+    for (const e of this.enemies)       e.gfx.x = -this.camX;
+    for (const t of this.sub.torpedoes) t.gfx.x = -this.camX;
+    for (const m of this.sub.missiles)  m.gfx.x = -this.camX;
   }
 
   // ── HUD ────────────────────────────────────────────────────────────────────
+
+  // Pomocniki — zapis do DOM tylko gdy wartość się zmieniła
+  _setText(el, v) { if (el.textContent !== v) el.textContent = v; }
+  _setCls(el, v)  { if (el.className   !== v) el.className   = v; }
+  _setW(el, pct)  { const s = `${pct}%`; if (el.style.width !== s) el.style.width = s; }
+  _setCol(el, v)  { if (el.style.color !== v) el.style.color = v; }
 
   _updateHUD() {
     const sub     = this.sub;
@@ -167,49 +276,53 @@ export class GameScene extends Phaser.Scene {
     const oxygen  = Math.round(sub.oxygen * 100);
     const noiseEff = Math.round(sub.noiseEffective * 100);
 
-    hudDepth.textContent   = `${sub.depthMetres} m`;
-    hudSpeed.textContent   = `${knots} w`;
-    hudBallast.textContent = `${ballast}%`;
-    hudNoise.textContent   = `${noiseEff}%`;
-    hudHull.textContent    = `${hull}%`;
-    hudBattery.textContent = `${battery}%`;
-    hudOxygen.textContent  = `${oxygen}%`;
+    this._setText(hudDepth,    `${sub.depthMetres} m`);
+    this._setText(hudSpeed,    `${knots} w`);
+    this._setText(hudBallast,  `${ballast}%`);
+    this._setText(hudNoise,    `${noiseEff}%`);
+    this._setText(hudHull,     `${hull}%`);
+    this._setText(hudBattery,  `${battery}%`);
+    this._setText(hudOxygen,   `${oxygen}%`);
+    this._setText(hudTorpedoes, `${sub.torpedoCount}`);
+    this._setCol(hudTorpedoes,
+      sub.torpedoCount === 0 ? '#ff4a4a' : sub.torpedoCount <= 1 ? '#ffaa4a' : '#4aff9a');
 
-    barBallast.style.width = `${ballast}%`;
-    barNoise.style.width   = `${noiseEff}%`;
-    barHull.style.width    = `${hull}%`;
-    barBattery.style.width = `${battery}%`;
-    barOxygen.style.width  = `${oxygen}%`;
+    const canFire = sub.depthMetres <= 30;
+    this._setText(hudMissiles, `${sub.missileCount}`);
+    this._setCol(hudMissiles,
+      sub.missileCount === 0 ? '#ff4a4a' : !canFire ? '#886600' : '#ffaa00');
 
-    barBallast.className = 'hud-bar-fill';
+    this._setW(barBallast, ballast);
+    this._setW(barNoise,   noiseEff);
+    this._setW(barHull,    hull);
+    this._setW(barBattery, battery);
+    this._setW(barOxygen,  oxygen);
 
-    if (sub.cavitating) {
-      barNoise.className = 'hud-bar-fill cavitating';
-    } else {
-      barNoise.className = 'hud-bar-fill ' + (noiseEff > 65 ? 'danger' : noiseEff > 38 ? 'warning' : '');
-    }
+    this._setCls(barBallast, 'hud-bar-fill');
 
-    labelNoise.textContent = sub.belowThermocline ? 'Hałas (MASK)' : 'Hałas';
-    labelNoise.className   = 'hud-label' + (sub.belowThermocline ? ' masked' : '');
+    const noiseCls = sub.cavitating ? 'hud-bar-fill cavitating'
+                   : 'hud-bar-fill ' + (noiseEff > 65 ? 'danger' : noiseEff > 38 ? 'warning' : '');
+    this._setCls(barNoise, noiseCls);
 
-    if (sub.snorkeling) {
-      barBattery.className  = 'hud-bar-fill charging';
-      labelBatt.textContent = 'Bateria (↑)';
-    } else {
-      barBattery.className  = 'hud-bar-fill ' + (battery < 20 ? 'danger' : battery < 40 ? 'warning' : '');
-      labelBatt.textContent = 'Bateria';
-    }
+    const noiseLabel = sub.belowThermocline ? 'Hałas (MASK)' : 'Hałas';
+    const noiseLCls  = 'hud-label' + (sub.belowThermocline ? ' masked' : '');
+    this._setText(labelNoise, noiseLabel);
+    this._setCls(labelNoise, noiseLCls);
 
-    barHull.className   = 'hud-bar-fill ' + (hull < 30 ? 'danger' : hull < 60 ? 'warning' : '');
-    barOxygen.className = 'hud-bar-fill ' + (oxygen < 20 ? 'danger' : oxygen < 40 ? 'warning' : '');
+    const battCls = sub.snorkeling ? 'hud-bar-fill charging'
+                  : 'hud-bar-fill ' + (battery < 20 ? 'danger' : battery < 40 ? 'warning' : '');
+    this._setCls(barBattery, battCls);
+    this._setText(labelBatt, sub.snorkeling ? 'Bateria (↑)' : 'Bateria');
 
-    // Alert banner: driven by enemy detection state (not raw noise)
+    this._setCls(barHull,   'hud-bar-fill ' + (hull   < 30 ? 'danger' : hull   < 60 ? 'warning' : ''));
+    this._setCls(barOxygen, 'hud-bar-fill ' + (oxygen < 20 ? 'danger' : oxygen < 40 ? 'warning' : ''));
+
+    // Alert banner — aktualizuj tylko gdy stan się zmienił
     const anyHunt  = this.enemies.some(e => e.state === STATE.HUNT);
     const anyAlert = this.enemies.some(e => e.state === STATE.ALERT || e.state === STATE.SEARCH);
-
     const cfg = anyHunt ? ALERT_CFG.danger : anyAlert ? ALERT_CFG.warning : ALERT_CFG.hidden;
-    alertBanner.textContent  = cfg.text;
-    alertBanner.className    = cfg.cls;
+    this._setText(alertBanner, cfg.text);
+    this._setCls(alertBanner, cfg.cls);
   }
 
   // ── Event log ──────────────────────────────────────────────────────────────
@@ -245,15 +358,15 @@ export class GameScene extends Phaser.Scene {
     if (!this._prevCavitating && sub.cavitating) this._logEvent('KAWITACJA — zwolnij, jesteś głośny!');
     this._prevCavitating = sub.cavitating;
 
-    // Enemy state transitions
+    // Enemy state transitions — destroyers
     for (const enemy of this.enemies) {
       const prev = this._prevEnemyState.get(enemy);
       const curr = enemy.state;
       if (prev !== curr) {
-        if (curr === STATE.ALERT)  this._logEvent(`Niszczyciel namierzył hałas — szuka...`);
-        if (curr === STATE.HUNT)   this._logEvent(`NISZCZYCIEL ATAKUJE — zarzuty głębinowe!`);
-        if (curr === STATE.SEARCH) this._logEvent(`Niszczyciel przeszukuje obszar...`);
-        if (curr === STATE.PATROL && prev !== STATE.PATROL) this._logEvent(`Niszczyciel wrócił na patrol.`);
+        if (curr === STATE.ALERT)  this._logEvent('Niszczyciel namierzył hałas — szuka...');
+        if (curr === STATE.HUNT)   this._logEvent('NISZCZYCIEL ATAKUJE — zarzuty głębinowe!');
+        if (curr === STATE.SEARCH) this._logEvent('Niszczyciel przeszukuje obszar...');
+        if (curr === STATE.PATROL && prev !== STATE.PATROL) this._logEvent('Niszczyciel wrócił na patrol.');
         this._prevEnemyState.set(enemy, curr);
       }
     }
@@ -277,6 +390,92 @@ export class GameScene extends Phaser.Scene {
     while (eventLog.children.length > 4) eventLog.lastChild.remove();
   }
 
+  // ── Celownik torpedy ───────────────────────────────────────────────────────
+
+  _drawAimReticle() {
+    const g = this.aimGfx;
+    g.clear();
+
+    const ptr = this.input.mousePointer;
+    const mx  = ptr.x;
+    const my  = ptr.y;
+    const sx  = this.sub.x - this.camX;   // pozycja łodzi na ekranie
+    const sy  = this.sub.y;
+
+    const noAmmo    = this.sub.torpedoCount <= 0;
+    const reloading = this.sub.torpedoFireCD > 0;
+    const color     = noAmmo    ? 0xff2200
+                    : reloading ? 0xff8800 : 0x44ffdd;
+    const alpha     = noAmmo    ? 0.25     : 0.65;
+
+    // Przerywana linia trajektorii od łodzi do kursora
+    const dx      = mx - sx;
+    const dy      = my - sy;
+    const lineDst = Math.sqrt(dx * dx + dy * dy);
+    const segs    = Math.floor(lineDst / 16);
+    for (let i = 0; i < segs; i++) {
+      if (i % 2 !== 0) continue;
+      const t0 = i / segs;
+      const t1 = Math.min((i + 0.5) / segs, 1);
+      g.lineStyle(1, color, alpha * 0.45);
+      g.strokeLineShape(new Phaser.Geom.Line(
+        sx + dx * t0, sy + dy * t0,
+        sx + dx * t1, sy + dy * t1
+      ));
+    }
+
+    // Krzyżyk celowniczy
+    g.lineStyle(1.5, color, alpha);
+    g.strokeCircle(mx, my, 10);
+    const c = 15;
+    g.strokeLineShape(new Phaser.Geom.Line(mx - c, my, mx - 12, my));
+    g.strokeLineShape(new Phaser.Geom.Line(mx + 12, my, mx + c, my));
+    g.strokeLineShape(new Phaser.Geom.Line(mx, my - c, mx, my - 12));
+    g.strokeLineShape(new Phaser.Geom.Line(mx, my + 12, mx, my + c));
+
+    // Łuk ładowania (cooldown)
+    if (reloading) {
+      const frac = 1 - this.sub.torpedoFireCD / 1.8;
+      g.lineStyle(2, 0xff8800, 0.75);
+      g.beginPath();
+      g.arc(mx, my, 13, -Math.PI * 0.5, -Math.PI * 0.5 + frac * Math.PI * 2);
+      g.strokePath();
+    }
+
+    // Znaczniki ołowiu przy widocznych niszczycielach (pomarańczowy romb, PPM = rakieta)
+    for (const { e: enemy, isSurface } of this.enemies.filter(e => !e.destroyed).map(e => ({ e, isSurface: true }))) {
+      const ex = enemy.x - this.camX;
+      const ey = enemy.y;
+      if (ex < -30 || ex > CAM_W + 30) continue;
+
+      const torpSpeed = isSurface ? 340 : 230;
+      const edx  = enemy.x - this.sub.x;
+      const edy  = enemy.y - this.sub.y;
+      const dist = Math.sqrt(edx * edx + edy * edy);
+      const travelT = dist / torpSpeed;
+
+      const vel = enemy.getVelocity ? enemy.getVelocity() : { vx: 0, vy: 0 };
+      const lx  = ex + vel.vx * travelT * 0.65;
+      const ly  = ey + (vel.vy || 0) * travelT * 0.65;
+
+      const diamondColor = isSurface ? 0xff8800 : 0xffcc00;
+      g.lineStyle(1.5, diamondColor, 0.7);
+      const ds = 7;
+      g.strokeLineShape(new Phaser.Geom.Line(lx, ly - ds, lx + ds, ly));
+      g.strokeLineShape(new Phaser.Geom.Line(lx + ds, ly, lx, ly + ds));
+      g.strokeLineShape(new Phaser.Geom.Line(lx, ly + ds, lx - ds, ly));
+      g.strokeLineShape(new Phaser.Geom.Line(lx - ds, ly, lx, ly - ds));
+      g.fillStyle(diamondColor, 0.5);
+      g.fillCircle(lx, ly, 2);
+
+      // Etykieta broni przy rombie
+      if (isSurface) {
+        g.lineStyle(0.5, 0xff8800, 0.4);
+        g.strokeLineShape(new Phaser.Geom.Line(ex, ey, lx, ly));
+      }
+    }
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   _addDepthLabels() {
@@ -286,6 +485,40 @@ export class GameScene extends Phaser.Scene {
         fontSize: '9px', color: '#1a4a3a', alpha: 0.55,
       });
     }
+  }
+
+  _spawnEnemies() {
+    this._enemiesSpawned = true;
+    this.enemies = [
+      new Enemy(this,  900,   200,  1400, 'ORP-1'),
+      new Enemy(this, 2100,  1500,  2800, 'ORP-2'),
+      new Enemy(this, 3300,  2800,  4000, 'ORP-3'),
+    ];
+    for (const e of this.enemies) this._prevEnemyState.set(e, STATE.PATROL);
+    this._logEvent('UWAGA: Wykryto wrogie niszczyciele!');
+  }
+
+  _showEndScreen(title, subtitle, color) {
+    const overlay = this.add.graphics().setDepth(200);
+    overlay.fillStyle(0x000000, 0.72);
+    overlay.fillRect(0, 0, CAM_W, CAM_H);
+
+    this.add.text(CAM_W / 2, CAM_H / 2 - 30, title, {
+      fontSize: '32px', color, fontFamily: 'Courier New',
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(201);
+
+    this.add.text(CAM_W / 2, CAM_H / 2 + 14, subtitle, {
+      fontSize: '14px', color: '#aaaaaa', fontFamily: 'Courier New',
+    }).setOrigin(0.5).setDepth(201);
+
+    this.add.text(CAM_W / 2, CAM_H / 2 + 50, '[ Naciśnij F5 aby zagrać ponownie ]', {
+      fontSize: '10px', color: '#555555', fontFamily: 'Courier New',
+    }).setOrigin(0.5).setDepth(201);
+
+    // Zatrzymaj wejście
+    this.input.keyboard.shutdown();
+    this.input.mouse.disableContextMenu = false;
   }
 
   _drawCRT() {

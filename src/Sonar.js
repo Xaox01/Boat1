@@ -13,7 +13,7 @@ export class Sonar {
     this.sweep = 0;
   }
 
-  update(delta, sub, enemies) {
+  update(delta, sub, enemies, playerTorpedoes) {
     const dt = delta / 1000;
     this.sweep = (this.sweep + dt * 0.65) % (Math.PI * 2);
 
@@ -71,9 +71,14 @@ export class Sonar {
         g.strokeLineShape(new Phaser.Geom.Line(ex, ey, tipX, tipY));
       }
 
-      // Contact dot
+      // Contact marker: square for submarines, circle for surface ships
       g.fillStyle(col, 0.88);
-      g.fillCircle(ex, ey, info.state === STATE.HUNT ? 5 : 3.5);
+      if (info.isSub) {
+        const s = info.state === STATE.HUNT ? 5 : 3.5;
+        g.fillRect(ex - s, ey - s, s * 2, s * 2);
+      } else {
+        g.fillCircle(ex, ey, info.state === STATE.HUNT ? 5 : 3.5);
+      }
 
       // Pulsing ring on hunting contacts
       if (info.state === STATE.HUNT) {
@@ -88,13 +93,54 @@ export class Sonar {
     if (hunters.length > 0) {
       for (const h of hunters) {
         const info = h.getContactInfo(sub);
-        // Red arc segment at center pointing toward threat
         const arcHalf = 0.5;
         g.lineStyle(3, 0xff3300, 0.55);
         g.beginPath();
         g.arc(this.cx, this.cy, 12,
           info.bearing - arcHalf, info.bearing + arcHalf);
         g.strokePath();
+      }
+    }
+
+    // ── Enemy torpedo blips ───────────────────────────────────────────────
+    const blink = Math.sin(Date.now() * 0.018) > 0;
+    for (const enemy of enemies) {
+      const torps = enemy.torpedoes;
+      if (!torps) continue;
+      for (const t of torps) {
+        if (t.exploded) continue;
+        const WORLD_W = this.scene.WORLD_W;
+        let tdx = t.x - sub.x;
+        if (Math.abs(tdx) > WORLD_W / 2) tdx -= Math.sign(tdx) * WORLD_W;
+        const tdy  = t.y - sub.y;
+        const dist = Math.sqrt(tdx * tdx + tdy * tdy);
+        if (dist > SONAR_WORLD_RANGE) continue;
+        const scaledR = (dist / SONAR_WORLD_RANGE) * this.r;
+        const bearing = Math.atan2(tdy, tdx);
+        const tx = this.cx + Math.cos(bearing) * scaledR;
+        const ty = this.cy + Math.sin(bearing) * scaledR;
+        if (blink) {
+          g.fillStyle(0xff2200, 0.95);
+          g.fillCircle(tx, ty, 2.5);
+        }
+      }
+    }
+
+    // ── Player torpedo blips (friendly — cyan) ───────────────────────────
+    if (playerTorpedoes) {
+      for (const t of playerTorpedoes) {
+        if (t.exploded) continue;
+        let pdx = t.x - sub.x;
+        if (Math.abs(pdx) > SONAR_WORLD_RANGE * 2) continue;
+        const pdy  = t.y - sub.y;
+        const dist = Math.sqrt(pdx * pdx + pdy * pdy);
+        if (dist > SONAR_WORLD_RANGE) continue;
+        const scaledR = (dist / SONAR_WORLD_RANGE) * this.r;
+        const bearing = Math.atan2(pdy, pdx);
+        const tx = this.cx + Math.cos(bearing) * scaledR;
+        const ty = this.cy + Math.sin(bearing) * scaledR;
+        g.fillStyle(0x44ffdd, 0.85);
+        g.fillCircle(tx, ty, 2);
       }
     }
 
