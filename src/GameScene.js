@@ -20,8 +20,9 @@ const hudNoise    = $('hud-noise');
 const hudHull     = $('hud-hull');
 const hudBattery  = $('hud-battery');
 const hudOxygen    = $('hud-oxygen');
-const hudTorpedoes = $('hud-torpedoes');
-const hudMissiles  = $('hud-missiles');
+const hudTorpedoes  = $('hud-torpedoes');
+const hudTorpReload = $('hud-torp-reload');
+const hudMissiles   = $('hud-missiles');
 const hudWave      = $('hud-wave');
 const barBallast  = $('bar-ballast');
 const barNoise    = $('bar-noise');
@@ -106,13 +107,14 @@ export class GameScene extends Phaser.Scene {
       const worldY = pointer.y;
 
       if (pointer.leftButtonDown()) {
-        if (this.sub.fireTorpedo(worldX, worldY)) {
+        const tubeId = this.sub.fireTorpedo(worldX, worldY);
+        if (tubeId) {
           this._logEvent('Torpeda odpalona!');
           const tb = this._brg(this.sub.x, this.sub.y, worldX, worldY);
-          const tn = 5 - this.sub.torpedoCount;
-          this._shipLog(`Odpalono: Mk.48 nr ${tn}. Nam. ${tb}°, gł. ${this.sub.depthMetres}m. Poz. torped: ${this.sub.torpedoCount}.`, 'info');
-        } else if (this.sub.torpedoCount <= 0) {
-          this._logEvent('Brak torped!');
+          this._shipLog(`Odpalono: Mk.48 z rury nr ${tubeId}. Nam. ${tb}°, gł. ${this.sub.depthMetres}m. Rury gotowe: ${this.sub.torpedoCount}/4.`, 'info');
+        } else {
+          const wait = Math.ceil(this.sub.torpedoFireCD);
+          this._logEvent(`Wszystkie rury ładują się! (${wait}s)`);
         }
       }
 
@@ -237,6 +239,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.sub.update(delta, this.cursors, this.keys);
+
+    // Powiadomienie o załadowaniu rury torpedowej
+    if (this.sub.recentTubeLoaded !== null) {
+      this._logEvent(`Rura ${this.sub.recentTubeLoaded} — GOTOWA`);
+      this._shipLog(`Rura nr ${this.sub.recentTubeLoaded} załadowana. Mk.48 gotowa do odpalenia.`, 'good');
+    }
 
     // Screen shake on collision
     if (this.sub.impactVelocity > 25) {
@@ -428,9 +436,27 @@ export class GameScene extends Phaser.Scene {
     this._setText(hudHull,     `${hull}%`);
     this._setText(hudBattery,  `${battery}%`);
     this._setText(hudOxygen,   `${oxygen}%`);
-    this._setText(hudTorpedoes, `${sub.torpedoCount}`);
+    this._setText(hudTorpedoes, `${sub.torpedoCount}/4`);
     this._setCol(hudTorpedoes,
       sub.torpedoCount === 0 ? '#ff4a4a' : sub.torpedoCount <= 1 ? '#ffaa4a' : '#4aff9a');
+
+    // Wskaźnik ładowania rur — najkrótszy czas do gotowości
+    if (hudTorpReload) {
+      if (sub.torpedoCount === 4) {
+        this._setText(hudTorpReload, '');
+      } else {
+        const loadingTubes = sub.tubes.filter(t => !t.loaded)
+          .sort((a, b) => a.reloadTimer - b.reloadTimer);
+        const next = loadingTubes[0];
+        const secs = Math.ceil(next.reloadTimer);
+        const m    = Math.floor(secs / 60);
+        const s    = secs % 60;
+        const timeStr = m > 0 ? `${m}m${String(s).padStart(2,'0')}s` : `${s}s`;
+        const col = sub.torpedoCount === 0 ? '#ff6600' : '#888888';
+        hudTorpReload.textContent = `⟳ ${timeStr}`;
+        hudTorpReload.style.color = col;
+      }
+    }
 
     const canFire = sub.depthMetres <= 70;
     this._setText(hudMissiles, `${sub.missileCount}`);
@@ -534,16 +560,17 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Cooldown torpedy
-    if (sub.torpedoFireCD > 0) {
-      this._setText(tpTorpCD, `${sub.torpedoFireCD.toFixed(1)}s`);
-      this._setCls(tpTorpCD, 'tp-value warning');
-    } else if (sub.torpedoCount <= 0) {
-      this._setText(tpTorpCD, 'BRAK');
-      this._setCls(tpTorpCD, 'tp-value danger');
-    } else {
-      this._setText(tpTorpCD, 'GOTOWA');
+    // Status rur torpedowych w panelu namierzania
+    if (sub.torpedoCount > 0) {
+      this._setText(tpTorpCD, `GOTOWA (${sub.torpedoCount}/4)`);
       this._setCls(tpTorpCD, 'tp-value ready');
+    } else {
+      const secs = Math.ceil(sub.torpedoFireCD);
+      const m    = Math.floor(secs / 60);
+      const s    = secs % 60;
+      const timeStr = m > 0 ? `${m}m ${String(s).padStart(2,'0')}s` : `${secs}s`;
+      this._setText(tpTorpCD, `⟳ ${timeStr}`);
+      this._setCls(tpTorpCD, 'tp-value danger');
     }
 
     // Zagrożenie przychodzące — torpedy naprowadzane z ASROC
@@ -803,11 +830,10 @@ export class GameScene extends Phaser.Scene {
     const sx  = this.sub.x - this.camX;   // pozycja łodzi na ekranie
     const sy  = this.sub.y;
 
-    const noAmmo    = this.sub.torpedoCount <= 0;
-    const reloading = this.sub.torpedoFireCD > 0;
-    const color     = noAmmo    ? 0xff2200
-                    : reloading ? 0xff8800 : 0x44ffdd;
-    const alpha     = noAmmo    ? 0.25     : 0.65;
+    const noAmmo    = this.sub.torpedoCount === 0;  // wszystkie rury ładują się
+    const reloading = noAmmo;                        // łuk ładowania gdy brak gotowych rur
+    const color     = noAmmo ? 0xff2200 : 0x44ffdd;
+    const alpha     = noAmmo ? 0.25     : 0.65;
 
     // Przerywana linia trajektorii od łodzi do kursora
     const dx      = mx - sx;
@@ -834,9 +860,9 @@ export class GameScene extends Phaser.Scene {
     g.strokeLineShape(new Phaser.Geom.Line(mx, my - c, mx, my - 12));
     g.strokeLineShape(new Phaser.Geom.Line(mx, my + 12, mx, my + c));
 
-    // Łuk ładowania (cooldown)
+    // Łuk postępu ładowania rury
     if (reloading) {
-      const frac = 1 - this.sub.torpedoFireCD / 1.8;
+      const frac = this.sub.tubeReadyFraction;
       g.lineStyle(2, 0xff8800, 0.75);
       g.beginPath();
       g.arc(mx, my, 13, -Math.PI * 0.5, -Math.PI * 0.5 + frac * Math.PI * 2);

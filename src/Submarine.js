@@ -42,9 +42,16 @@ export class Submarine {
     this.impactVelocity = 0;
     this.onFloor        = false;
 
-    this.torpedoes     = [];
-    this.torpedoCount  = 4;
-    this.torpedoFireCD = 0;
+    this.torpedoes = [];
+    // 4 rury torpedowe — każda ładuje się osobno (55–80s)
+    this.tubes = Array.from({ length: 4 }, (_, i) => ({
+      id:          i + 1,
+      loaded:      true,
+      reloadTimer: 0,
+      reloadBase:  55 + Math.random() * 25,   // 55–80s różne tempo na każdej rurze
+    }));
+    this._torpedosFired = 0;
+    this.recentTubeLoaded = null;   // ID rury która właśnie skończyła ładowanie
 
     this.missiles      = [];
     this.missileCount  = 2;
@@ -57,12 +64,33 @@ export class Submarine {
     this.botControl = false;
   }
 
+  // Liczba załadowanych rur (do odczytu przez HUD i GameScene)
+  get torpedoCount() {
+    return this.tubes.filter(t => t.loaded).length;
+  }
+
+  // Czas do następnej gotowej rury (0 = możesz strzelać teraz)
+  get torpedoFireCD() {
+    if (this.tubes.some(t => t.loaded)) return 0;
+    return Math.min(...this.tubes.filter(t => !t.loaded).map(t => t.reloadTimer));
+  }
+
+  // Procent ukończenia najszybciej ładującej się rury (dla łuku w celowniku)
+  get tubeReadyFraction() {
+    if (this.tubes.some(t => t.loaded)) return 1;
+    const fastest = this.tubes.filter(t => !t.loaded)
+      .reduce((a, b) => a.reloadTimer < b.reloadTimer ? a : b);
+    return 1 - fastest.reloadTimer / fastest.reloadBase;
+  }
+
   fireTorpedo(targetX, targetY) {
-    if (this.torpedoCount <= 0 || this.torpedoFireCD > 0) return false;
-    this.torpedoCount--;
-    this.torpedoFireCD = 1.8;
+    const tube = this.tubes.find(t => t.loaded);
+    if (!tube) return false;
+    tube.loaded = false;
+    tube.reloadTimer = tube.reloadBase;
+    this._torpedosFired++;
     this.torpedoes.push(new Torpedo(this.scene, this.x, this.y, targetX, targetY));
-    return true;
+    return tube.id;   // truthy — kompatybilne z if(fireTorpedo(...))
   }
 
   // Rakieta wymaga głębokości ≤ 30m (prawie na powierzchni)
@@ -95,7 +123,19 @@ export class Submarine {
   }
 
   _updateTorpedoes(dt) {
-    this.torpedoFireCD = Math.max(0, this.torpedoFireCD - dt);
+    // Ładowanie rur torpedowych
+    this.recentTubeLoaded = null;
+    for (const tube of this.tubes) {
+      if (!tube.loaded && tube.reloadTimer > 0) {
+        tube.reloadTimer -= dt;
+        if (tube.reloadTimer <= 0) {
+          tube.reloadTimer = 0;
+          tube.loaded      = true;
+          this.recentTubeLoaded = tube.id;
+        }
+      }
+    }
+
     // Przekaż wrogów do seekera głowicy akustycznej
     const enemies = (this.scene.enemies || []).filter(e => !e.destroyed);
     for (const t of this.torpedoes) t.update(dt, enemies);
