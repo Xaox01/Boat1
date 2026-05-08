@@ -301,6 +301,7 @@ export class GameScene extends Phaser.Scene {
       if (m.recentHit) {
         const { enemy, damage } = m.recentHit;
         enemy.hull -= damage;
+        enemy.onHit();
         this.cameras.main.shake(400, 0.014);
         this.cameras.main.flash(200, 255, 160, 60, false);
         if (enemy.hull <= 0) {
@@ -312,7 +313,8 @@ export class GameScene extends Phaser.Scene {
         } else {
           this._logEvent(`Rakieta trafiła — ${enemy.label || 'niszczyciel'} uszkodzony!`);
           const mb3 = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
-          this._shipLog(`Trafienie rakietą — ${enemy.label || 'niszczyciel'}. Nam. ${mb3}°. Cel nadal operacyjny.`, 'warn');
+          const withdrawMsg = enemy.hull < 0.5 ? ' Cel wycofuje się.' : '';
+          this._shipLog(`Trafienie rakietą — ${enemy.label || 'niszczyciel'}. Nam. ${mb3}°.${withdrawMsg}`, 'warn');
         }
       }
     }
@@ -323,20 +325,20 @@ export class GameScene extends Phaser.Scene {
         const dmg = t.checkHit(target);
         if (dmg > 0) {
           target.hull -= dmg;
+          target.onHit();
           this.cameras.main.shake(300, 0.008);
           this.cameras.main.flash(120, 200, 255, 120, false);
           if (target.hull <= 0) {
             target.destroyed = true;
-            this._logEvent(target.label
-              ? `${target.label} zatopiony!`
-              : 'Wróg zatopiony!');
+            this._logEvent(target.label ? `${target.label} zatopiony!` : 'Wróg zatopiony!');
             const tb2 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
             const tr2 = this._rng(this.sub.x, this.sub.y, target.x, target.y);
             this._shipLog(`Cel zatopiony torpedą Mk.48 — ${target.label || 'niszczyciel'}. Nam. ${tb2}°, dyst. ${tr2}m.`, 'good');
           } else {
             this._logEvent('Trafienie! Wróg uszkodzony.');
             const tb3 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
-            this._shipLog(`Trafienie Mk.48 — ${target.label || 'niszczyciel'}. Nam. ${tb3}°. Cel uszkodzony.`, 'warn');
+            const withdrawMsg = target.hull < 0.5 ? ' Cel rozpoczął wycofywanie.' : '';
+            this._shipLog(`Trafienie Mk.48 — ${target.label || 'niszczyciel'}. Nam. ${tb3}°.${withdrawMsg}`, 'warn');
           }
         }
       }
@@ -604,9 +606,10 @@ export class GameScene extends Phaser.Scene {
       if (prev !== curr) {
         const eb = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
         const er = this._rng(this.sub.x, this.sub.y, enemy.x, enemy.y);
-        if (curr === STATE.ALERT)  { this._logEvent('Niszczyciel namierzył hałas — szuka...'); this._shipLog(`${enemy.label || 'Niszczyciel'} — ALERT. Wykryto sygnał akustyczny. Nam. ${eb}°, dyst. ${er}m.`, 'warn'); }
-        if (curr === STATE.HUNT)   { this._logEvent('NISZCZYCIEL ATAKUJE — zarzuty + ASROC!'); this._shipLog(`${enemy.label || 'Niszczyciel'} — ATAKUJE. Okręt namierzony. Nam. ${eb}°. Procedury unikania!`, 'danger'); }
-        if (curr === STATE.SEARCH) { this._logEvent('Niszczyciel przeszukuje obszar...'); this._shipLog(`${enemy.label || 'Niszczyciel'} — przeszukuje sektor. Nam. ${eb}°. Zachować ciszę.`, 'warn'); }
+        if (curr === STATE.ALERT)    { this._logEvent('Niszczyciel namierzył hałas — szuka...'); this._shipLog(`${enemy.label || 'Niszczyciel'} — ALERT. Wykryto sygnał akustyczny. Nam. ${eb}°, dyst. ${er}m.`, 'warn'); }
+        if (curr === STATE.HUNT)     { this._logEvent('NISZCZYCIEL ATAKUJE — zarzuty + ASROC!'); this._shipLog(`${enemy.label || 'Niszczyciel'} — ATAKUJE. Okręt namierzony. Nam. ${eb}°. Procedury unikania!`, 'danger'); }
+        if (curr === STATE.SEARCH)   { this._logEvent('Niszczyciel przeszukuje obszar...'); this._shipLog(`${enemy.label || 'Niszczyciel'} — przeszukuje sektor. Nam. ${eb}°. Zachować ciszę.`, 'warn'); }
+        if (curr === STATE.WITHDRAW) { this._logEvent('Niszczyciel wycofuje się!'); this._shipLog(`${enemy.label || 'Niszczyciel'} — WYCOFYWANIE. Nam. ${eb}°, dyst. ${er}m. Ślad olejowy na powierzchni.`, 'info'); }
         if (curr === STATE.PATROL && prev !== STATE.PATROL) { this._logEvent('Niszczyciel wrócił na patrol.'); this._shipLog(`${enemy.label || 'Niszczyciel'} — kontakt utracony. Powrót na patrol.`, 'info'); }
         this._prevEnemyState.set(enemy, curr);
       }

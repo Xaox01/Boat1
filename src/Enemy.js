@@ -1,13 +1,17 @@
 import Phaser from 'phaser';
 import { ASROC, HomingTorpedo } from './EnemyASROC.js';
 
-export const STATE = { PATROL: 0, ALERT: 1, HUNT: 2, SEARCH: 3 };
+export const STATE = { PATROL: 0, ALERT: 1, HUNT: 2, SEARCH: 3, WITHDRAW: 4 };
 
 // Prędkości — celowo powolne, taktyczne
-const PATROL_SPEED   = 22;
-const ALERT_SPEED    = 38;
-const HUNT_SPEED     = 58;
-const HUNT_OVERSHOOT = 180;
+const PATROL_SPEED    = 22;
+const ALERT_SPEED     = 38;
+const HUNT_SPEED      = 58;
+const HUNT_OVERSHOOT  = 180;
+const WITHDRAW_SPEED  = 44;   // Wycofywanie — szybciej niż patrol, wolniej niż atak
+
+// Zachowanie po trafieniu
+const SHOCK_BASE      = 5.0;  // sekundy dezorientacji/spowolnienia po trafieniu
 
 // Wykrywanie — dłuższe buildup = więcej czasu na reakcję
 const BASE_HYDROPHONE  = 420;
@@ -84,9 +88,30 @@ export class Enemy {
     this._evadeDir         = 0;
     this._counterMeasures  = [];   // wizualne chmury bąbelków/dymu
 
+    // Zachowanie po trafieniu
+    this._damageShockTimer = 0;  // chwilowe spowolnienie / dezorientacja
+    this._withdrawing      = false;  // gdy true → STATE.WITHDRAW nadpisuje inne
+    this._oilDrops         = [];    // ślad olejowy na wodzie (pomaga namierzać)
+
     this.recentExplosions = [];
     this.recentPingHit    = false;
     this.recentASROC      = false;
+  }
+
+  // Wywoływane z GameScene gdy torpeda lub rakieta trafi
+  onHit() {
+    // Szok po trafieniu — spowolnienie i chwilowa dezorientacja systemu
+    this._damageShockTimer = SHOCK_BASE + (1 - this.hull) * 6;
+
+    // Zgubienie namierzenia (szok zakłóca hydrofonię i radar)
+    this.detectTimer = Math.max(0, this.detectTimer - 2.2);
+
+    // Po poważnym trafieniu — przejdź w tryb wycofywania
+    if (this.hull < 0.5 && !this._withdrawing) {
+      this._withdrawing = true;
+      // Zapamiętaj kierunek ucieczki (od okrętu gracza)
+      this._withdrawDir = Math.sign(this.x - this.lastKnownSubX) || this.dir;
+    }
   }
 
   update(dt, sub) {
@@ -112,12 +137,15 @@ export class Enemy {
 
   // Wywoływane z GameScene gdy torpeda jest blisko — kontrmanewry
   evadeTorpedo(torpX) {
-    if (this.torpedoEvadeTimer > 5) return;   // już ucieka
-    this._evadeDir         = Math.sign(this.x - torpX) || 1;
-    this.torpedoEvadeTimer = 10;
+    if (this.torpedoEvadeTimer > 4) return;
+    this._evadeDir = Math.sign(this.x - torpX) || 1;
+
+    // Zdrowy okręt — krótki manewr (3s), uszkodzony — pełna panika (7s)
+    this.torpedoEvadeTimer = this.hull < 0.5 ? 7 : 3;
 
     const SURF = this.scene.SURFACE_Y;
-    for (let i = 0; i < 5; i++) {
+    const count = this.hull < 0.5 ? 7 : 3;
+    for (let i = 0; i < count; i++) {
       this._counterMeasures.push({
         x: this.x + Phaser.Math.Between(-25, 25),
         y: SURF + Phaser.Math.Between(2, 8),
@@ -209,9 +237,15 @@ export class Enemy {
       this.state = STATE.PATROL;
     }
 
-    if (prev === STATE.HUNT && this.state !== STATE.HUNT) {
+    if (prev === STATE.HUNT && this.state !== STATE.HUNT && this.state !== STATE.WITHDRAW) {
       this.searchTimer = SEARCH_DURATION;
       this.overshootX  = null;
+    }
+
+    // Wycofanie nadpisuje inne stany gdy okręt poważnie uszkodzony
+    if (this._withdrawing || this.hull < 0.25) {
+      this._withdrawing = true;
+      this.state        = STATE.WITHDRAW;
     }
   }
 
@@ -219,11 +253,19 @@ export class Enemy {
 
   _updateMovement(dt) {
     const WORLD_W = this.scene.WORLD_W;
-    const dmgMult = 0.45 + this.hull * 0.55;
 
-    // Kontrmanewry torpedowe — pełna moc w bok
+    // Szok po trafieniu — spowolnienie proporcjonalne do pozostałego czasu
+    this._damageShockTimer = Math.max(0, this._damageShockTimer - dt);
+    const shockMult = this._damageShockTimer > 0
+      ? Phaser.Math.Linear(0.15, 1.0, 1 - this._damageShockTimer / (SHOCK_BASE + 6))
+      : 1.0;
+
+    const dmgMult = (0.45 + this.hull * 0.55) * shockMult;
+
+    // Kontrmanewry torpedowe — zdrowy: delikatny manewr; uszkodzony: panika
     if (this.torpedoEvadeTimer > 0) {
-      this.x += this._evadeDir * HUNT_SPEED * 1.9 * dmgMult * dt;
+      const evadeSpd = this.hull < 0.5 ? HUNT_SPEED * 1.8 : HUNT_SPEED * 1.1;
+      this.x += this._evadeDir * evadeSpd * dmgMult * dt;
       this.x  = Phaser.Math.Clamp(this.x, 0, WORLD_W);
       return;
     }
@@ -287,7 +329,30 @@ export class Enemy {
         this.x = Phaser.Math.Clamp(this.x, 0, WORLD_W);
         break;
       }
+      case STATE.WITHDRAW: {
+        // Oddalaj się od ostatniej poznanej pozycji okrętu gracza
+        const awayDir = Math.sign(this.x - this.lastKnownSubX);
+        if (awayDir !== 0) this.dir = awayDir;
+
+        // Prędkość wycofywania — rośnie z uszkodzeniami (bardziej desperacka ucieczka)
+        const wSpd = WITHDRAW_SPEED + (1 - this.hull) * 28;
+        this.x += this.dir * wSpd * dmgMult * dt;
+        this.x = Phaser.Math.Clamp(this.x, 0, WORLD_W);
+
+        // Ślad olejowy — co 2.5s dodaj kroplę oleju na powierzchni
+        if (!this._oilDropTimer) this._oilDropTimer = 0;
+        this._oilDropTimer -= dt;
+        if (this._oilDropTimer <= 0) {
+          this._oilDropTimer = 2.2 + Math.random() * 1.2;
+          this._oilDrops.push({ x: this.x, age: 0 });
+        }
+        break;
+      }
     }
+
+    // Starzenie śladów olejowych
+    for (const d of this._oilDrops) d.age += dt;
+    this._oilDrops = this._oilDrops.filter(d => d.age < 45);
   }
 
   // ── Zarzuty głębinowe ──────────────────────────────────────────────────────
@@ -368,10 +433,12 @@ export class Enemy {
     if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
     const dist = Math.abs(dx);
 
-    const canFire = (this.state === STATE.HUNT || this.state === STATE.SEARCH)
+    const canFire = (this.state === STATE.HUNT || this.state === STATE.SEARCH
+                    || this.state === STATE.WITHDRAW)  // defensywny strzał podczas ucieczki
                   && this.asrocCD <= 0
                   && dist > ASROC_MIN_DIST
-                  && dist < ASROC_MAX_DIST;
+                  && dist < ASROC_MAX_DIST
+                  && this.hull > 0.1;   // nie odpala gdy prawie zatopiony
 
     if (canFire) {
       this.asrocs.push(new ASROC(
@@ -422,7 +489,9 @@ export class Enemy {
   }
 
   getVelocity() {
-    const spd = this.state === STATE.HUNT ? HUNT_SPEED : this.patrolSpeed;
+    const spd = this.state === STATE.HUNT     ? HUNT_SPEED
+              : this.state === STATE.WITHDRAW ? WITHDRAW_SPEED + (1 - this.hull) * 28
+              : this.patrolSpeed;
     return { vx: this.dir * spd, vy: 0 };
   }
 
@@ -433,10 +502,19 @@ export class Enemy {
     const SURF = this.scene.SURFACE_Y;
     g.clear();
 
-    const col = this.state === STATE.HUNT   ? 0xff3300
-              : this.state === STATE.ALERT  ? 0xffbb00
-              : this.state === STATE.SEARCH ? 0xcc8800
-                                            : 0x3a7a6a;
+    const col = this.state === STATE.WITHDRAW ? 0x886622
+              : this.state === STATE.HUNT     ? 0xff3300
+              : this.state === STATE.ALERT    ? 0xffbb00
+              : this.state === STATE.SEARCH   ? 0xcc8800
+                                              : 0x3a7a6a;
+
+    // Ślady olejowe — widoczne na powierzchni wody (pomagają namierzać uciekający okręt)
+    for (const d of this._oilDrops) {
+      const frac = Math.max(0, 1 - d.age / 45);
+      const r    = 6 + (1 - frac) * 14;
+      g.fillStyle(0x443300, frac * 0.55);
+      g.fillEllipse(d.x, SURF + 3, r * 2.5, r * 0.6);
+    }
 
     // ── Zawsze widoczne — elementy fizyczne w wodzie ───────────────────────
 
@@ -489,6 +567,27 @@ export class Enemy {
       g.strokeLineShape(new Phaser.Geom.Line(
         this.x - this.dir * 60, SURF - 4, this.x, SURF - 4
       ));
+    }
+
+    // Dym z kominów podczas wycofywania
+    if (this.state === STATE.WITHDRAW) {
+      const t   = Date.now() * 0.001;
+      for (let i = 0; i < 3; i++) {
+        const age  = (i * 0.33 + t * 0.4) % 1;
+        const dx   = -this.dir * age * 28;
+        const dy   = -(12 + age * 22);
+        const r    = 4 + age * 9;
+        const alph = (1 - age) * 0.35 * shipAlpha;
+        g.fillStyle(0x888888, alph);
+        g.fillCircle(this.x + 2 + dx, SURF + dy, r);
+      }
+    }
+
+    // Migotanie przy szoku po trafieniu (krótkie dezorientowanie)
+    if (this._damageShockTimer > 0) {
+      const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.025);
+      g.lineStyle(2, 0xffffff, pulse * 0.55 * shipAlpha);
+      g.strokeRect(this.x - 31, SURF - 21, 62, 22);
     }
 
     // Wskaźnik "słucha"
