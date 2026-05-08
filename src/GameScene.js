@@ -63,6 +63,7 @@ export class GameScene extends Phaser.Scene {
 
     // Pokaż UI gry, ukryj UI menu
     document.getElementById('game-ui').classList.add('active');
+    document.getElementById('side-panel').classList.add('active');
 
     this.ocean = new Ocean(this);
     this.sub   = new Submarine(this, CAM_W / 2, SURFACE_Y + 55);
