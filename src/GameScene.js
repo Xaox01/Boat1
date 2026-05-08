@@ -156,8 +156,9 @@ export class GameScene extends Phaser.Scene {
     this._prevHull        = 1;
     this._prevOnFloor     = false;
     this._groundedTimer   = 0;
-    this._prevBelowThermo = false;
-    this._prevCavitating  = false;
+    this._prevBelowThermo   = false;
+    this._lastThermoCrossT  = -99;   // cooldown: min 8s między wpisami o termoklinie
+    this._prevCavitating    = false;
     this._gameOver        = false;
     this._wave            = 1;
     this._waveTransition  = false;
@@ -581,8 +582,16 @@ export class GameScene extends Phaser.Scene {
     if (!this._warnedDepth400 && depth > 400) { this._logEvent('KRYTYCZNE: Głębokość krytyczna!'); this._warnedDepth400 = true; }
     if (depth < 380) this._warnedDepth400 = false;
 
-    if (!this._prevBelowThermo && sub.belowThermocline) { this._logEvent('Termoklina — hałas maskowany −42%'); this._shipLog(`Termoklina przekroczona. Gł. ${sub.depthMetres}m — maskowanie akustyczne aktywne.`, 'info'); }
-    if (this._prevBelowThermo  && !sub.belowThermocline) { this._logEvent('Powyżej termokliny — brak maskowania'); this._shipLog(`Powyżej termokliny. Gł. ${sub.depthMetres}m — okręt bez maskowania akustycznego.`, 'warn'); }
+    if (this._prevBelowThermo !== sub.belowThermocline && this._missionTime - this._lastThermoCrossT > 8) {
+      this._lastThermoCrossT = this._missionTime;
+      if (sub.belowThermocline) {
+        this._logEvent('Termoklina — hałas maskowany −42%');
+        this._shipLog(`Termoklina przekroczona. Gł. ${sub.depthMetres}m — maskowanie akustyczne aktywne.`, 'info');
+      } else {
+        this._logEvent('Powyżej termokliny — brak maskowania');
+        this._shipLog(`Powyżej termokliny. Gł. ${sub.depthMetres}m — okręt bez maskowania akustycznego.`, 'warn');
+      }
+    }
     this._prevBelowThermo = sub.belowThermocline;
 
     if (!this._prevCavitating && sub.cavitating) this._logEvent('KAWITACJA — zwolnij, jesteś głośny!');

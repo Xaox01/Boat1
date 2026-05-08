@@ -177,8 +177,10 @@ export class Submarine {
     } else if (this._prevY >= THERMO_Y && this.y < THERMO_Y) {
       this.vy += 18;   // ascending into lighter water: momentary sink tendency
     }
-    this._prevY           = this.y;
-    this.belowThermocline = this.y >= THERMO_Y;
+    this._prevY = this.y;
+    // Histereza ±10px zapobiega togglowaniu na granicy termokliny
+    if (!this.belowThermocline && this.y >= THERMO_Y + 10) this.belowThermocline = true;
+    if ( this.belowThermocline && this.y <  THERMO_Y - 10) this.belowThermocline = false;
 
     // Hydrostatic righting (sub levels itself)
     this.angularVel -= Math.sin(this.angle) * 1.8 * dt;
