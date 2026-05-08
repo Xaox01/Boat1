@@ -3,28 +3,28 @@ import { ASROC, HomingTorpedo } from './EnemyASROC.js';
 
 export const STATE = { PATROL: 0, ALERT: 1, HUNT: 2, SEARCH: 3 };
 
-// Prędkości
-const PATROL_SPEED   = 42;
-const ALERT_SPEED    = 68;
-const HUNT_SPEED     = 100;
-const HUNT_OVERSHOOT = 200;
+// Prędkości — celowo powolne, taktyczne
+const PATROL_SPEED   = 22;
+const ALERT_SPEED    = 38;
+const HUNT_SPEED     = 58;
+const HUNT_OVERSHOOT = 180;
 
-// Wykrywanie
-const BASE_HYDROPHONE  = 520;
+// Wykrywanie — dłuższe buildup = więcej czasu na reakcję
+const BASE_HYDROPHONE  = 420;
 const THERMO_MASK      = 0.50;
-const ALERT_THRESHOLD  = 1.6;
-const HUNT_THRESHOLD   = 4.8;
-const SEARCH_DURATION  = 35;
+const ALERT_THRESHOLD  = 2.2;
+const HUNT_THRESHOLD   = 8.0;    // dużo trudniej wykryć
+const SEARCH_DURATION  = 55;
 
 // Zarzuty głębinowe
-const CHARGE_COOLDOWN  = 8.0;
-const CHARGE_FALL_SPD  = 95;
+const CHARGE_COOLDOWN  = 14.0;
+const CHARGE_FALL_SPD  = 80;
 const CHARGE_BLAST_R   = 88;
 
 // ASROC
-const ASROC_COOLDOWN   = 52;    // s między salwami
-const ASROC_MIN_DIST   = 350;   // px — za blisko = używaj zarzutów
-const ASROC_MAX_DIST   = 3400;  // px — za daleko
+const ASROC_COOLDOWN   = 90;    // s między salwami — rzadki, ale groźny
+const ASROC_MIN_DIST   = 400;
+const ASROC_MAX_DIST   = 3400;
 
 // Aktywny sonar
 const PING_SPEED        = 195;
@@ -72,9 +72,17 @@ export class Enemy {
     this.pingTimer   = 4 + Math.random() * 8;
     this.activePings = [];
 
-    // "Sprint and listen" — co jakiś czas zatrzymuje się i słucha
+    // "Sprint and listen"
     this._sprintListenTimer = 0;
     this._listening         = false;
+
+    // Widoczność — pokazywany tylko po trafieniu echem aktywnego sonaru
+    this.revealTimer = 0;
+
+    // Ucieczka przed torpedą + środki zaradcze
+    this.torpedoEvadeTimer = 0;
+    this._evadeDir         = 0;
+    this._counterMeasures  = [];   // wizualne chmury bąbelków/dymu
 
     this.recentExplosions = [];
     this.recentPingHit    = false;
@@ -87,12 +95,36 @@ export class Enemy {
     this.recentASROC      = false;
     if (this.destroyed) return;
 
+    this.revealTimer      = Math.max(0, this.revealTimer - dt);
+    this.torpedoEvadeTimer = Math.max(0, this.torpedoEvadeTimer - dt);
+
+    // Starzenie środków zaradczych
+    for (const cm of this._counterMeasures) cm.age += dt;
+    this._counterMeasures = this._counterMeasures.filter(cm => cm.age < 3.5);
+
     this._updateActiveSonar(dt, sub);
     this._updateDetection(dt, sub);
     this._updateMovement(dt);
     this._updateCharges(dt, sub);
     this._updateASROC(dt, sub);
     this._draw();
+  }
+
+  // Wywoływane z GameScene gdy torpeda jest blisko — kontrmanewry
+  evadeTorpedo(torpX) {
+    if (this.torpedoEvadeTimer > 5) return;   // już ucieka
+    this._evadeDir         = Math.sign(this.x - torpX) || 1;
+    this.torpedoEvadeTimer = 10;
+
+    const SURF = this.scene.SURFACE_Y;
+    for (let i = 0; i < 5; i++) {
+      this._counterMeasures.push({
+        x: this.x + Phaser.Math.Between(-25, 25),
+        y: SURF + Phaser.Math.Between(2, 8),
+        r: 4 + Math.random() * 5,
+        age: 0,
+      });
+    }
   }
 
   // Koordynacja radiowa
@@ -134,6 +166,8 @@ export class Enemy {
         this.lastKnownSubX    = sub.x;
         this.lastKnownSubY    = sub.y;
         this.recentPingHit    = true;
+        // Ping ujawnia okręt gracza — ale też gracz widzi echo = pozycja wroga
+        this.revealTimer = Math.max(this.revealTimer, 6.0);
       }
     }
     this.activePings = this.activePings.filter(p => p.alpha > 0);
@@ -157,7 +191,8 @@ export class Enemy {
       this.lastKnownSubX    = sub.x;
       this.lastKnownSubY    = sub.y;
     } else {
-      const decay = this.state === STATE.HUNT ? 0.20 : 0.50;
+      // Cichy gracz szybciej "znika" z hydrofonu
+      const decay = this.state === STATE.HUNT ? 0.25 : 0.75;
       this.detectTimer = Math.max(0, this.detectTimer - decay * dt);
     }
 
@@ -185,6 +220,13 @@ export class Enemy {
   _updateMovement(dt) {
     const WORLD_W = this.scene.WORLD_W;
     const dmgMult = 0.45 + this.hull * 0.55;
+
+    // Kontrmanewry torpedowe — pełna moc w bok
+    if (this.torpedoEvadeTimer > 0) {
+      this.x += this._evadeDir * HUNT_SPEED * 1.9 * dmgMult * dt;
+      this.x  = Phaser.Math.Clamp(this.x, 0, WORLD_W);
+      return;
+    }
 
     // "Sprint and listen" — patrol zatrzymuje się na chwilę żeby usłyszeć ciszej
     if (this.state === STATE.PATROL) {
@@ -396,83 +438,29 @@ export class Enemy {
               : this.state === STATE.SEARCH ? 0xcc8800
                                             : 0x3a7a6a;
 
-    // Fale aktywnego sonaru
+    // ── Zawsze widoczne — elementy fizyczne w wodzie ───────────────────────
+
+    // Fale aktywnego sonaru (zdradza przybliżoną pozycję)
     for (const p of this.activePings) {
       g.lineStyle(1.2, 0x44ffcc, p.alpha * 0.55);
       g.strokeCircle(this.x, SURF, p.r);
     }
 
-    // Pierścień zasięgu hydrofonu
-    if (this.detectionLevel > 0.05) {
-      const ringR = BASE_HYDROPHONE * this.detectionLevel * 0.55;
-      g.fillStyle(col, 0.03 + this.detectionLevel * 0.05);
+    // Słaby ślad obecności — bardzo mała szansa na odgadnięcie pozycji
+    if (this.detectionLevel > 0.08) {
+      const ringR = BASE_HYDROPHONE * this.detectionLevel * 0.35;
+      g.fillStyle(col, 0.015 + this.detectionLevel * 0.018);
       g.fillCircle(this.x, SURF, ringR);
-      g.lineStyle(1, col, 0.10 + this.detectionLevel * 0.28);
-      g.strokeCircle(this.x, SURF, ringR);
     }
 
-    // Smuga ataku biegowego
-    if (this.state === STATE.HUNT) {
-      g.lineStyle(2, 0xff3300, 0.35);
-      g.strokeLineShape(new Phaser.Geom.Line(
-        this.x - this.dir * 60, SURF - 4,
-        this.x, SURF - 4
-      ));
+    // Środki zaradcze (chmury bąbelków po wykryciu torpedy)
+    for (const cm of this._counterMeasures) {
+      const frac = Math.max(0, 1 - cm.age / 3.5);
+      g.fillStyle(0xaaddff, frac * 0.35);
+      g.fillCircle(cm.x, cm.y + cm.age * 5, cm.r + cm.age * 4);
     }
 
-    // Wskaźnik "słucha" (zielony puls podczas sprint-and-listen)
-    if (this._listening) {
-      const pulse = 0.35 + 0.25 * Math.sin(Date.now() * 0.008);
-      g.lineStyle(1.5, 0x44ffcc, pulse);
-      g.strokeCircle(this.x, SURF - 14, 8);
-    }
-
-    // Wskaźnik ASROC cooldown — małe kółko pod masztem
-    if (this.asrocCD < 6) {
-      const frac = 1 - this.asrocCD / 6;
-      g.fillStyle(0xff8800, frac * 0.85);
-      g.fillCircle(this.x - 8, SURF - 22, 3);
-    }
-
-    // Kadłub okrętu
-    g.fillStyle(col, 0.92);
-    g.fillRect(this.x - 28, SURF - 9, 56, 9);
-
-    // Mostek / nadbudówka
-    g.fillStyle(col, 1);
-    g.fillRect(this.x - 5, SURF - 18, 18, 9);
-
-    // Wyrzutnia ASROC (prostokąt na dziobie)
-    g.fillStyle(0x888888, 0.80);
-    g.fillRect(this.x + this.dir * 12, SURF - 13, this.dir * 10, 5);
-    g.fillStyle(0x444444, 0.70);
-    g.fillRect(this.x + this.dir * 14, SURF - 15, this.dir * 6, 3);
-
-    // Maszt
-    g.fillStyle(0xffffff, 0.45);
-    g.fillRect(this.x + 4, SURF - 25, 2, 7);
-
-    // Wskaźnik dziobu
-    g.fillStyle(0xffffff, 0.38);
-    g.fillTriangle(
-      this.x + this.dir * 28, SURF - 4,
-      this.x + this.dir * 19, SURF - 9,
-      this.x + this.dir * 19, SURF
-    );
-
-    // Pęknięcia kadłuba
-    if (this.hull < 0.6) {
-      const ca = (0.6 - this.hull) * 3.2;
-      g.lineStyle(1, 0xff4a4a, ca);
-      g.strokeLineShape(new Phaser.Geom.Line(this.x - 18, SURF - 6, this.x - 8, SURF - 2));
-      g.strokeLineShape(new Phaser.Geom.Line(this.x + 10, SURF - 7, this.x + 20, SURF - 1));
-      if (this.hull < 0.3) {
-        g.fillStyle(0xff8800, 0.35);
-        g.fillCircle(this.x + Phaser.Math.Between(-15, 15), SURF - 4, 5);
-      }
-    }
-
-    // Zarzuty głębinowe
+    // Zarzuty głębinowe — widoczne fizycznie
     for (const c of this.charges) {
       if (c.exploded) {
         const frac = c.explodeTimer / 0.55;
@@ -486,6 +474,72 @@ export class Enemy {
         g.fillEllipse(c.x, c.y, 10, 14);
         g.fillStyle(0xffffff, 0.22);
         g.fillCircle(c.x, c.y - 9, 3);
+      }
+    }
+
+    // ── Okręt — widoczny tylko po trafieniu echem sonaru ──────────────────
+    if (this.revealTimer <= 0) return;
+
+    // Alpha stopniowo zanika w ostatniej sekundzie
+    const shipAlpha = Math.min(1, this.revealTimer);
+
+    // Smuga ataku biegowego
+    if (this.state === STATE.HUNT) {
+      g.lineStyle(2, 0xff3300, 0.35 * shipAlpha);
+      g.strokeLineShape(new Phaser.Geom.Line(
+        this.x - this.dir * 60, SURF - 4, this.x, SURF - 4
+      ));
+    }
+
+    // Wskaźnik "słucha"
+    if (this._listening) {
+      const pulse = 0.35 + 0.25 * Math.sin(Date.now() * 0.008);
+      g.lineStyle(1.5, 0x44ffcc, pulse * shipAlpha);
+      g.strokeCircle(this.x, SURF - 14, 8);
+    }
+
+    // Wskaźnik ASROC gotowy
+    if (this.asrocCD < 6) {
+      const frac = 1 - this.asrocCD / 6;
+      g.fillStyle(0xff8800, frac * 0.85 * shipAlpha);
+      g.fillCircle(this.x - 8, SURF - 22, 3);
+    }
+
+    // Kadłub
+    g.fillStyle(col, 0.92 * shipAlpha);
+    g.fillRect(this.x - 28, SURF - 9, 56, 9);
+
+    // Mostek
+    g.fillStyle(col, shipAlpha);
+    g.fillRect(this.x - 5, SURF - 18, 18, 9);
+
+    // Wyrzutnia ASROC
+    g.fillStyle(0x888888, 0.80 * shipAlpha);
+    g.fillRect(this.x + this.dir * 12, SURF - 13, this.dir * 10, 5);
+    g.fillStyle(0x444444, 0.70 * shipAlpha);
+    g.fillRect(this.x + this.dir * 14, SURF - 15, this.dir * 6, 3);
+
+    // Maszt
+    g.fillStyle(0xffffff, 0.45 * shipAlpha);
+    g.fillRect(this.x + 4, SURF - 25, 2, 7);
+
+    // Wskaźnik dziobu
+    g.fillStyle(0xffffff, 0.38 * shipAlpha);
+    g.fillTriangle(
+      this.x + this.dir * 28, SURF - 4,
+      this.x + this.dir * 19, SURF - 9,
+      this.x + this.dir * 19, SURF
+    );
+
+    // Pęknięcia
+    if (this.hull < 0.6) {
+      const ca = (0.6 - this.hull) * 3.2 * shipAlpha;
+      g.lineStyle(1, 0xff4a4a, ca);
+      g.strokeLineShape(new Phaser.Geom.Line(this.x - 18, SURF - 6, this.x - 8, SURF - 2));
+      g.strokeLineShape(new Phaser.Geom.Line(this.x + 10, SURF - 7, this.x + 20, SURF - 1));
+      if (this.hull < 0.3) {
+        g.fillStyle(0xff8800, 0.35 * shipAlpha);
+        g.fillCircle(this.x + Phaser.Math.Between(-15, 15), SURF - 4, 5);
       }
     }
   }

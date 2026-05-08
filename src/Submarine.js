@@ -2,16 +2,16 @@ import Phaser from 'phaser';
 import { Torpedo } from './Torpedo.js';
 import { Missile } from './Missile.js';
 
-const BALLAST_RATE      = 0.16;   // fraction/s at surface — slower at depth
-const BALLAST_CMD_RATE  = 0.45;
-const MAX_ENGINE_FORCE  = 200;
-const ENGINE_RAMP       = 1.1;
+const BALLAST_RATE      = 0.09;   // wolniejsze zmiany balastowe — bardziej realistycznie
+const BALLAST_CMD_RATE  = 0.26;
+const MAX_ENGINE_FORCE  = 110;    // słabszy napęd — taktyczna prędkość
+const ENGINE_RAMP       = 0.60;   // wolniejsza odpowiedź na klawisze
 const DRAG_ANGULAR      = 0.82;
 const NEUTRAL_BALLAST   = 0.54;
 const CRUSH_DEPTH       = 400;
-const CAVITATION_SPEED  = 155;    // px/s above which propeller cavitates (~3 kn in scale)
-const HOTEL_LOAD        = 0.00022; // base battery drain/s from systems alone
-const SNORKEL_DEPTH_M   = 18;     // metres — must be above this to snorkel-charge
+const CAVITATION_SPEED  = 100;    // kawitacja przy niższej prędkości — cicho lub głośno
+const HOTEL_LOAD        = 0.00018;
+const SNORKEL_DEPTH_M   = 18;
 
 export class Submarine {
   constructor(scene, x, y) {
@@ -96,7 +96,9 @@ export class Submarine {
 
   _updateTorpedoes(dt) {
     this.torpedoFireCD = Math.max(0, this.torpedoFireCD - dt);
-    for (const t of this.torpedoes) t.update(dt);
+    // Przekaż wrogów do seekera głowicy akustycznej
+    const enemies = (this.scene.enemies || []).filter(e => !e.destroyed);
+    for (const t of this.torpedoes) t.update(dt, enemies);
     for (const t of this.torpedoes.filter(t => t.dead)) t.destroy();
     this.torpedoes = this.torpedoes.filter(t => !t.dead);
 
@@ -213,7 +215,7 @@ export class Submarine {
     this.vy = fwdDot * dFwd * fY + latVy * dLat;
 
     const spd = Math.sqrt(this.vx ** 2 + this.vy ** 2);
-    if (spd > 290) { this.vx *= 290 / spd; this.vy *= 290 / spd; }
+    if (spd > 175) { this.vx *= 175 / spd; this.vy *= 175 / spd; }
 
     this.x += this.vx * dt;
     this.y += this.vy * dt;

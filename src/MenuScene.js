@@ -5,9 +5,9 @@ const H    = 640;
 const SURF = 240;   // linia wody w menu
 
 const DIFFICULTIES = [
-  { key: 'easy',   label: 'ŁATWY',   desc: '2 niszczyciele · Wolniejsza reakcja',  color: 0x44ff88, enemies: 2, speedMult: 0.80 },
-  { key: 'normal', label: 'NORMALNY', desc: '3 niszczyciele · Standardowe AI',      color: 0xffbb00, enemies: 3, speedMult: 1.00 },
-  { key: 'hard',   label: 'TRUDNY',   desc: '4 niszczyciele · Agresywny sonar',     color: 0xff4444, enemies: 4, speedMult: 1.25 },
+  { key: 'easy',   label: 'ŁATWY',   desc: '1 niszczyciel · Rzadki sonar',         color: 0x44ff88, enemies: 1, speedMult: 0.75 },
+  { key: 'normal', label: 'NORMALNY', desc: '2 niszczyciele · Standardowe AI',      color: 0xffbb00, enemies: 2, speedMult: 1.00 },
+  { key: 'hard',   label: 'TRUDNY',   desc: '3 niszczyciele · Agresywny ASROC',     color: 0xff4444, enemies: 3, speedMult: 1.30 },
 ];
 
 export class MenuScene extends Phaser.Scene {
