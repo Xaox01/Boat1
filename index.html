@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Operacja Październik</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+
+    #game-container { position: relative; }
+
+    /* ── HUD top bar ─────────────────────────────────────────── */
+    #hud {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      padding: 10px 14px;
+      display: flex;
+      gap: 20px;
+      pointer-events: none;
+      z-index: 10;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%);
+    }
+
+    .hud-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 70px;
+    }
+
+    .hud-label {
+      color: #4aff9a;
+      font-size: 8px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: 0.6;
+    }
+
+    .hud-value {
+      color: #4aff9a;
+      font-size: 15px;
+      font-weight: bold;
+      text-shadow: 0 0 7px #4aff9a;
+      line-height: 1;
+    }
+
+    .hud-bar {
+      width: 72px;
+      height: 3px;
+      background: #081a10;
+      border: 1px solid #1a4a2a;
+      border-radius: 1px;
+      overflow: hidden;
+      margin-top: 1px;
+    }
+
+    .hud-bar-fill {
+      height: 100%;
+      background: #4aff9a;
+      transition: width 0.15s, background 0.3s;
+      border-radius: 1px;
+    }
+
+    .hud-bar-fill.warning    { background: #ffaa4a; }
+    .hud-bar-fill.danger     { background: #ff4a4a; box-shadow: 0 0 5px #ff4a4a; }
+    .hud-bar-fill.cavitating { background: #ff6600; animation: cavi-pulse 0.25s ease-in-out infinite alternate; }
+    .hud-bar-fill.charging   { background: #44ff88; box-shadow: 0 0 4px #44ff88; }
+    @keyframes cavi-pulse { from { opacity: 0.55; } to { opacity: 1; } }
+
+    .hud-label.masked { color: #4af0ff; }  /* cyan when thermocline masks noise */
+
+    /* ── Alert banner ────────────────────────────────────────── */
+    #alert-banner {
+      position: absolute;
+      top: 52px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 20px;
+      font-size: 11px;
+      letter-spacing: 4px;
+      opacity: 0;
+      transition: opacity 0.2s, background 0.2s, border-color 0.2s;
+      pointer-events: none;
+      z-index: 20;
+      white-space: nowrap;
+    }
+    #alert-banner.visible.warning {
+      opacity: 1;
+      background: rgba(200, 150, 0, 0.13);
+      border: 1px solid #ffbb00;
+      color: #ffbb00;
+      text-shadow: 0 0 8px #ffbb00;
+    }
+    #alert-banner.visible.danger {
+      opacity: 1;
+      background: rgba(200, 30, 0, 0.15);
+      border: 1px solid #ff3300;
+      color: #ff3300;
+      text-shadow: 0 0 10px #ff3300;
+      animation: hunt-pulse 0.6s ease-in-out infinite alternate;
+    }
+    @keyframes hunt-pulse { from { opacity: 0.7; } to { opacity: 1; } }
+
+    /* ── Controls legend (bottom-left) ───────────────────────── */
+    #controls-panel {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      pointer-events: none;
+      z-index: 10;
+      background: rgba(0, 8, 4, 0.70);
+      border: 1px solid #0d3320;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    #controls-title {
+      color: #2a8a5a;
+      font-size: 8px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      border-bottom: 1px solid #0d3320;
+      padding-bottom: 4px;
+      margin-bottom: 2px;
+    }
+
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ctrl-keys {
+      display: flex;
+      gap: 3px;
+    }
+
+    kbd {
+      display: inline-block;
+      background: #0a1f12;
+      border: 1px solid #1a5a3a;
+      color: #4aff9a;
+      font-family: 'Courier New', monospace;
+      font-size: 9px;
+      padding: 1px 5px;
+      min-width: 18px;
+      text-align: center;
+      line-height: 14px;
+    }
+
+    .ctrl-desc {
+      color: #2a7a4a;
+      font-size: 9px;
+      letter-spacing: 1px;
+    }
+
+    /* ── Event log (bottom-right above sonar) ────────────────── */
+    #event-log {
+      position: absolute;
+      bottom: 168px;
+      right: 10px;
+      width: 160px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .event-msg {
+      color: #ffaa4a;
+      font-size: 9px;
+      letter-spacing: 1px;
+      line-height: 1.6;
+      text-align: right;
+      opacity: 1;
+      transition: opacity 0.5s;
+    }
+    .event-msg.fading { opacity: 0; }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-item">
+        <span class="hud-label">Głębokość</span>
+        <span class="hud-value" id="hud-depth">0 m</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Prędkość</span>
+        <span class="hud-value" id="hud-speed">0 w</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Balast</span>
+        <div class="hud-bar"><div class="hud-bar-fill" id="bar-ballast"></div></div>
+        <span class="hud-value" id="hud-ballast">35%</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label" id="label-noise">Hałas</span>
+        <div class="hud-bar"><div class="hud-bar-fill" id="bar-noise"></div></div>
+        <span class="hud-value" id="hud-noise">0%</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Kadłub</span>
+        <div class="hud-bar"><div class="hud-bar-fill" id="bar-hull"></div></div>
+        <span class="hud-value" id="hud-hull">100%</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label" id="label-battery">Bateria</span>
+        <div class="hud-bar"><div class="hud-bar-fill" id="bar-battery"></div></div>
+        <span class="hud-value" id="hud-battery">100%</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Tlen O₂</span>
+        <div class="hud-bar"><div class="hud-bar-fill" id="bar-oxygen"></div></div>
+        <span class="hud-value" id="hud-oxygen">100%</span>
+      </div>
+    </div>
+
+    <!-- Alert -->
+    <div id="alert-banner">!! WYKRYTO !!</div>
+
+    <!-- Event log -->
+    <div id="event-log"></div>
+
+    <!-- Controls panel -->
+    <div id="controls-panel">
+      <div id="controls-title">Sterowanie</div>
+      <div class="ctrl-row">
+        <div class="ctrl-keys"><kbd>W</kbd><kbd>↑</kbd></div>
+        <span class="ctrl-desc">Wynurz (wyrzuć balast)</span>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-keys"><kbd>S</kbd><kbd>↓</kbd></div>
+        <span class="ctrl-desc">Zanurz (napełnij balast)</span>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-keys"><kbd>D</kbd><kbd>→</kbd></div>
+        <span class="ctrl-desc">Silnik naprzód</span>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-keys"><kbd>A</kbd><kbd>←</kbd></div>
+        <span class="ctrl-desc">Silnik wstecz</span>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-keys"><kbd>Shift</kbd></div>
+        <span class="ctrl-desc">Pełna moc</span>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-keys"><kbd>Space</kbd></div>
+        <span class="ctrl-desc">Stop silnika</span>
+      </div>
+      <div id="controls-title" style="margin-top:6px">Sonar pasywny</div>
+      <div class="ctrl-row"><span style="color:#44ff88;font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Patrol</span></div>
+      <div class="ctrl-row"><span style="color:#ffbb00;font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Namierzony hałas</span></div>
+      <div class="ctrl-row"><span style="color:#ff3300;font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Atak — zarzuty głębinowe</span></div>
+    </div>
+
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
