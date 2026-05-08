@@ -1,29 +1,35 @@
 import Phaser from 'phaser';
+import { ASROC, HomingTorpedo } from './EnemyASROC.js';
 
 export const STATE = { PATROL: 0, ALERT: 1, HUNT: 2, SEARCH: 3 };
 
 // Prędkości
-const PATROL_SPEED   = 42;   // px/s — spokojny patrol
-const ALERT_SPEED    = 65;   // px/s — podejrzenie kontaktu
-const HUNT_SPEED     = 95;   // px/s — atak biegowy
-const HUNT_OVERSHOOT = 190;  // px za cel przed zawróceniem
+const PATROL_SPEED   = 42;
+const ALERT_SPEED    = 68;
+const HUNT_SPEED     = 100;
+const HUNT_OVERSHOOT = 200;
 
 // Wykrywanie
-const BASE_HYDROPHONE  = 520;   // px zasięgu przy pełnym hałasie
+const BASE_HYDROPHONE  = 520;
 const THERMO_MASK      = 0.50;
 const ALERT_THRESHOLD  = 1.6;
 const HUNT_THRESHOLD   = 4.8;
-const SEARCH_DURATION  = 32;   // s — dłuższe przeszukiwanie
+const SEARCH_DURATION  = 35;
 
 // Zarzuty głębinowe
-const CHARGE_COOLDOWN  = 8.0;   // s — jeden upust na przejście
-const CHARGE_FALL_SPD  = 92;    // px/s
-const CHARGE_BLAST_R   = 88;    // px
+const CHARGE_COOLDOWN  = 8.0;
+const CHARGE_FALL_SPD  = 95;
+const CHARGE_BLAST_R   = 88;
+
+// ASROC
+const ASROC_COOLDOWN   = 52;    // s między salwami
+const ASROC_MIN_DIST   = 350;   // px — za blisko = używaj zarzutów
+const ASROC_MAX_DIST   = 3400;  // px — za daleko
 
 // Aktywny sonar
-const PING_SPEED       = 190;   // px/s rozchodzenia się fali
-const PING_BOOST       = 3.5;   // +s do detectTimer gdy echo powyżej termokliny
-const PING_BOOST_THERMO= 0.8;   // słabe echo poniżej termokliny
+const PING_SPEED        = 195;
+const PING_BOOST        = 3.5;
+const PING_BOOST_THERMO = 0.8;
 
 export class Enemy {
   constructor(scene, x, patrolLeft, patrolRight, label) {
@@ -39,20 +45,25 @@ export class Enemy {
     this.patrolSpeed = PATROL_SPEED + Math.random() * 12;
     this.dir         = Math.random() < 0.5 ? 1 : -1;
 
-    this.state           = STATE.PATROL;
-    this.detectTimer     = 0;
-    this.searchTimer     = 0;
-    this.detectionLevel  = 0;
+    this.state          = STATE.PATROL;
+    this.detectTimer    = 0;
+    this.searchTimer    = 0;
+    this.detectionLevel = 0;
 
     this.lastBearingToSub = 0;
     this.lastKnownSubX    = x;
     this.lastKnownSubY    = scene.SURFACE_Y + 100;
 
-    // Atak biegowy — overshootX ustawiany gdy zrzucono zarzuty
     this.overshootX = null;
 
+    // Zarzuty głębinowe
     this.charges  = [];
     this.chargeCD = 0;
+
+    // ASROC
+    this.asrocs         = [];
+    this.homingTorpedoes = [];
+    this.asrocCD        = ASROC_COOLDOWN * (0.6 + Math.random() * 0.6);  // różny rozruch
 
     this.hull      = 1.0;
     this.destroyed = false;
@@ -61,25 +72,32 @@ export class Enemy {
     this.pingTimer   = 4 + Math.random() * 8;
     this.activePings = [];
 
+    // "Sprint and listen" — co jakiś czas zatrzymuje się i słucha
+    this._sprintListenTimer = 0;
+    this._listening         = false;
+
     this.recentExplosions = [];
     this.recentPingHit    = false;
+    this.recentASROC      = false;
   }
 
   update(dt, sub) {
     this.recentExplosions = [];
     this.recentPingHit    = false;
+    this.recentASROC      = false;
     if (this.destroyed) return;
 
     this._updateActiveSonar(dt, sub);
     this._updateDetection(dt, sub);
     this._updateMovement(dt);
     this._updateCharges(dt, sub);
+    this._updateASROC(dt, sub);
     this._draw();
   }
 
-  // Koordynacja radiowa — inne niszczyciele przekazują pozycję kontaktu
+  // Koordynacja radiowa
   receiveRadioAlert(subX, subY) {
-    if (this.state === STATE.HUNT) return; // już atakuje — nie przeszkadzaj
+    if (this.state === STATE.HUNT) return;
     this.lastKnownSubX    = subX;
     this.lastKnownSubY    = subY;
     this.lastBearingToSub = Math.atan2(subY - this.y, subX - this.x);
@@ -89,9 +107,8 @@ export class Enemy {
   // ── Aktywny sonar ──────────────────────────────────────────────────────────
 
   _updateActiveSonar(dt, sub) {
-    // Częstość pingów zależy od stanu czujności
     const interval = this.state === STATE.PATROL ? 22
-                   : this.state === STATE.ALERT  ?  9 : 6;
+                   : this.state === STATE.ALERT  ?  9 : 5;
 
     this.pingTimer -= dt;
     if (this.pingTimer <= 0) {
@@ -103,7 +120,7 @@ export class Enemy {
     for (const p of this.activePings) {
       const prevR = p.r;
       p.r    += PING_SPEED * dt;
-      p.alpha = Math.max(0, p.alpha - dt * 0.44);
+      p.alpha = Math.max(0, p.alpha - dt * 0.42);
 
       let dx = sub.x - this.x;
       if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
@@ -111,7 +128,6 @@ export class Enemy {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (prevR < dist && p.r >= dist) {
-        // Echo powróciło — wzmocnij wykrycie
         const boost = sub.belowThermocline ? PING_BOOST_THERMO : PING_BOOST;
         this.detectTimer      = Math.min(this.detectTimer + boost, HUNT_THRESHOLD + 1);
         this.lastBearingToSub = Math.atan2(dy, dx);
@@ -168,18 +184,30 @@ export class Enemy {
 
   _updateMovement(dt) {
     const WORLD_W = this.scene.WORLD_W;
-    // Uszkodzony niszczyciel traci prędkość
     const dmgMult = 0.45 + this.hull * 0.55;
+
+    // "Sprint and listen" — patrol zatrzymuje się na chwilę żeby usłyszeć ciszej
+    if (this.state === STATE.PATROL) {
+      this._sprintListenTimer += dt;
+      const cycle = 14 + Math.random() * 0.001;  // ~14s cykl
+      if (this._sprintListenTimer > cycle) {
+        this._listening = !this._listening;
+        this._sprintListenTimer = 0;
+      }
+    } else {
+      this._listening = false;
+    }
+
+    const speedMult = this._listening ? 0.05 : 1.0;
 
     switch (this.state) {
       case STATE.PATROL: {
-        this.x += this.dir * this.patrolSpeed * dmgMult * dt;
+        this.x += this.dir * this.patrolSpeed * dmgMult * speedMult * dt;
         if (this.x > this.patrolRight) { this.x = this.patrolRight; this.dir = -1; }
         if (this.x < this.patrolLeft)  { this.x = this.patrolLeft;  this.dir =  1; }
         break;
       }
       case STATE.ALERT: {
-        // Przyspiesz i kieruj się w stronę wykrytego hałasu
         const txDir = Math.cos(this.lastBearingToSub);
         if (Math.abs(txDir) > 0.15) this.dir = Math.sign(txDir);
         this.x += this.dir * ALERT_SPEED * dmgMult * dt;
@@ -191,30 +219,27 @@ export class Enemy {
         if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
 
         if (this.overshootX === null) {
-          // Faza podejścia — pełna prędkość na cel
           if (Math.abs(dx) > 20) this.dir = Math.sign(dx);
           this.x += this.dir * HUNT_SPEED * dmgMult * dt;
         } else {
-          // Faza przelotu — pędź za cel, potem zawróć
           this.x += this.dir * HUNT_SPEED * dmgMult * dt;
           const reached = this.dir > 0
             ? this.x >= this.overshootX
             : this.x <= this.overshootX;
           if (reached) {
             this.overshootX = null;
-            this.dir        = -this.dir;   // zawróć na kolejne przejście
+            this.dir        = -this.dir;
           }
         }
         this.x = Phaser.Math.Clamp(this.x, 0, WORLD_W);
         break;
       }
       case STATE.SEARCH: {
-        // Rozszerzające się zygzakowanie wokół ostatniego kontaktu
         const elapsed = SEARCH_DURATION - this.searchTimer;
-        const swing   = Math.min(80 + elapsed * 14, 340);
+        const swing   = Math.min(90 + elapsed * 15, 360);
         const left    = this.lastKnownSubX - swing;
         const right   = this.lastKnownSubX + swing;
-        this.x += this.dir * ALERT_SPEED * 0.80 * dmgMult * dt;
+        this.x += this.dir * ALERT_SPEED * 0.75 * dmgMult * dt;
         if (this.x > right) this.dir = -1;
         if (this.x < left)  this.dir =  1;
         this.x = Phaser.Math.Clamp(this.x, 0, WORLD_W);
@@ -228,13 +253,13 @@ export class Enemy {
   _updateCharges(dt, sub) {
     this.chargeCD = Math.max(0, this.chargeCD - dt);
 
-    // Spekulacyjne zarzuty podczas przeszukiwania — okazjonalne
+    // Spekulacyjne zarzuty podczas przeszukiwania
     if (this.state === STATE.SEARCH && this.chargeCD <= 0 && Math.random() < 0.007) {
       this._dropPattern(sub);
       this.chargeCD = CHARGE_COOLDOWN * 1.8;
     }
 
-    // Zrzuć zarzuty gdy w fazie podejścia i nad celem
+    // Zarzuty gdy w fazie podejścia
     if (this.state === STATE.HUNT && this.overshootX === null) {
       const WORLD_W = this.scene.WORLD_W;
       let dx = this.lastKnownSubX - this.x;
@@ -248,10 +273,7 @@ export class Enemy {
     }
 
     for (const c of this.charges) {
-      if (c.exploded) {
-        c.explodeTimer -= dt;
-        continue;
-      }
+      if (c.exploded) { c.explodeTimer -= dt; continue; }
       c.y += c.speed * dt;
 
       if (c.y >= c.targetY) {
@@ -275,30 +297,74 @@ export class Enemy {
     this.charges = this.charges.filter(c => !c.exploded || c.explodeTimer > 0);
   }
 
-  // Salwa 3 zarzutów — jeden celowany, dwa z rozrzutem ±55px
   _dropPattern(sub) {
     const SURF     = this.scene.SURFACE_Y;
     const fallTime = (sub.y - SURF) / CHARGE_FALL_SPD;
-    // Przewiduj głębokość z prędkością pionową gracza
-    const predY = Phaser.Math.Clamp(
+    const predY    = Phaser.Math.Clamp(
       sub.y + sub.vy * fallTime * 0.42,
       SURF + 25, this.scene.OCEAN_FLOOR_Y - 25
     );
-
     const offsets = [0, this.dir * 55, -this.dir * 55];
     for (const xOff of offsets) {
       this.charges.push({
-        x:            this.x + xOff,
-        y:            SURF + 10,
-        targetY:      predY + Phaser.Math.Between(-20, 20),
-        speed:        CHARGE_FALL_SPD + Math.random() * 28,
-        exploded:     false,
-        explodeTimer: 0,
+        x: this.x + xOff, y: SURF + 10,
+        targetY: predY + Phaser.Math.Between(-22, 22),
+        speed: CHARGE_FALL_SPD + Math.random() * 28,
+        exploded: false, explodeTimer: 0,
       });
     }
   }
 
-  // ── Interfejs Sonar / celownik ─────────────────────────────────────────────
+  // ── ASROC ──────────────────────────────────────────────────────────────────
+
+  _updateASROC(dt, sub) {
+    this.asrocCD = Math.max(0, this.asrocCD - dt);
+
+    // Warunek odpalenia: HUNT lub SEARCH, dobry dystans, cooldown minął
+    const WORLD_W = this.scene.WORLD_W;
+    let dx = this.lastKnownSubX - this.x;
+    if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
+    const dist = Math.abs(dx);
+
+    const canFire = (this.state === STATE.HUNT || this.state === STATE.SEARCH)
+                  && this.asrocCD <= 0
+                  && dist > ASROC_MIN_DIST
+                  && dist < ASROC_MAX_DIST;
+
+    if (canFire) {
+      this.asrocs.push(new ASROC(
+        this.scene,
+        this.x,
+        this.lastKnownSubX + Phaser.Math.Between(-60, 60),  // lekki rozrzut
+        this.lastKnownSubY
+      ));
+      this.asrocCD     = ASROC_COOLDOWN;
+      this.recentASROC = true;
+    }
+
+    // Aktualizuj aktywne rakiety
+    for (const a of this.asrocs) {
+      const splash = a.update(dt);
+      if (splash) {
+        // ASROC trafił w wodę — spawn torpedy samonaprowadzającej
+        this.homingTorpedoes.push(new HomingTorpedo(this.scene, splash.x, splash.y));
+      }
+    }
+
+    // Aktualizuj torpedy samonaprowadzające
+    for (const ht of this.homingTorpedoes) {
+      ht.update(dt, sub);
+    }
+
+    // Sprzątanie
+    for (const a of this.asrocs.filter(a => a.dead)) a.destroy();
+    this.asrocs = this.asrocs.filter(a => !a.dead);
+
+    for (const ht of this.homingTorpedoes.filter(ht => ht.dead)) ht.destroy();
+    this.homingTorpedoes = this.homingTorpedoes.filter(ht => !ht.dead);
+  }
+
+  // ── Interfejsy ────────────────────────────────────────────────────────────
 
   getContactInfo(sub) {
     const WORLD_W = this.scene.WORLD_W;
@@ -318,7 +384,7 @@ export class Enemy {
     return { vx: this.dir * spd, vy: 0 };
   }
 
-  // ── Renderowanie ──────────────────────────────────────────────────────────
+  // ── Renderowanie ─────────────────────────────────────────────────────────
 
   _draw() {
     const g    = this.gfx;
@@ -345,13 +411,27 @@ export class Enemy {
       g.strokeCircle(this.x, SURF, ringR);
     }
 
-    // Wskaźnik ataku biegowego — czerwona smuga za rufą gdy HUNT
+    // Smuga ataku biegowego
     if (this.state === STATE.HUNT) {
       g.lineStyle(2, 0xff3300, 0.35);
       g.strokeLineShape(new Phaser.Geom.Line(
         this.x - this.dir * 60, SURF - 4,
         this.x, SURF - 4
       ));
+    }
+
+    // Wskaźnik "słucha" (zielony puls podczas sprint-and-listen)
+    if (this._listening) {
+      const pulse = 0.35 + 0.25 * Math.sin(Date.now() * 0.008);
+      g.lineStyle(1.5, 0x44ffcc, pulse);
+      g.strokeCircle(this.x, SURF - 14, 8);
+    }
+
+    // Wskaźnik ASROC cooldown — małe kółko pod masztem
+    if (this.asrocCD < 6) {
+      const frac = 1 - this.asrocCD / 6;
+      g.fillStyle(0xff8800, frac * 0.85);
+      g.fillCircle(this.x - 8, SURF - 22, 3);
     }
 
     // Kadłub okrętu
@@ -361,6 +441,13 @@ export class Enemy {
     // Mostek / nadbudówka
     g.fillStyle(col, 1);
     g.fillRect(this.x - 5, SURF - 18, 18, 9);
+
+    // Wyrzutnia ASROC (prostokąt na dziobie)
+    g.fillStyle(0x888888, 0.80);
+    g.fillRect(this.x + this.dir * 12, SURF - 13, this.dir * 10, 5);
+    g.fillStyle(0x444444, 0.70);
+    g.fillRect(this.x + this.dir * 14, SURF - 15, this.dir * 6, 3);
+
     // Maszt
     g.fillStyle(0xffffff, 0.45);
     g.fillRect(this.x + 4, SURF - 25, 2, 7);

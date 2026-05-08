@@ -3,6 +3,7 @@ import { Ocean } from './Ocean.js';
 import { Submarine } from './Submarine.js';
 import { Enemy, STATE } from './Enemy.js';
 import { Sonar } from './Sonar.js';
+import { TestBot } from './TestBot.js';
 
 const WORLD_W       = 4096;
 const SURFACE_Y     = 80;
@@ -53,6 +54,9 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.camX = 0;
 
+    // Pokaż UI gry, ukryj UI menu
+    document.getElementById('game-ui').classList.add('active');
+
     this.ocean = new Ocean(this);
     this.sub   = new Submarine(this, CAM_W / 2, SURFACE_Y + 55);
 
@@ -73,7 +77,10 @@ export class GameScene extends Phaser.Scene {
       shift: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
       space: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
       r:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R),
+      b:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B),
     };
+
+    this._bot = new TestBot(this);
 
     // LPM = torpeda, PPM = rakieta przeciwokrętowa
     this.input.on('pointerdown', (pointer) => {
@@ -132,6 +139,14 @@ export class GameScene extends Phaser.Scene {
     this._waveTransition  = false;
     this._prevEnemyState  = new Map();
 
+    // Samouczek — sekwencja podpowiedzi podczas odliczania do spawnu wrogów
+    this._tutorialTip  = document.getElementById('tutorial-tip');
+    this._tutorialText = document.getElementById('tutorial-text');
+    this._tutorialHints = [];
+    this._tutorialIdx   = 0;
+    this._tutorialTimer = 0;
+    this._tutorialHideTimer = 0;
+
     this._logEvent('Zanurz się — wrogie jednostki w pobliżu!');
   }
 
@@ -140,11 +155,22 @@ export class GameScene extends Phaser.Scene {
 
     const dt = delta / 1000;
 
-    // Opóźnione pojawienie się niszczycieli — gracz ma czas na zanurzenie
+    // Opóźnione pojawienie się niszczycieli + samouczek
     if (!this._enemiesSpawned) {
       this._enemySpawnTimer += dt;
       if (this._enemySpawnTimer >= 10) this._spawnEnemies();
+      this._updateTutorial(dt);
+    } else if (this._tutorialTip.classList.contains('visible')) {
+      // Ukryj panel po spawnie wrogów
+      this._tutorialTip.classList.remove('visible');
     }
+
+    // B = toggle bota testowego
+    if (Phaser.Input.Keyboard.JustDown(this.keys.b)) {
+      this._bot.active ? this._bot.stop() : this._bot.start();
+    }
+
+    this._bot.update(dt);
 
     // R = rakieta w kierunku kursora (alternatywa dla PPM na laptopie)
     if (Phaser.Input.Keyboard.JustDown(this.keys.r)) {
@@ -168,18 +194,29 @@ export class GameScene extends Phaser.Scene {
     if (this.sub.onFloor) { this._groundedTimer += dt; }
     else                  { this._groundedTimer  = 0;  }
 
-    // Update enemies + handle depth charge effects
+    // Update enemies + handle depth charge / ASROC effects
     for (const enemy of this.enemies) {
       enemy.update(dt, this.sub);
       if (enemy.recentPingHit) this._logEvent('PING! Aktywny sonar — wykryto echo!');
+      if (enemy.recentASROC)   this._logEvent('ASROC! Rakieta p/okrętowa odpalona!');
+
       for (const exp of enemy.recentExplosions) {
         const intensity = Phaser.Math.Clamp(1 - exp.dist / 85, 0, 1);
         if (intensity > 0.1) {
           this.cameras.main.shake(200 + intensity * 300, 0.004 + intensity * 0.018);
-          if (intensity > 0.6) {
-            this.cameras.main.flash(120, 255, 200, 100, false);
-          }
+          if (intensity > 0.6) this.cameras.main.flash(120, 255, 200, 100, false);
           this._logEvent('ZARZUT GŁĘBINOWY!');
+        }
+      }
+
+      // Torpedy samonaprowadzające z ASROC
+      for (const ht of enemy.homingTorpedoes) {
+        if (ht.recentHit) {
+          this.sub.hull -= ht.recentHit.damage;
+          this.sub.hull  = Math.max(0, this.sub.hull);
+          this.cameras.main.shake(550, 0.025);
+          this.cameras.main.flash(180, 255, 140, 60, false);
+          this._logEvent('TRAFIENIE — torpeda naprowadzana ASROC!');
         }
       }
     }
@@ -272,7 +309,11 @@ export class GameScene extends Phaser.Scene {
     this.ocean.waveGfx.x = -this.camX;
     this.warnLine.x      = -this.camX;
     this.crushLine.x     = -this.camX;
-    for (const e of this.enemies)       e.gfx.x = -this.camX;
+    for (const e of this.enemies) {
+      e.gfx.x = -this.camX;
+      for (const a  of e.asrocs)           a.gfx.x  = -this.camX;
+      for (const ht of e.homingTorpedoes)  ht.gfx.x = -this.camX;
+    }
     for (const t of this.sub.torpedoes) t.gfx.x = -this.camX;
     for (const m of this.sub.missiles)  m.gfx.x = -this.camX;
   }
@@ -385,7 +426,7 @@ export class GameScene extends Phaser.Scene {
       const curr = enemy.state;
       if (prev !== curr) {
         if (curr === STATE.ALERT)  this._logEvent('Niszczyciel namierzył hałas — szuka...');
-        if (curr === STATE.HUNT)   this._logEvent('NISZCZYCIEL ATAKUJE — zarzuty głębinowe!');
+        if (curr === STATE.HUNT)   this._logEvent('NISZCZYCIEL ATAKUJE — zarzuty + ASROC!');
         if (curr === STATE.SEARCH) this._logEvent('Niszczyciel przeszukuje obszar...');
         if (curr === STATE.PATROL && prev !== STATE.PATROL) this._logEvent('Niszczyciel wrócił na patrol.');
         this._prevEnemyState.set(enemy, curr);
@@ -508,22 +549,55 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  _updateTutorial(dt) {
+    this._tutorialTimer += dt;
+
+    // Pokaż następną podpowiedź gdy nadszedł jej czas
+    if (this._tutorialIdx < this._tutorialHints.length) {
+      const hint = this._tutorialHints[this._tutorialIdx];
+      if (this._tutorialTimer >= hint.at) {
+        this._tutorialText.textContent = hint.msg;
+        this._tutorialTip.classList.add('visible');
+        this._tutorialIdx++;
+        this._tutorialHideTimer = 3.2; // tyle sekund widoczna
+      }
+    }
+
+    // Chowaj po czasie
+    if (this._tutorialTip.classList.contains('visible')) {
+      this._tutorialHideTimer -= dt;
+      if (this._tutorialHideTimer <= 0 && this._tutorialIdx >= this._tutorialHints.length) {
+        this._tutorialTip.classList.remove('visible');
+      }
+    }
+  }
+
+  _getDifficulty() {
+    return this.registry.get('difficulty') || { enemies: 3, speedMult: 1.0 };
+  }
+
   _spawnEnemies() {
     this._enemiesSpawned = true;
-    this.enemies = [
-      new Enemy(this,  900,   200,  1400, 'ORP-1'),
-      new Enemy(this, 2100,  1500,  2800, 'ORP-2'),
-      new Enemy(this, 3300,  2800,  4000, 'ORP-3'),
-    ];
+    const diff  = this._getDifficulty();
+    const count = diff.enemies;
+    const segW  = WORLD_W / count;
+    this.enemies = [];
+    for (let i = 0; i < count; i++) {
+      const cx = segW * (i + 0.5);
+      const hw = segW * 0.44;
+      const e  = new Enemy(this, cx, cx - hw, cx + hw, `ORP-${i + 1}`);
+      e.patrolSpeed *= diff.speedMult;
+      this.enemies.push(e);
+    }
     for (const e of this.enemies) this._prevEnemyState.set(e, STATE.PATROL);
-    this._logEvent('UWAGA: Wykryto wrogie niszczyciele!');
+    this._logEvent(`UWAGA: Wykryto ${count} wrogie niszczyciele!`);
   }
 
   _spawnWave() {
-    // Każda fala: +1 niszczyciel, szybsze reakcje
-    const count   = Math.min(2 + this._wave, 7);
-    const segW    = WORLD_W / count;
-    const speedMult = 1 + (this._wave - 1) * 0.12;
+    const diff      = this._getDifficulty();
+    const count     = Math.min(diff.enemies + this._wave - 1, 7);
+    const segW      = WORLD_W / count;
+    const speedMult = diff.speedMult * (1 + (this._wave - 1) * 0.12);
 
     this.enemies = [];
     for (let i = 0; i < count; i++) {
@@ -551,13 +625,18 @@ export class GameScene extends Phaser.Scene {
       fontSize: '14px', color: '#aaaaaa', fontFamily: 'Courier New',
     }).setOrigin(0.5).setDepth(201);
 
-    this.add.text(CAM_W / 2, CAM_H / 2 + 50, '[ Naciśnij F5 aby zagrać ponownie ]', {
+    this.add.text(CAM_W / 2, CAM_H / 2 + 52, '[ ENTER — zagraj ponownie  ·  M — menu główne ]', {
       fontSize: '10px', color: '#555555', fontFamily: 'Courier New',
     }).setOrigin(0.5).setDepth(201);
 
-    // Zatrzymaj wejście
-    this.input.keyboard.shutdown();
-    this.input.mouse.disableContextMenu = false;
+    this.input.keyboard.once('keydown-ENTER', () => {
+      document.getElementById('game-ui').classList.remove('active');
+      this.scene.restart();
+    });
+    this.input.keyboard.once('keydown-M', () => {
+      document.getElementById('game-ui').classList.remove('active');
+      this.scene.start('MenuScene');
+    });
   }
 
   _drawCRT() {

@@ -52,8 +52,9 @@ export class Submarine {
     this.noiseSurge    = 0;   // chwilowy skok hałasu po odpaleniu rakiety
 
 
-    this._prevY = y;   // for thermocline crossing detection
-    this.trail  = [];
+    this._prevY    = y;   // for thermocline crossing detection
+    this.trail     = [];
+    this.botControl = false;
   }
 
   fireTorpedo(targetX, targetY) {
@@ -107,6 +108,7 @@ export class Submarine {
   // ── Input ──────────────────────────────────────────────────────────────────
 
   _handleInput(dt, cursors, keys) {
+    if (this.botControl) return;
     const boost    = keys.shift.isDown ? 2.0 : 1.0;
     const hasJuice = this.battery > 0;
 
