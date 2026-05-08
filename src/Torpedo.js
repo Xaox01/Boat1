@@ -55,10 +55,8 @@ export class Torpedo {
     const FLOOR = this.scene.OCEAN_FLOOR_Y;
 
     if (this.y < SURF) {
-      // Odbicie od tafli od spodu — torpeda wraca w dół
-      this.y  = SURF + 1;
-      this.vy = Math.abs(this.vy) * 0.25;
-      this.angle = Math.atan2(this.vy, this.vx);
+      // Torpeda osiągnęła taflę wody bez trafienia — ginie
+      this._expire();
     }
 
     if (this.y > FLOOR) {

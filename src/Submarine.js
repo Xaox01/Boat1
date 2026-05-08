@@ -51,6 +51,7 @@ export class Submarine {
     this.missileFireCD = 0;
     this.noiseSurge    = 0;   // chwilowy skok hałasu po odpaleniu rakiety
 
+
     this._prevY = y;   // for thermocline crossing detection
     this.trail  = [];
   }
@@ -67,7 +68,7 @@ export class Submarine {
   fireMissile(targetX) {
     if (this.missileCount  <= 0)  return 'brak';
     if (this.missileFireCD >  0)  return 'cd';
-    if (this.depthMetres   >  30) return 'za_gleboko';
+    if (this.depthMetres   >  70) return 'za_gleboko';
     this.missileCount--;
     this.missileFireCD = 2.5;
     this.noiseSurge    = 1.0;   // silne zakłócenie akustyczne — zdradza pozycję!
@@ -99,7 +100,6 @@ export class Submarine {
     this.torpedoes = this.torpedoes.filter(t => !t.dead);
 
     this.missileFireCD = Math.max(0, this.missileFireCD - dt);
-    // Rakiety dostają listę celów przez GameScene (update wywołuje m.update z enemies)
     for (const m of this.missiles.filter(m => m.dead)) m.destroy();
     this.missiles = this.missiles.filter(m => !m.dead);
   }

@@ -13,7 +13,7 @@ const BASE_HYDROPHONE  = 520;   // px zasięgu przy pełnym hałasie
 const THERMO_MASK      = 0.50;
 const ALERT_THRESHOLD  = 1.6;
 const HUNT_THRESHOLD   = 4.8;
-const SEARCH_DURATION  = 22;
+const SEARCH_DURATION  = 32;   // s — dłuższe przeszukiwanie
 
 // Zarzuty głębinowe
 const CHARGE_COOLDOWN  = 8.0;   // s — jeden upust na przejście
@@ -72,9 +72,18 @@ export class Enemy {
 
     this._updateActiveSonar(dt, sub);
     this._updateDetection(dt, sub);
-    this._updateMovement(dt, sub);
+    this._updateMovement(dt);
     this._updateCharges(dt, sub);
     this._draw();
+  }
+
+  // Koordynacja radiowa — inne niszczyciele przekazują pozycję kontaktu
+  receiveRadioAlert(subX, subY) {
+    if (this.state === STATE.HUNT) return; // już atakuje — nie przeszkadzaj
+    this.lastKnownSubX    = subX;
+    this.lastKnownSubY    = subY;
+    this.lastBearingToSub = Math.atan2(subY - this.y, subX - this.x);
+    this.detectTimer      = Math.max(this.detectTimer, ALERT_THRESHOLD + 1.2);
   }
 
   // ── Aktywny sonar ──────────────────────────────────────────────────────────
@@ -157,12 +166,14 @@ export class Enemy {
 
   // ── Ruch ───────────────────────────────────────────────────────────────────
 
-  _updateMovement(dt, sub) {
+  _updateMovement(dt) {
     const WORLD_W = this.scene.WORLD_W;
+    // Uszkodzony niszczyciel traci prędkość
+    const dmgMult = 0.45 + this.hull * 0.55;
 
     switch (this.state) {
       case STATE.PATROL: {
-        this.x += this.dir * this.patrolSpeed * dt;
+        this.x += this.dir * this.patrolSpeed * dmgMult * dt;
         if (this.x > this.patrolRight) { this.x = this.patrolRight; this.dir = -1; }
         if (this.x < this.patrolLeft)  { this.x = this.patrolLeft;  this.dir =  1; }
         break;
@@ -171,7 +182,7 @@ export class Enemy {
         // Przyspiesz i kieruj się w stronę wykrytego hałasu
         const txDir = Math.cos(this.lastBearingToSub);
         if (Math.abs(txDir) > 0.15) this.dir = Math.sign(txDir);
-        this.x += this.dir * ALERT_SPEED * dt;
+        this.x += this.dir * ALERT_SPEED * dmgMult * dt;
         this.x  = Phaser.Math.Clamp(this.x, 0, WORLD_W);
         break;
       }
@@ -182,10 +193,10 @@ export class Enemy {
         if (this.overshootX === null) {
           // Faza podejścia — pełna prędkość na cel
           if (Math.abs(dx) > 20) this.dir = Math.sign(dx);
-          this.x += this.dir * HUNT_SPEED * dt;
+          this.x += this.dir * HUNT_SPEED * dmgMult * dt;
         } else {
           // Faza przelotu — pędź za cel, potem zawróć
-          this.x += this.dir * HUNT_SPEED * dt;
+          this.x += this.dir * HUNT_SPEED * dmgMult * dt;
           const reached = this.dir > 0
             ? this.x >= this.overshootX
             : this.x <= this.overshootX;
@@ -200,10 +211,10 @@ export class Enemy {
       case STATE.SEARCH: {
         // Rozszerzające się zygzakowanie wokół ostatniego kontaktu
         const elapsed = SEARCH_DURATION - this.searchTimer;
-        const swing   = Math.min(80 + elapsed * 18, 380);
+        const swing   = Math.min(80 + elapsed * 14, 340);
         const left    = this.lastKnownSubX - swing;
         const right   = this.lastKnownSubX + swing;
-        this.x += this.dir * ALERT_SPEED * 0.75 * dt;
+        this.x += this.dir * ALERT_SPEED * 0.80 * dmgMult * dt;
         if (this.x > right) this.dir = -1;
         if (this.x < left)  this.dir =  1;
         this.x = Phaser.Math.Clamp(this.x, 0, WORLD_W);
@@ -216,6 +227,12 @@ export class Enemy {
 
   _updateCharges(dt, sub) {
     this.chargeCD = Math.max(0, this.chargeCD - dt);
+
+    // Spekulacyjne zarzuty podczas przeszukiwania — okazjonalne
+    if (this.state === STATE.SEARCH && this.chargeCD <= 0 && Math.random() < 0.007) {
+      this._dropPattern(sub);
+      this.chargeCD = CHARGE_COOLDOWN * 1.8;
+    }
 
     // Zrzuć zarzuty gdy w fazie podejścia i nad celem
     if (this.state === STATE.HUNT && this.overshootX === null) {

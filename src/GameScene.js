@@ -21,6 +21,7 @@ const hudBattery  = $('hud-battery');
 const hudOxygen    = $('hud-oxygen');
 const hudTorpedoes = $('hud-torpedoes');
 const hudMissiles  = $('hud-missiles');
+const hudWave      = $('hud-wave');
 const barBallast  = $('bar-ballast');
 const barNoise    = $('bar-noise');
 const barHull     = $('bar-hull');
@@ -71,35 +72,28 @@ export class GameScene extends Phaser.Scene {
       d:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
       shift: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
       space: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      r:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R),
     };
 
-    // LPM = torpeda, 2×LPM (szybko) = rakieta przeciwokrętowa
+    // LPM = torpeda, PPM = rakieta przeciwokrętowa
     this.input.on('pointerdown', (pointer) => {
-      if (this._gameOver || !pointer.leftButtonDown()) return;
+      if (this._gameOver) return;
       const worldX = pointer.x + this.camX;
       const worldY = pointer.y;
-      const now    = this.time.now;
 
-      const timeSince = now - this._lastClickTime;
-      const nearX     = Math.abs(pointer.x - this._lastClickX) < 70;
-      const isDouble  = timeSince > 0 && timeSince < 420 && nearX;
-
-      if (isDouble) {
-        // Podwójny klik — rakieta
-        const result = this.sub.fireMissile(worldX);
-        if      (result === 'ok')         this._logEvent('Rakieta odpalona!');
-        else if (result === 'brak')       this._logEvent('Brak rakiet!');
-        else if (result === 'za_gleboko') this._logEvent('Za głęboko! Wynurzyć (max 30m).');
-        this._lastClickTime = 0; // blokuj kolejny jako potrójny
-      } else {
-        // Pojedynczy klik — torpeda
+      if (pointer.leftButtonDown()) {
         if (this.sub.fireTorpedo(worldX, worldY)) {
           this._logEvent('Torpeda odpalona!');
         } else if (this.sub.torpedoCount <= 0) {
           this._logEvent('Brak torped!');
         }
-        this._lastClickTime = now;
-        this._lastClickX    = pointer.x;
+      }
+
+      if (pointer.rightButtonDown()) {
+        const result = this.sub.fireMissile(worldX);
+        if      (result === 'ok')         this._logEvent('Rakieta odpalona!');
+        else if (result === 'brak')       this._logEvent('Brak rakiet!');
+        else if (result === 'za_gleboko') this._logEvent('Za głęboko! Wynurzyć (max 70m).');
       }
     });
 
@@ -134,9 +128,9 @@ export class GameScene extends Phaser.Scene {
     this._prevBelowThermo = false;
     this._prevCavitating  = false;
     this._gameOver        = false;
+    this._wave            = 1;
+    this._waveTransition  = false;
     this._prevEnemyState  = new Map();
-    this._lastClickTime   = 0;
-    this._lastClickX      = 0;
 
     this._logEvent('Zanurz się — wrogie jednostki w pobliżu!');
   }
@@ -150,6 +144,16 @@ export class GameScene extends Phaser.Scene {
     if (!this._enemiesSpawned) {
       this._enemySpawnTimer += dt;
       if (this._enemySpawnTimer >= 10) this._spawnEnemies();
+    }
+
+    // R = rakieta w kierunku kursora (alternatywa dla PPM na laptopie)
+    if (Phaser.Input.Keyboard.JustDown(this.keys.r)) {
+      const ptr    = this.input.mousePointer;
+      const worldX = ptr.x + this.camX;
+      const result = this.sub.fireMissile(worldX);
+      if      (result === 'ok')         this._logEvent('Rakieta odpalona!');
+      else if (result === 'brak')       this._logEvent('Brak rakiet!');
+      else if (result === 'za_gleboko') this._logEvent('Za głęboko! Wynurzyć (max 70m).');
     }
 
     this.sub.update(delta, this.cursors, this.keys);
@@ -177,6 +181,16 @@ export class GameScene extends Phaser.Scene {
           }
           this._logEvent('ZARZUT GŁĘBINOWY!');
         }
+      }
+    }
+
+    // Koordynacja radiowa — atakujący niszczyciel alarmuje pobliskich
+    for (const hunter of this.enemies) {
+      if (hunter.state !== STATE.HUNT) continue;
+      for (const other of this.enemies) {
+        if (other === hunter) continue;
+        if (Math.abs(other.x - hunter.x) < 2200)
+          other.receiveRadioAlert(hunter.lastKnownSubX, hunter.lastKnownSubY);
       }
     }
 
@@ -221,10 +235,15 @@ export class GameScene extends Phaser.Scene {
     for (const e of this.enemies.filter(e => e.destroyed)) e.gfx.destroy();
     this.enemies = this.enemies.filter(e => !e.destroyed);
 
-    // Win condition — tylko gdy wrogowie już się spawnowali i wszyscy zatopieni
-    if (!this._gameOver && this._enemiesSpawned && this.enemies.length === 0) {
-      this._gameOver = true;
-      this._showEndScreen('MISJA ZAKOŃCZONA', 'Wszystkie jednostki wroga zatopione.', '#4aff9a');
+    // Fala zakończona — spawn kolejnej
+    if (!this._gameOver && this._enemiesSpawned && this.enemies.length === 0 && !this._waveTransition) {
+      this._waveTransition = true;
+      this._logEvent(`Fala ${this._wave} oczyszczona! Przybywają posiłki...`);
+      this.time.delayedCall(4500, () => {
+        this._wave++;
+        this._spawnWave();
+        this._waveTransition = false;
+      });
     }
 
     // Lose condition
@@ -287,10 +306,12 @@ export class GameScene extends Phaser.Scene {
     this._setCol(hudTorpedoes,
       sub.torpedoCount === 0 ? '#ff4a4a' : sub.torpedoCount <= 1 ? '#ffaa4a' : '#4aff9a');
 
-    const canFire = sub.depthMetres <= 30;
+    const canFire = sub.depthMetres <= 70;
     this._setText(hudMissiles, `${sub.missileCount}`);
     this._setCol(hudMissiles,
       sub.missileCount === 0 ? '#ff4a4a' : !canFire ? '#886600' : '#ffaa00');
+
+    this._setText(hudWave, `${this._wave}`);
 
     this._setW(barBallast, ballast);
     this._setW(barNoise,   noiseEff);
@@ -496,6 +517,24 @@ export class GameScene extends Phaser.Scene {
     ];
     for (const e of this.enemies) this._prevEnemyState.set(e, STATE.PATROL);
     this._logEvent('UWAGA: Wykryto wrogie niszczyciele!');
+  }
+
+  _spawnWave() {
+    // Każda fala: +1 niszczyciel, szybsze reakcje
+    const count   = Math.min(2 + this._wave, 7);
+    const segW    = WORLD_W / count;
+    const speedMult = 1 + (this._wave - 1) * 0.12;
+
+    this.enemies = [];
+    for (let i = 0; i < count; i++) {
+      const cx = segW * (i + 0.5);
+      const hw = segW * 0.44;
+      const e  = new Enemy(this, cx, cx - hw, cx + hw, `W${this._wave}-${i + 1}`);
+      e.patrolSpeed *= speedMult;
+      this.enemies.push(e);
+    }
+    for (const e of this.enemies) this._prevEnemyState.set(e, STATE.PATROL);
+    this._logEvent(`FALA ${this._wave}: ${count} niszczyciele! Szybsze reakcje.`);
   }
 
   _showEndScreen(title, subtitle, color) {
