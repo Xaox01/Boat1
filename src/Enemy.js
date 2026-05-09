@@ -72,6 +72,11 @@ export class Enemy {
     this.hull      = 1.0;
     this.destroyed = false;
 
+    // Klasyfikacja pasywna — gracz musi nazbierać czasu nasłuchu
+    this.tonal        = 8 + Math.random() * 22;   // Charakterystyczna częstotliwość wału (Hz)
+    this.contactClass = 'UNK';                     // UNK → SURFACE → WARSHIP
+    this.classifyTimer = 0;                        // Akumuluje sekundy ekspozycji sonarem
+
     // Aktywny sonar
     this.pingTimer   = 4 + Math.random() * 8;
     this.activePings = [];

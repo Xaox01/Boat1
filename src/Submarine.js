@@ -105,6 +105,15 @@ export class Submarine {
     return 'ok';
   }
 
+  // Tryb nasłuchu — okręt prawie nieruchomy → pasywny sonar znacznie czulszy
+  get listenMode() {
+    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    return speed < 12 && Math.abs(this.enginePower) < 0.08 && !this.cavitating;
+  }
+
+  // Wzmocnienie pasywnego sonaru (1.0 = normalne, 1.6 = tryb nasłuchu)
+  get sonarBonus() { return this.listenMode ? 1.6 : 1.0; }
+
   get depthMetres() {
     const SURF  = this.scene.SURFACE_Y;
     const FLOOR = this.scene.OCEAN_FLOOR_Y;

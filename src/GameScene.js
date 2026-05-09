@@ -30,7 +30,10 @@ const barHull     = $('bar-hull');
 const barBattery  = $('bar-battery');
 const barOxygen   = $('bar-oxygen');
 const labelNoise  = $('label-noise');
+const labelSpeed  = $('label-speed');
 const labelBatt   = $('label-battery');
+const tpClassif   = $('tp-classif');
+const tpTrend     = $('tp-trend');
 const alertBanner = $('alert-banner');
 const eventLog    = $('event-log');
 const tpBearing   = $('tp-bearing');
@@ -482,6 +485,10 @@ export class GameScene extends Phaser.Scene {
     this._setText(labelNoise, noiseLabel);
     this._setCls(labelNoise, noiseLCls);
 
+    const inListen  = sub.listenMode;
+    this._setText(labelSpeed, inListen ? 'NASŁUCH ◉' : 'Prędkość');
+    this._setCls(labelSpeed,  'hud-label' + (inListen ? ' listen' : ''));
+
     const battCls = sub.snorkeling ? 'hud-bar-fill charging'
                   : 'hud-bar-fill ' + (battery < 20 ? 'danger' : battery < 40 ? 'warning' : '');
     this._setCls(barBattery, battCls);
@@ -519,6 +526,10 @@ export class GameScene extends Phaser.Scene {
       this._setCls(tpBearing,  'tp-value nodata');
       this._setCls(tpRange,    'tp-value nodata');
       this._setCls(tpSolution, 'tp-value nodata');
+      this._setText(tpClassif, '---');
+      this._setCls(tpClassif,  'tp-value nodata');
+      this._setText(tpTrend,   '---');
+      this._setCls(tpTrend,    'tp-value nodata');
     } else {
       const dx      = nearest.x - sub.x;
       const dy      = nearest.y - sub.y;
@@ -557,6 +568,26 @@ export class GameScene extends Phaser.Scene {
         this._setCls(tpSolution,
           solutionPct >= 70 ? 'tp-value ready' :
           solutionPct >= 40 ? 'tp-value warning' : 'tp-value danger');
+      }
+
+      // Klasyfikacja i trend z danych sonarowych
+      const cls = nearest.contactClass || 'UNK';
+      this._setText(tpClassif, cls);
+      this._setCls(tpClassif,
+        cls === 'WARSHIP' ? 'tp-value danger' :
+        cls === 'SURFACE' ? 'tp-value warning' : 'tp-value nodata');
+
+      const sc = this.sonar?.contacts?.find(c => c.enemy === nearest);
+      const trend = sc?.approach ?? '';
+      if (trend === 'ZBLIŻA') {
+        this._setText(tpTrend, '↗ ZBLIŻA SIĘ');
+        this._setCls(tpTrend, 'tp-value danger');
+      } else if (trend === 'ODDALA') {
+        this._setText(tpTrend, '↙ ODDALA SIĘ');
+        this._setCls(tpTrend, 'tp-value');
+      } else {
+        this._setText(tpTrend, '---');
+        this._setCls(tpTrend, 'tp-value nodata');
       }
     }
 

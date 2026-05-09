@@ -89,6 +89,7 @@
     @keyframes cavi-pulse { from { opacity: 0.55; } to { opacity: 1; } }
 
     .hud-label.masked { color: #4af0ff; }
+    .hud-label.listen { color: #22ff88; text-shadow: 0 0 5px rgba(34,255,136,0.7); }
 
     /* ── Alert banner ────────────────────────────────────────── */
     #alert-banner {
@@ -518,7 +519,7 @@
             <span class="hud-value" id="hud-depth">0 m</span>
           </div>
           <div class="hud-item">
-            <span class="hud-label">Prędkość</span>
+            <span class="hud-label" id="label-speed">Prędkość</span>
             <span class="hud-value" id="hud-speed">0 w</span>
           </div>
           <div class="hud-item">
@@ -578,6 +579,14 @@
           <div class="tp-row">
             <span class="tp-label">TORP CD</span>
             <span class="tp-value" id="tp-torpcd">GOTOWA</span>
+          </div>
+          <div class="tp-row">
+            <span class="tp-label">KLASIF</span>
+            <span class="tp-value nodata" id="tp-classif">---</span>
+          </div>
+          <div class="tp-row">
+            <span class="tp-label">TREND</span>
+            <span class="tp-value nodata" id="tp-trend">---</span>
           </div>
           <div id="tp-threat" class="tp-threat"></div>
         </div>
@@ -658,6 +667,10 @@
       </div>
 
       <div class="log-divider">────────────────────────────────────────────────</div>
+
+      <div class="log-divider" style="color:#004a1e;font-size:6px;letter-spacing:2px;border-bottom:none;padding-bottom:2px">DEMON WATERFALL · 8–35 Hz</div>
+      <canvas id="demon-display" width="232" height="78" style="display:block;margin:0 10px 2px;flex-shrink:0;image-rendering:pixelated;border:1px solid #002810;border-radius:1px"></canvas>
+      <div class="log-divider" style="font-size:6px;border-top:none;padding-top:2px">───── DZIENNIK ─────────────────────────────────</div>
 
       <div id="ship-log-entries"></div>
 
