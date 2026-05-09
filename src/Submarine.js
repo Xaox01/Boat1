@@ -43,24 +43,24 @@ export class Submarine {
     this.onFloor        = false;
 
     this.torpedoes = [];
-    // 4 rury torpedowe — każda ładuje się osobno (90–120s)
+    // 4 rury torpedowe — każda ładuje się osobno (55–75s)
     this.tubes = Array.from({ length: 4 }, (_, i) => ({
       id:          i + 1,
       loaded:      true,
       reloadTimer: 0,
-      reloadBase:  90 + Math.random() * 30,   // 90–120s — realistyczny czas przeładowania
+      reloadBase:  55 + Math.random() * 20,   // 55–75s — wyważony czas przeładowania
     }));
     this._torpedosFired = 0;
-    this._salvoCD       = 0;   // 6s CD między kolejnymi wystrzeleniami z różnych rur
+    this._salvoCD       = 0;   // 3s CD między kolejnymi wystrzeleniami z różnych rur
     this.recentTubeLoaded = null;   // ID rury która właśnie skończyła ładowanie
 
     this.missiles      = [];
-    this.missileCount  = 2;
+    this.missileCount  = 3;
     this.missileFireCD = 0;
     this.noiseSurge    = 0;   // chwilowy skok hałasu po odpaleniu rakiety
 
     // Wabie akustyczne (noisemakers)
-    this.noisemakerCount = 3;
+    this.noisemakerCount = 5;
     this.noisemakers     = [];   // aktywne wabie w wodzie
 
 
@@ -95,7 +95,7 @@ export class Submarine {
     tube.loaded = false;
     tube.reloadTimer = tube.reloadBase;
     this._torpedosFired++;
-    this._salvoCD = 6.0;   // 6s między kolejnymi wystrzeleniami
+    this._salvoCD = 3.0;   // 3s między kolejnymi wystrzeleniami
     this.torpedoes.push(new Torpedo(this.scene, this.x, this.y, targetX, targetY));
     return tube.id;   // truthy — kompatybilne z if(fireTorpedo(...))
   }

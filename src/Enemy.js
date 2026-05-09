@@ -11,22 +11,22 @@ const HUNT_OVERSHOOT  = 180;
 const WITHDRAW_SPEED  = 44;   // Wycofywanie — szybciej niż patrol, wolniej niż atak
 
 // Zachowanie po trafieniu
-const SHOCK_BASE      = 3.0;  // sekundy dezorientacji — mniej czasu dla gracza
+const SHOCK_BASE      = 4.5;  // dłuższa dezorientacja — reward za celność
 
-// Wykrywanie — agresywne, krótki buildup
-const BASE_HYDROPHONE  = 560;   // lepsze hydrofony
+// Wykrywanie — zbalansowane: wykrycie jest realne, ale gracz ma czas zareagować
+const BASE_HYDROPHONE  = 480;   // wyważony zasięg hydrofonu
 const THERMO_MASK      = 0.50;
-const ALERT_THRESHOLD  = 1.4;   // szybciej przechodzi w ALERT
-const HUNT_THRESHOLD   = 5.5;   // szybciej przechodzi w HUNT
-const SEARCH_DURATION  = 70;    // dłużej szuka po utracie kontaktu
+const ALERT_THRESHOLD  = 2.2;   // potrzeba 2.2s w zasięgu — gracz zdąży się schować
+const HUNT_THRESHOLD   = 7.0;   // 7s ciągłego kontaktu do pełnego ataku
+const SEARCH_DURATION  = 50;    // szuka 50s po utracie — daje szansę na ucieczkę
 
 // Zarzuty głębinowe
-const CHARGE_COOLDOWN  = 9.0;   // częstsze zrzuty
+const CHARGE_COOLDOWN  = 13.0;  // co 13s — wystarczająco groźne, ale gracz zdąży się poruszyć
 const CHARGE_FALL_SPD  = 80;
-const CHARGE_BLAST_R   = 108;   // większy promień wybuchu
+const CHARGE_BLAST_R   = 90;    // rozsądny promień wybuchu
 
 // ASROC
-const ASROC_COOLDOWN   = 55;    // częstsze salwy
+const ASROC_COOLDOWN   = 70;    // co 70s — poważne zagrożenie, ale nie ciągłe
 const ASROC_MIN_DIST   = 400;
 const ASROC_MAX_DIST   = 3400;
 
@@ -112,7 +112,7 @@ export class Enemy {
     this.detectTimer = Math.max(0, this.detectTimer - 2.2);
 
     // Po poważnym trafieniu — przejdź w tryb wycofywania (dopiero przy małym kadłubie)
-    if (this.hull < 0.25 && !this._withdrawing) {
+    if (this.hull < 0.35 && !this._withdrawing) {
       this._withdrawing = true;
       // Zapamiętaj kierunek ucieczki (od okrętu gracza)
       this._withdrawDir = Math.sign(this.x - this.lastKnownSubX) || this.dir;
@@ -433,7 +433,7 @@ export class Enemy {
 
         if (dist < CHARGE_BLAST_R) {
           const ratio = 1 - dist / CHARGE_BLAST_R;
-          sub.hull -= Phaser.Math.Clamp(ratio * 0.58, 0.05, 0.58);
+          sub.hull -= Phaser.Math.Clamp(ratio * 0.44, 0.04, 0.44);
         }
         this.recentExplosions.push({ x: c.x, y: c.y, dist });
       }

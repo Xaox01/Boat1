@@ -2,12 +2,12 @@
 import Phaser from 'phaser';
 
 const SPEED          = 255;
-const MAX_RANGE      = 950;
+const MAX_RANGE      = 1100;
 const ARM_DIST       = 55;
 const HIT_RADIUS     = 34;
 const BLAST_R        = 80;
 const MAX_TURN_RATE  = Math.PI / 5.5;  // ~33°/s — nie może robić U-skrętów
-const SEEKER_RANGE   = 195;             // px — zasięg akustyczny głowicy
+const SEEKER_RANGE   = 240;             // px — zasięg akustyczny głowicy
 const SEEKER_HALF    = Math.PI / 12;    // 15° — kąt stożka (w jedną stronę)
 
 export class Torpedo {
