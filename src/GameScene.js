@@ -5,7 +5,7 @@ import { Enemy, STATE } from './Enemy.js';
 import { Sonar } from './Sonar.js';
 import { TestBot } from './TestBot.js';
 
-const WORLD_W       = 4096;
+const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
 const THERMO_Y      = 280;
 const OCEAN_FLOOR_Y = 580;
@@ -166,8 +166,12 @@ export class GameScene extends Phaser.Scene {
     this._prevCavitating    = false;
     this._gameOver        = false;
     this._wave            = 1;
-    this._waveTransition  = false;
     this._prevEnemyState  = new Map();
+
+    // Tryb piaskownicy — ciągłe generowanie wrogów
+    this._enemySerial     = 0;    // globalny licznik spawniętych okrętów
+    this._sandboxSpawnCD  = 0;    // cooldown do następnego spawnu
+    this._waveTimer       = 0;    // czas do eskalacji zagrożenia
 
     // Samouczek — sekwencja podpowiedzi podczas odliczania do spawnu wrogów
     this._tutorialTip  = document.getElementById('tutorial-tip');
@@ -191,7 +195,7 @@ export class GameScene extends Phaser.Scene {
     // Opóźnione pojawienie się niszczycieli + samouczek
     if (!this._enemiesSpawned) {
       this._enemySpawnTimer += dt;
-      if (this._enemySpawnTimer >= 30) this._spawnEnemies();
+      if (this._enemySpawnTimer >= 15) this._spawnEnemies();
       this._updateTutorial(dt);
     } else if (this._tutorialTip.classList.contains('visible')) {
       // Ukryj panel po spawnie wrogów
@@ -359,16 +363,9 @@ export class GameScene extends Phaser.Scene {
     for (const e of this.enemies.filter(e => e.destroyed)) e.gfx.destroy();
     this.enemies = this.enemies.filter(e => !e.destroyed);
 
-    // Fala zakończona — spawn kolejnej
-    if (!this._gameOver && this._enemiesSpawned && this.enemies.length === 0 && !this._waveTransition) {
-      this._waveTransition = true;
-      this._logEvent(`Fala ${this._wave} oczyszczona! Następna za 20 sekund.`);
-      this._shipLog(`Rejon oczyszczony. Fala ${this._wave} zakończona. Czekam na rozkazy.`, 'good');
-      this.time.delayedCall(20000, () => {
-        this._wave++;
-        this._spawnWave();
-        this._waveTransition = false;
-      });
+    // Piaskownica — ciągłe uzupełnianie wrogów
+    if (!this._gameOver && this._enemiesSpawned) {
+      this._sandboxUpdate(dt);
     }
 
     // Lose condition
@@ -1027,13 +1024,70 @@ export class GameScene extends Phaser.Scene {
     this.enemies = [];
     for (let i = 0; i < count; i++) {
       const cx = segW * (i + 0.5);
-      const hw = segW * 0.44;
-      const e  = new Enemy(this, cx, cx - hw, cx + hw, `ORP-${i + 1}`);
+      const hw = segW * 0.46;
+      this._enemySerial++;
+      const e  = new Enemy(this, cx, Math.max(80, cx - hw), Math.min(WORLD_W - 80, cx + hw), `BPK-${this._enemySerial}`);
       e.patrolSpeed *= diff.speedMult;
       this.enemies.push(e);
     }
     for (const e of this.enemies) this._prevEnemyState.set(e, STATE.PATROL);
-    this._logEvent(`UWAGA: Wykryto ${count} wrogie niszczyciele!`);
+    this._logEvent(`UWAGA: Wykryto ${count} wrogie jednostki ZOP!`);
+    this._shipLog(`Sygnał wywiadu: ${count} sowieckie BPK wykryte w rejonie operacji.`, 'danger');
+  }
+
+  // ── Tryb piaskownicy — ciągłe uzupełnianie i eskalacja ────────────────────
+
+  _sandboxUpdate(dt) {
+    const alive  = this.enemies.filter(e => !e.destroyed).length;
+    const target = Math.min(3 + Math.floor(this._wave * 0.6), 9);
+
+    if (alive < target) {
+      this._sandboxSpawnCD -= dt;
+      if (this._sandboxSpawnCD <= 0) {
+        // Krótszy cooldown gdy morze puste — wróg szybko wraca
+        this._sandboxSpawnCD = alive === 0 ? 5 : 18;
+        this._spawnSandboxEnemy();
+      }
+    } else {
+      this._sandboxSpawnCD = Math.max(this._sandboxSpawnCD, 0);
+    }
+
+    // Eskalacja zagrożenia co 2 minuty
+    this._waveTimer += dt;
+    if (this._waveTimer >= 120) {
+      this._waveTimer = 0;
+      this._wave++;
+      this._logEvent(`Poziom zagrożenia: ${this._wave}`);
+      this._shipLog(`Dowództwo: Wzrost aktywności wroga. Zagrożenie: poziom ${this._wave}.`, 'warn');
+      this._setText($('hud-wave'), `${this._wave}`);
+    }
+  }
+
+  _spawnSandboxEnemy() {
+    const diff    = this._getDifficulty();
+    const subX    = this.sub.x;
+    const MIN_DIST = 2400;
+
+    // Szukaj pozycji daleko od gracza
+    let cx = WORLD_W / 2;
+    for (let attempt = 0; attempt < 16; attempt++) {
+      cx = 150 + Math.random() * (WORLD_W - 300);
+      if (Math.abs(cx - subX) >= MIN_DIST) break;
+    }
+
+    const hw    = 950 + Math.random() * 1600;
+    const left  = Math.max(80,           cx - hw);
+    const right = Math.min(WORLD_W - 80, cx + hw);
+
+    this._enemySerial++;
+    const label = `BPK-${this._enemySerial}`;
+    const e     = new Enemy(this, cx, left, right, label);
+    e.patrolSpeed *= diff.speedMult * (1 + (this._wave - 1) * 0.09);
+    this.enemies.push(e);
+    this._prevEnemyState.set(e, STATE.PATROL);
+
+    const distKm = Math.round(Math.abs(cx - subX) * 1.2 / 1000);
+    this._shipLog(`Nowy kontakt: ${label} — szac. pozycja ${distKm}km od łodzi.`, 'warn');
   }
 
   _spawnWave() {

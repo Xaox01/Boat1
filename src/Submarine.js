@@ -279,16 +279,23 @@ export class Submarine {
   // ── Boundary collisions ────────────────────────────────────────────────────
 
   _clampToWorld() {
-    const WORLD_W = this.scene.WORLD_W;
-    const FLOOR_Y = this.scene.OCEAN_FLOOR_Y;
-    const SURF_Y  = this.scene.SURFACE_Y;
+    const WORLD_W  = this.scene.WORLD_W;
+    const SURF_Y   = this.scene.SURFACE_Y;
+    // Proceduralny teren — użyj scene.floorAt jeśli dostępne
+    const FLOOR_Y  = this.scene.floorAt
+      ? this.scene.floorAt(this.x)
+      : this.scene.OCEAN_FLOOR_Y;
 
     this.impactVelocity = 0;
     this.onFloor        = false;
 
-    if (this.x < 0)       this.x += WORLD_W;
-    if (this.x > WORLD_W) this.x -= WORLD_W;
+    // Ograniczenie poziome — odbij od krawędzi świata
+    this.x = Phaser.Math.Clamp(this.x, 40, WORLD_W - 40);
+    if (this.x <= 40 || this.x >= WORLD_W - 40) {
+      this.vx *= -0.4;
+    }
 
+    // Powierzchnia — kadłub nie może wyjść ponad wodę
     if (this.y < SURF_Y) {
       if (this.vy < 0) {
         this.impactVelocity = -this.vy;
@@ -298,6 +305,7 @@ export class Submarine {
       this.angularVel -= this.angle * 1.5 * (1 / 60);
     }
 
+    // Dno — kolizja z terenem proceduralnym
     if (this.y > FLOOR_Y) {
       const impactVy = Math.abs(this.vy);
       this.impactVelocity = impactVy;
