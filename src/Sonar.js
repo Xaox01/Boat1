@@ -59,7 +59,7 @@ export class Sonar {
     this._demonRows    = [];   // newest at index 0
   }
 
-  update(delta, sub, enemies, playerTorpedoes) {
+  update(delta, sub, enemies, playerTorpedoes, playerPings = []) {
     const dt = delta / 1000;
     this._prevSweep = this.sweep;
     this.sweep = (this.sweep + SWEEP_SPEED * dt) % (Math.PI * 2);
@@ -317,6 +317,33 @@ export class Sonar {
           g.lineStyle(1, col, 0.60);
           g.strokeCircle(tx, ty, 6);
         }
+      }
+    }
+
+    // ── Ping aktywny gracza — pierścień na PPI ───────────────────────────────
+    for (const p of playerPings) {
+      const scaledR = (p.r / SONAR_WORLD_RANGE) * this.r;
+      if (scaledR > this.r + 8) continue;
+      const pFrac = p.r / p.maxR;
+      const ringA = Math.min(p.alpha * (1 - pFrac * 0.5), 0.65);
+      g.lineStyle(1.8 - pFrac * 1.0, 0x44ffdd, ringA);
+      g.strokeCircle(this.cx, this.cy, Math.min(scaledR, this.r - 1));
+
+      // Błysk echa na PPI — gdy wróg namierzony
+      for (const e of p.echoes) {
+        const edx   = e.x - sub.x;
+        const edy   = e.y - sub.y;
+        const eDist = Math.sqrt(edx * edx + edy * edy);
+        if (eDist > SONAR_WORLD_RANGE) continue;
+        const eR   = (eDist / SONAR_WORLD_RANGE) * this.r;
+        const eB   = Math.atan2(edy, edx);
+        const epx  = this.cx + Math.cos(eB) * eR;
+        const epy  = this.cy + Math.sin(eB) * eR;
+        const fade = 1 - e.age / 1.8;
+        g.fillStyle(0xffffff, fade * 0.90);
+        g.fillCircle(epx, epy, 3.5);
+        g.lineStyle(1.2, 0x44ffdd, fade * 0.70);
+        g.strokeCircle(epx, epy, 7 + (1 - fade) * 6);
       }
     }
 

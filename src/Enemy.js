@@ -160,6 +160,19 @@ export class Enemy {
     }
   }
 
+  // Ping aktywny gracza — okręt słyszy sygnał i namierza kierunek
+  receivePing(subX, subY) {
+    this.lastKnownSubX    = subX;
+    this.lastKnownSubY    = subY;
+    this.lastBearingToSub = Math.atan2(subY - this.y, subX - this.x);
+    if (this.state === STATE.PATROL) {
+      this.detectTimer = Math.max(this.detectTimer, ALERT_THRESHOLD + 0.4);
+    } else if (this.state === STATE.ALERT || this.state === STATE.SEARCH) {
+      // Już namierzony — ping potwierdza kierunek, przyspiesza atak
+      this.detectTimer = Math.max(this.detectTimer, HUNT_THRESHOLD - 0.8);
+    }
+  }
+
   // Koordynacja radiowa
   receiveRadioAlert(subX, subY) {
     if (this.state === STATE.HUNT) return;

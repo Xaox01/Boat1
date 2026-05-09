@@ -24,6 +24,7 @@ const hudTorpedoes    = $('hud-torpedoes');
 const hudTorpReload   = $('hud-torp-reload');
 const hudMissiles     = $('hud-missiles');
 const hudNoisemakers  = $('hud-noisemakers');
+const hudPing         = $('hud-ping');
 const hudWave         = $('hud-wave');
 const barBallast  = $('bar-ballast');
 const barNoise    = $('bar-noise');
@@ -99,6 +100,7 @@ export class GameScene extends Phaser.Scene {
       e:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
       m:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M),
       t:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T),
+      q:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
     };
 
     this._bot = new TestBot(this);
@@ -223,6 +225,11 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
+    // Aktywny sonar gracza [Q]
+    this._pingGfx     = this.add.graphics().setDepth(16);
+    this._activePings = [];   // { subX, subY, r, maxR, alpha, echoedEnemies, echoes }
+    this._pingCD      = 0;
+
     this._logEvent('Zanurz się — wrogie jednostki w pobliżu!');
     this._shipLog('ORP Orzeł — misja bojowa. Zanurzono na pozycję.', 'info');
   }
@@ -264,6 +271,16 @@ export class GameScene extends Phaser.Scene {
         this._logEvent('Brak wabii akustycznych!');
       }
     }
+
+    // Q = aktywny ping sonaru
+    if (Phaser.Input.Keyboard.JustDown(this.keys.q)) {
+      if (this._pingCD <= 0) {
+        this._firePing();
+      } else {
+        this._logEvent(`Ping — cooldown (${Math.ceil(this._pingCD)}s)`);
+      }
+    }
+    this._pingCD = Math.max(0, this._pingCD - dt);
 
     // Wykrywanie torpedy przez wrogów — kontrmanewry
     for (const t of this.sub.torpedoes) {
@@ -437,8 +454,10 @@ export class GameScene extends Phaser.Scene {
 
     this._applyCamera();
     this.ocean.update(delta, this.camX);
-    this.sonar.update(delta, this.sub, this.enemies, this.sub.torpedoes);
+    this._updatePings(dt);
+    this.sonar.update(delta, this.sub, this.enemies, this.sub.torpedoes, this._activePings);
     this._drawBearingLines();
+    this._drawPings();
     this._updateHUD();
     this._updateTargetPanel();
     this._checkEvents();
@@ -470,7 +489,8 @@ export class GameScene extends Phaser.Scene {
     this.ocean.waveGfx.x = -this.camX;
     this.warnLine.x      = -this.camX;
     this.crushLine.x     = -this.camX;
-    this.bearingGfx.x = -this.camX;
+    this.bearingGfx.x  = -this.camX;
+    this._pingGfx.x    = -this.camX;
     for (const e of this.enemies) {
       e.gfx.x = -this.camX;
       for (const a  of e.asrocs)           a.gfx.x  = -this.camX;
@@ -537,6 +557,17 @@ export class GameScene extends Phaser.Scene {
     const nm = this.sub.noisemakerCount;
     this._setText(hudNoisemakers, `${nm}`);
     this._setCol(hudNoisemakers, nm === 0 ? '#ff4a4a' : nm === 1 ? '#ffcc44' : '#88ddff');
+
+    if (hudPing) {
+      const pc = this._pingCD || 0;
+      if (pc > 0) {
+        this._setText(hudPing, `⟳ ${Math.ceil(pc)}s`);
+        this._setCol(hudPing, pc > 8 ? '#ff6644' : '#ffaa44');
+      } else {
+        this._setText(hudPing, 'GOTOWY');
+        this._setCol(hudPing, '#44ffdd');
+      }
+    }
 
     this._setW(barBallast, ballast);
     this._setW(barNoise,   noiseEff);
@@ -1053,6 +1084,105 @@ export class GameScene extends Phaser.Scene {
       const sc = stateColors[enemy.state] ?? 0x888888;
       g.fillStyle(sc, 0.70);
       g.fillCircle(ex - 14, ey - 28, 4);
+    }
+  }
+
+  // ── Aktywny sonar gracza ──────────────────────────────────────────────────
+
+  _firePing() {
+    const sub = this.sub;
+    const PING_MAX_R    = 1100;
+    const PING_ALERT_R  = 1100;
+
+    this._activePings.push({
+      subX: sub.x, subY: sub.y,
+      r: 0, maxR: PING_MAX_R, alpha: 0.88,
+      echoedEnemies: new Set(),
+      echoes: [],   // { x, y, age }
+    });
+    this._pingCD = 14;
+
+    this._logEvent('PING — aktywny sonar!');
+    this._shipLog(`Aktywny ping sonaru. Gł. ${sub.depthMetres}m. Uwaga: pozycja ujawniona wrogom.`, 'warn');
+
+    // Wrogowie słyszą ping → alarmowani
+    for (const enemy of this.enemies) {
+      if (enemy.destroyed) continue;
+      const dx   = enemy.x - sub.x;
+      const dy   = enemy.y - sub.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < PING_ALERT_R) enemy.receivePing(sub.x, sub.y);
+    }
+  }
+
+  _updatePings(dt) {
+    const PING_SPEED = 680;  // px/s
+
+    for (const p of this._activePings) {
+      const prevR = p.r;
+      p.r    += PING_SPEED * dt;
+      p.alpha = Math.max(0, p.alpha - dt * 0.28);
+
+      // Sprawdź echo od każdego niszczyciela
+      for (const enemy of this.enemies) {
+        if (enemy.destroyed || p.echoedEnemies.has(enemy)) continue;
+        const dx   = enemy.x - p.subX;
+        const dy   = enemy.y - p.subY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (prevR < dist && p.r >= dist && dist <= p.maxR) {
+          p.echoedEnemies.add(enemy);
+          p.echoes.push({ x: enemy.x, y: enemy.y, age: 0 });
+
+          // Precyzyjne ujawnienie pozycji na sonarze na 5s
+          enemy.revealTimer = Math.max(enemy.revealTimer, 5.0);
+
+          const eb = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
+          const er = this._rng(this.sub.x, this.sub.y, enemy.x, enemy.y);
+          this._logEvent(`ECHO nam. ${eb}°`);
+          this._shipLog(`ECHO — ${enemy.label || 'kontakt'}: nam. ${eb}°, dyst. ${er}m. Namierzono precyzyjnie.`, 'warn');
+        }
+      }
+
+      for (const e of p.echoes) e.age += dt;
+      p.echoes = p.echoes.filter(e => e.age < 1.8);
+    }
+
+    // Usuń wygasłe pingi
+    this._activePings = this._activePings.filter(p => p.alpha > 0 && p.r < p.maxR + 80);
+  }
+
+  _drawPings() {
+    const g = this._pingGfx;
+    g.clear();
+
+    for (const p of this._activePings) {
+      const pFrac = p.r / p.maxR;
+
+      // Główny pierścień pingu — cieniejący i blaknący w miarę rozchodzenia
+      const ringA = p.alpha * (1 - pFrac * 0.55);
+      g.lineStyle(2.2 - pFrac * 1.4, 0x44ffdd, ringA);
+      g.strokeCircle(p.subX, p.subY, p.r);
+
+      // Wewnętrzny pierścień z opóźnieniem — głębszy odcień
+      if (p.r > 55) {
+        g.lineStyle(0.8, 0x22aacc, p.alpha * 0.28);
+        g.strokeCircle(p.subX, p.subY, p.r - 40);
+      }
+
+      // Echo — błysk w miejscu wykrytego celu
+      for (const e of p.echoes) {
+        const ef = e.age / 1.8;
+        const ea = 1 - ef;
+        // Biały błysk
+        g.fillStyle(0xffffff, ea * 0.85);
+        g.fillCircle(e.x, e.y, 4 + ef * 10);
+        // Rozszerzający się pierścień echa
+        g.lineStyle(1.5, 0x44ffdd, ea * 0.70);
+        g.strokeCircle(e.x, e.y, 14 + ef * 22);
+        g.lineStyle(0.8, 0x88ffee, ea * 0.35);
+        g.strokeCircle(e.x, e.y, 24 + ef * 36);
+      }
     }
   }
 
