@@ -37,9 +37,9 @@ export class Sonar {
     for (let i = 0; i < 6; i++) {
       this._labels.push(
         scene.add.text(0, 0, '', {
-          fontSize: '7px',
+          fontSize: '9px',
           fontFamily: 'Courier New',
-          color: '#44ffcc',
+          color: '#66ffdd',
           stroke: '#000000',
           strokeThickness: 2,
         }).setDepth(21).setAlpha(0).setOrigin(0.5)
@@ -48,7 +48,7 @@ export class Sonar {
 
     // Etykieta tytułowa
     this._titleLabel = scene.add.text(x, y - radius - 9, 'SONAR PAS.', {
-      fontSize: '6px', fontFamily: 'Courier New', color: '#1a6a3a',
+      fontSize: '7px', fontFamily: 'Courier New', color: '#55ffaa',
       letterSpacing: 2,
     }).setDepth(21).setOrigin(0.5);
 
@@ -68,13 +68,13 @@ export class Sonar {
     g.clear();
 
     // ── Tło ───────────────────────────────────────────────────────────────────
-    g.fillStyle(0x000d05, 0.94);
+    g.fillStyle(0x001f0a, 0.96);
     g.fillCircle(this.cx, this.cy, this.r);
 
     // Siatka
-    g.lineStyle(0.4, 0x0c3a18, 0.40);
+    g.lineStyle(0.7, 0x1a7040, 0.75);
     for (let i = 1; i <= 3; i++) g.strokeCircle(this.cx, this.cy, (this.r / 3) * i);
-    g.lineStyle(0.4, 0x0c3a18, 0.25);
+    g.lineStyle(0.6, 0x1a7040, 0.55);
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
       g.strokeLineShape(new Phaser.Geom.Line(
@@ -185,7 +185,7 @@ export class Sonar {
     }
 
     // ── Sweep line ────────────────────────────────────────────────────────────
-    g.lineStyle(1.8, 0x4aff9a, 0.85);
+    g.lineStyle(2.5, 0x88ffcc, 1.0);
     g.strokeLineShape(new Phaser.Geom.Line(
       this.cx, this.cy,
       this.cx + Math.cos(this.sweep) * this.r,
@@ -193,7 +193,7 @@ export class Sonar {
     ));
     for (let i = 0; i < 24; i++) {
       const a = this.sweep - (i / 24) * (Math.PI * 0.55);
-      g.lineStyle(1.2, 0x4aff9a, (1 - i / 24) * 0.13);
+      g.lineStyle(1.6, 0x66ffbb, (1 - i / 24) * 0.30);
       g.beginPath();
       g.arc(this.cx, this.cy, this.r, a - 0.04, a);
       g.strokePath();
@@ -321,9 +321,9 @@ export class Sonar {
     }
 
     // ── Obramowanie ───────────────────────────────────────────────────────────
-    g.lineStyle(1.2, 0x1a6a3a, 0.85);
+    g.lineStyle(2.0, 0x44cc77, 1.0);
     g.strokeCircle(this.cx, this.cy, this.r);
-    g.lineStyle(0.5, 0x2aff6a, 0.15);
+    g.lineStyle(0.8, 0x66ff99, 0.45);
     g.strokeCircle(this.cx, this.cy, this.r - 2);
 
     // ── Trójkąt pozycji własnej ───────────────────────────────────────────────
@@ -412,37 +412,36 @@ export class Sonar {
     const bw = W / DEMON_BINS;
     const rh = H / DEMON_ROWS;
 
-    ctx.fillStyle = '#010e04';
+    ctx.fillStyle = '#001f0a';
     ctx.fillRect(0, 0, W, H);
 
     for (let r = 0; r < this._demonRows.length; r++) {
       const row   = this._demonRows[r];
-      const alpha = 1 - r / DEMON_ROWS;   // starsze wiersze bledną
+      const alpha = 1 - r / DEMON_ROWS;
       for (let b = 0; b < DEMON_BINS; b++) {
         const sig = row[b];
-        if (sig < 0.04) continue;
-        const intensity = Math.min(1, sig * 1.8);
-        const g  = Math.round(50  + intensity * 185);
-        const rv = Math.round(sig > 0.65 ? (sig - 0.65) * 2.5 * 220 : 0);
-        const bv = Math.round(intensity * 40);
-        ctx.globalAlpha = alpha * (0.35 + intensity * 0.65);
-        ctx.fillStyle   = `rgb(${rv},${g},${bv})`;
+        if (sig < 0.03) continue;
+        const intensity = Math.min(1, sig * 2.0);
+        const gv = Math.round(100 + intensity * 155);
+        const rv = Math.round(sig > 0.50 ? (sig - 0.50) * 3.0 * 240 : 0);
+        const bv = Math.round(intensity * 70);
+        ctx.globalAlpha = alpha * (0.55 + intensity * 0.45);
+        ctx.fillStyle   = `rgb(${rv},${gv},${bv})`;
         ctx.fillRect(b * bw, r * rh, bw - 0.5, rh);
       }
     }
     ctx.globalAlpha = 1;
 
     // Oś częstotliwości — etykiety Hz
-    ctx.fillStyle   = '#1a5a2a';
-    ctx.font        = '6px Courier New';
+    ctx.font        = '7px Courier New';
     ctx.textBaseline = 'bottom';
     const freqStep = (DEMON_FREQ_MAX - DEMON_FREQ_MIN) / 3;
     for (let i = 0; i <= 3; i++) {
       const freq = Math.round(DEMON_FREQ_MIN + freqStep * i);
       const px   = (i / 3) * W;
-      ctx.fillStyle = '#0d4a1e';
-      ctx.fillRect(px, 0, 0.5, H);
-      ctx.fillStyle = '#1a6a2a';
+      ctx.fillStyle = '#118833';
+      ctx.fillRect(px, 0, 0.7, H);
+      ctx.fillStyle = '#44cc66';
       ctx.fillText(`${freq}`, px + 1, H);
     }
   }

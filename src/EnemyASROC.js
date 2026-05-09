@@ -157,6 +157,7 @@ export class HomingTorpedo {
     this.trail     = [];
     this.exploded  = false;
     this.explodeTimer = 0;
+    this._decoyTarget = null;   // aktywna wabia na którą jest naprowadzona
   }
 
   update(dt, sub) {
@@ -178,26 +179,64 @@ export class HomingTorpedo {
     const SURF  = this.scene.SURFACE_Y;
     const FLOOR = this.scene.OCEAN_FLOOR_Y;
 
-    // ── Podsłuch akustyczny ──────────────────────────────────────────────────
-    const dx   = sub.x - this.x;
-    const dy   = sub.y - this.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    // ── Podsłuch akustyczny — sprawdź wabie i okręt ─────────────────────────
+    const THERMO_Y    = this.scene.THERMO_Y;
+    const noisemakers = (this.scene.sub && this.scene.sub.noisemakers) || [];
 
-    // Termoklina tłumi sygnał gdy głowica powyżej a cel poniżej (lub odwrotnie)
-    const THERMO_Y  = this.scene.THERMO_Y;
-    const crossThermo = (this.y < THERMO_Y) !== (sub.y < THERMO_Y);
-    const seekR = TORP_SEEKER_R * (crossThermo ? TORP_THERMO_M : 1)
-                                * Math.max(0.1, sub.noiseEffective * 4);
-
-    if (dist < seekR && this.phase !== 'homing') {
-      this.phase  = 'homing';
-      this.locked = true;
+    // Znajdź najbliższą wabię akustyczną w zasięgu głowicy
+    let bestDecoy = null;
+    let bestDecoyDist = Infinity;
+    for (const nm of noisemakers) {
+      const nmDx = nm.x - this.x;
+      const nmDy = nm.y - this.y;
+      const nmDist = Math.sqrt(nmDx * nmDx + nmDy * nmDy);
+      const crossThNm = (this.y < THERMO_Y) !== (nm.y < THERMO_Y);
+      const nmSeekR = TORP_SEEKER_R * (crossThNm ? TORP_THERMO_M : 1) * nm.noise;
+      if (nmDist < nmSeekR && nmDist < bestDecoyDist) {
+        bestDecoy     = nm;
+        bestDecoyDist = nmDist;
+      }
     }
-    // Jeśli łódź wyjdzie poza zasięg — wróć do szukania
-    if (dist > seekR * 1.4 && this.phase === 'homing') {
+
+    // Jeśli poprzednia wabia wygasła — wyczyść referencję
+    if (this._decoyTarget && this._decoyTarget.age >= this._decoyTarget.lifetime) {
+      this._decoyTarget = null;
       this.phase  = 'search';
       this.locked = false;
     }
+
+    // Jeśli wabia w zasięgu — przełącz naprowadzanie na nią
+    if (bestDecoy) {
+      this._decoyTarget = bestDecoy;
+      if (this.phase !== 'homing') {
+        this.phase  = 'homing';
+        this.locked = true;
+      }
+    } else {
+      // Brak wabii — sprawdź okręt
+      this._decoyTarget = null;
+      const dx   = sub.x - this.x;
+      const dy   = sub.y - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const crossThermo = (this.y < THERMO_Y) !== (sub.y < THERMO_Y);
+      const seekR = TORP_SEEKER_R * (crossThermo ? TORP_THERMO_M : 1)
+                                  * Math.max(0.1, sub.noiseEffective * 4);
+
+      if (dist < seekR && this.phase !== 'homing') {
+        this.phase  = 'homing';
+        this.locked = true;
+      }
+      if (dist > seekR * 1.4 && this.phase === 'homing') {
+        this.phase  = 'search';
+        this.locked = false;
+      }
+    }
+
+    // Oblicz dx/dy do aktualnego celu (wabia lub okręt)
+    const tgt    = this._decoyTarget || sub;
+    const dx     = tgt.x - this.x;
+    const dy     = tgt.y - this.y;
+    const dist   = Math.sqrt(dx * dx + dy * dy);
 
     // ── Sterowanie ───────────────────────────────────────────────────────────
     switch (this.phase) {
@@ -227,7 +266,7 @@ export class HomingTorpedo {
         break;
       }
       case 'homing': {
-        // Naprowadź na łódź podwodną
+        // Naprowadź na aktualny cel (wabia lub okręt)
         const targetAngle = Math.atan2(dy, dx);
         this._steerTo(targetAngle, dt * 2.2);
         this._applyThrust();
@@ -246,11 +285,27 @@ export class HomingTorpedo {
     if (this.trail.length > 30) this.trail.shift();
     for (const p of this.trail) p.age += dt;
 
-    // Kolizja z łodzią
+    // Kolizja z terenem dna
+    if (this.scene.floorAt) {
+      const floorY = this.scene.floorAt(this.x);
+      if (this.y >= floorY) {
+        this._explode();
+        this._draw();
+        return;
+      }
+    }
+
+    // Kolizja — jeśli śledzi wabię, eksploduje przy wabii (bez szkody dla okrętu)
     if (dist < 28) {
-      const ratio = 1 - dist / 28;
-      this.recentHit = { damage: 0.30 + ratio * 0.25 };
-      this._explode();
+      if (this._decoyTarget) {
+        // Wabia pochłonęła torpedę
+        this._decoyTarget.age = this._decoyTarget.lifetime;  // zniszcz wabię
+        this._explode();
+      } else {
+        const ratio = 1 - dist / 28;
+        this.recentHit = { damage: 0.30 + ratio * 0.25 };
+        this._explode();
+      }
     }
 
     this._draw();
@@ -280,55 +335,103 @@ export class HomingTorpedo {
     const g = this.gfx;
     g.clear();
 
-    // Ślad bąbelków
+    // ── Ślad bąbelkowy ────────────────────────────────────────────────────────
     for (const p of this.trail) {
-      const frac = Math.max(0, 1 - p.age / 1.5);
-      g.fillStyle(0x4488aa, frac * 0.22);
-      g.fillCircle(p.x, p.y, 1.5 + frac * 2);
+      const frac = Math.max(0, 1 - p.age / 1.6);
+      g.fillStyle(0x5599bb, frac * 0.20);
+      g.fillCircle(p.x, p.y, 1.8 + frac * 2.5);
+      g.fillStyle(0xffffff, frac * 0.08);
+      g.fillCircle(p.x, p.y, 0.8 + frac * 1.0);
     }
 
+    // ── Wybuch ────────────────────────────────────────────────────────────────
     if (this.exploded) {
-      const frac = this.explodeTimer / 0.65;
-      const r    = (1 - frac) * 70;
-      g.lineStyle(3, 0xff8800, frac * 0.9);
+      const frac = Math.max(0, this.explodeTimer / 0.65);
+      const r    = (1 - frac) * 75;
+
+      // Flash
+      if (frac > 0.80) {
+        g.fillStyle(0xffffff, (frac - 0.80) / 0.20 * 0.85);
+        g.fillCircle(this.x, this.y, r * 0.4 + 8);
+      }
+      // Kula ognia
+      g.fillStyle(0xff8800, frac * 0.72);
+      g.fillCircle(this.x, this.y, r * 0.50);
+      g.fillStyle(0xffdd44, frac * 0.55);
+      g.fillCircle(this.x, this.y, r * 0.28);
+
+      // Fala uderzeniowa
+      g.lineStyle(2.5, 0xff7700, frac * 0.82);
       g.strokeCircle(this.x, this.y, r);
-      g.fillStyle(0xffcc44, frac * 0.8);
-      g.fillCircle(this.x, this.y, r * 0.4);
-      g.lineStyle(1.5, 0xffffff, frac * 0.4);
-      g.strokeCircle(this.x, this.y, r * 1.5);
+      g.lineStyle(1.2, 0xff3300, frac * 0.38);
+      g.strokeCircle(this.x, this.y, r * 1.55);
+
+      // Bąble powietrza
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        g.fillStyle(0x88bbff, frac * 0.42);
+        g.fillCircle(this.x + Math.cos(a) * r * 0.65, this.y + Math.sin(a) * r * 0.65, 3 + frac * 2.5);
+      }
       return;
     }
 
-    // Torpeda podwodna
+    // ── Korpus Mk.44 ─────────────────────────────────────────────────────────
     g.save();
     g.translateCanvas(this.x, this.y);
     g.rotateCanvas(this.heading);
 
-    // Ślad propelera (pęcherzyki)
-    if (Math.random() < 0.4) {
-      g.fillStyle(0x88ccff, 0.35);
-      g.fillCircle(-16 + Phaser.Math.Between(-3, 3), Phaser.Math.Between(-3, 3), 2);
+    const locked = this.locked;
+    const decoy  = !!this._decoyTarget;
+
+    // Obudowa silnika (tył)
+    g.fillStyle(0x886600, 0.88);
+    g.fillEllipse(-10, 0, 16, 7);
+
+    // Kadłub główny — żółty/czerwony zależnie od stanu
+    const bodyCol = locked ? (decoy ? 0xff6600 : 0xff3300) : 0xddaa00;
+    g.fillStyle(bodyCol, 0.96);
+    g.fillEllipse(2, 0, 28, 9);
+
+    // Sekcja głowicy (jasniejsza)
+    g.fillStyle(locked ? 0xff5500 : 0xeecc00, 0.92);
+    g.fillEllipse(11, 0, 12, 9);
+
+    // Głowica sonaru akustycznego (impeller)
+    const impCol = locked ? (decoy ? 0xff9900 : 0xff3300) : 0x88ccff;
+    g.fillStyle(impCol, 0.95);
+    g.fillCircle(16, 0, 4.5);
+    // Odblask
+    g.fillStyle(0xffffff, 0.40);
+    g.fillCircle(17, -1, 1.8);
+
+    // Linia podziału sekcji
+    g.lineStyle(0.8, 0x775500, 0.45);
+    g.strokeLineShape(new Phaser.Geom.Line(3, -4, 3, 4));
+
+    // Stery krzyżowe
+    g.fillStyle(0x996600, 0.82);
+    g.fillRect(-15, -7, 6, 3);
+    g.fillRect(-15,  4, 6, 3);
+    g.fillRect(-18, -2, 4, 5);
+
+    // Pierścień + łopatki śruby
+    g.lineStyle(1.2, 0x664400, 0.68);
+    g.strokeCircle(-16, 0, 5);
+    const pa = (Date.now() * 0.016) % (Math.PI * 2);
+    g.lineStyle(1.5, 0x886622, 0.80);
+    for (let i = 0; i < 3; i++) {
+      const a = pa + (i * Math.PI * 2) / 3;
+      g.strokeLineShape(new Phaser.Geom.Line(-16, 0, -16 + Math.cos(a) * 4.5, Math.sin(a) * 4.5));
     }
-
-    // Kadłub — żółty jak Mk.44
-    const col = this.locked ? 0xff4400 : 0xddaa22;
-    g.fillStyle(col, 0.95);
-    g.fillEllipse(0, 0, 28, 8);
-    g.fillStyle(0xccaa00, 0.85);
-    g.fillTriangle(14, 0, 10, -3.5, 10, 3.5);
-
-    // Impeller (głowica sonaru z przodu — małe kółko)
-    g.fillStyle(0x88ccff, 0.8);
-    g.fillCircle(14, 0, 3);
 
     g.restore();
 
-    // Pierścień zasięgu głowicy (gdy szuka)
+    // ── Pierścień zasięgu głowicy ─────────────────────────────────────────────
     if (this.phase === 'search' || this.phase === 'homing') {
-      const THERMO_Y    = this.scene.THERMO_Y;
-      const crossThermo = (this.y < THERMO_Y);
+      const crossThermo = (this.y < this.scene.THERMO_Y);
       const rVis = Math.min(TORP_SEEKER_R * (crossThermo ? 0.4 : 1), 180);
-      g.lineStyle(0.8, this.locked ? 0xff4400 : 0x44ffcc, this.locked ? 0.4 : 0.12);
+      const ringCol = decoy ? 0xff9900 : (locked ? 0xff4400 : 0x44ffcc);
+      g.lineStyle(0.9, ringCol, locked ? 0.38 : 0.10);
       g.strokeCircle(this.x, this.y, rVis);
     }
   }

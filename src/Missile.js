@@ -166,44 +166,85 @@ export class Missile {
       return;
     }
 
+    // Rozprysk wody przy sea-skimmingu (gdy bardzo blisko powierzchni)
+    const SURF = this.scene.SURFACE_Y;
+    if (this.phase === 'cruise' && this.y > SURF - 14) {
+      const g = this.gfx;
+      if (Math.random() < 0.45) {
+        const sx = this.x - this.dir * Phaser.Math.Between(4, 14);
+        g.fillStyle(0xaaddee, 0.30 + Math.random() * 0.20);
+        g.fillCircle(sx, SURF + Phaser.Math.Between(-2, 2), Phaser.Math.Between(2, 5));
+      }
+    }
+
     const angle = Math.atan2(this.vy, this.vx);
     const g = this.gfx;
     g.save();
     g.translateCanvas(this.x, this.y);
     g.rotateCanvas(angle);
 
-    // Kadłub
-    g.fillStyle(0xcccccc, 0.95);
-    g.fillEllipse(0, 0, 32, 7);
-    // Głowica
-    g.fillStyle(0xff2200, 1);
-    g.fillTriangle(16, 0, 11, -3.5, 11, 3.5);
-    // Skrzydełka
-    g.fillStyle(0x888888, 0.85);
-    g.fillRect(-14, -7.5, 6, 3.5);
-    g.fillRect(-14,  4.0, 6, 3.5);
+    // ── Kadłub rakiety ────────────────────────────────────────────────────────
+    // Tył — sekcja silnika (ciemniejsza)
+    g.fillStyle(0x999999, 0.90);
+    g.fillEllipse(-8, 0, 18, 7);
 
-    // Dysza
-    const t       = Date.now() * 0.025;
-    const flicker = 0.8 + Math.sin(t * 3.1) * 0.2;
-    g.fillStyle(0xff6600, 1);
-    g.fillCircle(-16, 0, 6.5 * flicker);
-    g.fillStyle(0xffdd00, 0.9);
-    g.fillCircle(-16, 0, 3.8 * flicker);
-    g.fillStyle(0xffffff, 0.7 * flicker);
-    g.fillCircle(-16, 0, 1.6);
+    // Środkowy kadłub
+    g.fillStyle(0xdddddd, 0.95);
+    g.fillEllipse(4, 0, 28, 8);
 
-    // Pióropusz ognia
-    for (let i = 0; i < 6; i++) {
-      const decay = 1 - i / 6;
-      g.fillStyle(i < 2 ? 0xff8800 : 0xff4400, decay * 0.24 * flicker);
-      g.fillCircle(-16 - i * 8, Math.sin(t * 1.7 + i) * 2.5, (8 + i * 3.5) * decay);
+    // Sekcja bojowa (przednia)
+    g.fillStyle(0xcccccc, 0.92);
+    g.fillEllipse(12, 0, 16, 8);
+
+    // ── Głowica ───────────────────────────────────────────────────────────────
+    g.fillStyle(0xcc2200, 1);
+    g.fillTriangle(20, 0, 14, -4, 14, 4);
+    // Odblask na głowicy
+    g.fillStyle(0xff5533, 0.55);
+    g.fillTriangle(20, 0, 14, -4, 18, -1);
+
+    // Linia podziału kadłuba
+    g.lineStyle(1, 0x888888, 0.35);
+    g.strokeLineShape(new Phaser.Geom.Line(0, -4, 0, 4));
+
+    // ── Skrzydełka delta ──────────────────────────────────────────────────────
+    g.fillStyle(0x777788, 0.88);
+    g.fillTriangle(-16, -4, -6, -4, -16, -10);   // górne
+    g.fillTriangle(-16,  4, -6,  4, -16,  10);   // dolne
+
+    // ── Stateczniki ogonowe ───────────────────────────────────────────────────
+    g.fillStyle(0x666677, 0.82);
+    g.fillRect(-20, -7, 6, 3);
+    g.fillRect(-20,  4, 6, 3);
+
+    // ── Dysza — animowany ogień ───────────────────────────────────────────────
+    const t       = Date.now() * 0.022;
+    const flicker = 0.82 + Math.sin(t * 3.4) * 0.18;
+
+    // Pierścień dyszy
+    g.fillStyle(0x664400, 0.85);
+    g.fillCircle(-18, 0, 5);
+
+    // Rdzeń ognia
+    g.fillStyle(0xffffff, 0.85 * flicker);
+    g.fillCircle(-19, 0, 2.2 * flicker);
+    g.fillStyle(0xffee44, 0.90 * flicker);
+    g.fillCircle(-20, 0, 3.5 * flicker);
+    g.fillStyle(0xff8800, 1.0);
+    g.fillCircle(-21, 0, 5.5 * flicker);
+
+    // Pióropusz ognia (6 warstw)
+    for (let i = 0; i < 7; i++) {
+      const decay  = 1 - i / 7;
+      const wobble = Math.sin(t * 1.8 + i * 1.1) * 2.5;
+      g.fillStyle(i < 2 ? 0xff9900 : 0xff4400, decay * 0.22 * flicker);
+      g.fillCircle(-21 - i * 7, wobble, (7 + i * 3.5) * decay);
     }
 
-    // Wskaźnik locka seekera (zielona obwódka z przodu)
+    // Wskaźnik locka (zielona obwódka)
     if (this._lockedTarget) {
-      g.lineStyle(1, 0x44ff88, 0.70);
-      g.strokeCircle(16, 0, 6);
+      g.lineStyle(1.2, 0x44ff88, 0.75);
+      g.strokeCircle(18, 0, 6);
     }
 
     g.restore();
@@ -212,9 +253,10 @@ export class Missile {
   _drawSmoke() {
     const g = this.gfx;
     for (const s of this.smoke) {
-      const frac = Math.max(0, 1 - s.age / (s.splash ? 0.75 : 3.5));
-      g.fillStyle(s.splash ? 0xaaddff : 0xbbbbbb, frac * (s.splash ? 0.55 : 0.16));
-      g.fillCircle(s.x, s.y, s.r + s.age * (s.splash ? 12 : 5));
+      const frac = Math.max(0, 1 - s.age / (s.splash ? 0.65 : 3.8));
+      const col  = s.splash ? 0xaaddff : (s.age < 0.5 ? 0xddddcc : 0x888888);
+      g.fillStyle(col, frac * (s.splash ? 0.55 : 0.14));
+      g.fillCircle(s.x, s.y, s.r + s.age * (s.splash ? 14 : 5));
     }
   }
 
@@ -222,25 +264,54 @@ export class Missile {
     if (!this.exploded) return;
     const g    = this.gfx;
     const frac = this.explodeTimer / 1.1;
-    const r    = (1 - frac) * BLAST_R * 2.8;
+    const r    = (1 - frac) * BLAST_R * 3.0;
+    const cx   = this.x;
+    const cy   = this.y;
 
-    g.lineStyle(4, 0xff6600, frac * 0.9);
-    g.strokeCircle(this.x, this.y, r);
-    g.lineStyle(2, 0xff2200, frac * 0.5);
-    g.strokeCircle(this.x, this.y, r * 1.8);
-    g.fillStyle(0xffee00, frac * 0.85);
-    g.fillCircle(this.x, this.y, r * 0.42);
-
-    for (let i = 0; i < 9; i++) {
-      const a  = (i / 9) * Math.PI * 2;
-      const dr = r * (0.65 + Math.random() * 0.7);
-      g.fillStyle(0xff8800, frac * 0.60);
-      g.fillCircle(this.x + Math.cos(a) * dr, this.y + Math.sin(a) * dr, 4.5);
+    // Flash centralny (błysk przy trafieniu)
+    if (frac > 0.88) {
+      const ff = (frac - 0.88) / 0.12;
+      g.fillStyle(0xffffff, ff * 0.95);
+      g.fillCircle(cx, cy, r * 0.35 + 12);
     }
-    // Kolumna dymu nad eksplozją
-    g.fillStyle(0x888888, frac * 0.30);
-    g.fillCircle(this.x, this.y - r * 0.7, r * 0.55);
-    g.fillStyle(0x666666, frac * 0.20);
-    g.fillCircle(this.x, this.y - r * 1.3, r * 0.38);
+
+    // Kula ognia — 3 warstwy
+    g.fillStyle(0xff9900, frac * 0.80);
+    g.fillCircle(cx, cy, r * 0.55);
+    g.fillStyle(0xff5500, frac * 0.65);
+    g.fillCircle(cx, cy, r * 0.38);
+    g.fillStyle(0xffee44, frac * 0.60);
+    g.fillCircle(cx, cy, r * 0.20);
+
+    // Fala uderzeniowa główna
+    g.lineStyle(3.5, 0xff7700, frac * 0.85);
+    g.strokeCircle(cx, cy, r);
+
+    // Zewnętrzna fala (szybsza, cieńsza)
+    g.lineStyle(1.5, 0xff4400, frac * 0.45);
+    g.strokeCircle(cx, cy, r * 1.6);
+
+    // Trzecia fala (najsłabsza, najdalsza)
+    if (frac < 0.7) {
+      g.lineStyle(1, 0xdd2200, (0.7 - frac) / 0.7 * 0.25);
+      g.strokeCircle(cx, cy, r * 2.3);
+    }
+
+    // Odłamki (8 punktów wylatujących po spirali)
+    for (let i = 0; i < 8; i++) {
+      const a  = (i / 8) * Math.PI * 2 + (1 - frac) * 0.8;
+      const dr = r * (0.7 + (i % 3) * 0.22);
+      g.fillStyle(0xff8800, frac * 0.65);
+      g.fillCircle(cx + Math.cos(a) * dr, cy + Math.sin(a) * dr, 4 + (i % 2) * 2);
+    }
+
+    // Kolumna dymu / ognia nad eksplozją
+    const smokeH = r * 1.2;
+    g.fillStyle(0x886644, frac * 0.40);
+    g.fillCircle(cx, cy - smokeH * 0.5, r * 0.60);
+    g.fillStyle(0x665533, frac * 0.30);
+    g.fillCircle(cx, cy - smokeH * 1.0, r * 0.44);
+    g.fillStyle(0x554433, frac * 0.20);
+    g.fillCircle(cx, cy - smokeH * 1.5, r * 0.30);
   }
 }

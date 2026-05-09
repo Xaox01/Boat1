@@ -20,10 +20,11 @@ const hudNoise    = $('hud-noise');
 const hudHull     = $('hud-hull');
 const hudBattery  = $('hud-battery');
 const hudOxygen    = $('hud-oxygen');
-const hudTorpedoes  = $('hud-torpedoes');
-const hudTorpReload = $('hud-torp-reload');
-const hudMissiles   = $('hud-missiles');
-const hudWave      = $('hud-wave');
+const hudTorpedoes    = $('hud-torpedoes');
+const hudTorpReload   = $('hud-torp-reload');
+const hudMissiles     = $('hud-missiles');
+const hudNoisemakers  = $('hud-noisemakers');
+const hudWave         = $('hud-wave');
 const barBallast  = $('bar-ballast');
 const barNoise    = $('bar-noise');
 const barHull     = $('bar-hull');
@@ -65,12 +66,17 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.camX = 0;
 
+    this.STATE = STATE;   // udostępnij dla bota i innych modułów
+
     // Pokaż UI gry, ukryj UI menu
     document.getElementById('game-ui').classList.add('active');
     document.getElementById('side-panel').classList.add('active');
+    document.getElementById('left-panel').classList.add('active');
 
     this.ocean = new Ocean(this);
     this.sub   = new Submarine(this, CAM_W / 2, SURFACE_Y + 55);
+    // Alias dla EnemyASROC — torpedy sprawdzają ten array
+    Object.defineProperty(this, 'noisemakers', { get: () => this.sub.noisemakers });
 
     // Niszczyciele pojawią się po opóźnieniu — gracz ma czas na zanurzenie
     this.enemies          = [];
@@ -92,6 +98,7 @@ export class GameScene extends Phaser.Scene {
       b:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B),
       e:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
       m:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M),
+      t:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T),
     };
 
     this._bot = new TestBot(this);
@@ -117,8 +124,13 @@ export class GameScene extends Phaser.Scene {
           const tb = this._brg(this.sub.x, this.sub.y, worldX, worldY);
           this._shipLog(`Odpalono: Mk.48 z rury nr ${tubeId}. Nam. ${tb}°, gł. ${this.sub.depthMetres}m. Rury gotowe: ${this.sub.torpedoCount}/4.`, 'info');
         } else {
-          const wait = Math.ceil(this.sub.torpedoFireCD);
-          this._logEvent(`Wszystkie rury ładują się! (${wait}s)`);
+          const salvo = this.sub._salvoCD || 0;
+          if (salvo > 0) {
+            this._logEvent(`Cooldown salwy! (${Math.ceil(salvo)}s)`);
+          } else {
+            const wait = Math.ceil(this.sub.torpedoFireCD);
+            this._logEvent(`Wszystkie rury ładują się! (${wait}s)`);
+          }
         }
       }
 
@@ -139,7 +151,7 @@ export class GameScene extends Phaser.Scene {
     this._drawCRT();
 
     this.add.text(8, THERMO_Y + 4, '— TERMOKLINA (~200m) —', {
-      fontSize: '9px', color: '#0a6a5a', alpha: 0.6,
+      fontSize: '10px', color: '#22ddbb',
     });
 
     const warnY  = SURFACE_Y + (300 / 600) * (OCEAN_FLOOR_Y - SURFACE_Y);
@@ -148,13 +160,13 @@ export class GameScene extends Phaser.Scene {
     this.warnLine  = this.add.graphics();
     this.crushLine = this.add.graphics();
 
-    this.warnLine.lineStyle(1, 0xff6600, 0.25);
+    this.warnLine.lineStyle(1.5, 0xff9900, 0.60);
     this.warnLine.strokeLineShape(new Phaser.Geom.Line(0, warnY, WORLD_W, warnY));
-    this.crushLine.lineStyle(1, 0xff2200, 0.35);
+    this.crushLine.lineStyle(1.5, 0xff4400, 0.75);
     this.crushLine.strokeLineShape(new Phaser.Geom.Line(0, crushY, WORLD_W, crushY));
 
-    this.add.text(8, warnY  + 2, '— LIMIT NURKOWANIA (300m) —',     { fontSize: '9px', color: '#884400', alpha: 0.5 });
-    this.add.text(8, crushY + 2, '— GŁĘBOKOŚĆ KRYTYCZNA (400m) —',  { fontSize: '9px', color: '#882200', alpha: 0.6 });
+    this.add.text(8, warnY  + 2, '— LIMIT NURKOWANIA (300m) —',     { fontSize: '10px', color: '#ffaa00' });
+    this.add.text(8, crushY + 2, '— GŁĘBOKOŚĆ KRYTYCZNA (400m) —',  { fontSize: '10px', color: '#ff5500' });
 
     // State tracking for event log
     this._prevBattery     = 1;
@@ -190,16 +202,16 @@ export class GameScene extends Phaser.Scene {
     this._playerTrail = [];
     this._trailTimer  = 0;
 
-    const ms = (color) => ({ fontSize: '7px', fontFamily: 'Courier New', color });
+    const ms = (color) => ({ fontSize: '8px', fontFamily: 'Courier New', color });
     this._mapTxt = {
-      title: this.add.text(0, 0, '', { fontSize: '9px', fontFamily: 'Courier New', color: '#22aa55', letterSpacing: 2 })
+      title: this.add.text(0, 0, '', { fontSize: '10px', fontFamily: 'Courier New', color: '#55ffaa', letterSpacing: 2 })
         .setDepth(151).setOrigin(0.5, 0.5).setVisible(false),
-      info:  this.add.text(0, 0, '', ms('#1a6a3a')).setDepth(151).setOrigin(1, 0).setVisible(false),
-      m0:    this.add.text(0, 0, '0m',              ms('#1a5a3a')).setDepth(151).setVisible(false),
-      mT:    this.add.text(0, 0, 'TERMOKLINA',      ms('#007a88')).setDepth(151).setVisible(false),
-      mC:    this.add.text(0, 0, 'GL. KRYTYCZNA',   ms('#884400')).setDepth(151).setVisible(false),
-      mF:    this.add.text(0, 0, 'DNO ~600m',        ms('#1a3a2a')).setDepth(151).setVisible(false),
-      scale: this.add.text(0, 0, '2 km',            ms('#1a5a3a')).setDepth(151).setOrigin(0.5, 0).setVisible(false),
+      info:  this.add.text(0, 0, '', ms('#44cc88')).setDepth(151).setOrigin(1, 0).setVisible(false),
+      m0:    this.add.text(0, 0, '0m',              ms('#44cc88')).setDepth(151).setVisible(false),
+      mT:    this.add.text(0, 0, 'TERMOKLINA',      ms('#44ddff')).setDepth(151).setVisible(false),
+      mC:    this.add.text(0, 0, 'GL. KRYTYCZNA',   ms('#ff9900')).setDepth(151).setVisible(false),
+      mF:    this.add.text(0, 0, 'DNO ~600m',        ms('#44aa77')).setDepth(151).setVisible(false),
+      scale: this.add.text(0, 0, '2 km',            ms('#44cc88')).setDepth(151).setOrigin(0.5, 0).setVisible(false),
     };
     // Etykiety km na siatce (co ~2400m = 2000px)
     this._mapKmTxt = [];
@@ -207,7 +219,7 @@ export class GameScene extends Phaser.Scene {
       const km = (x * 1.2 / 1000).toFixed(1).replace('.0', '');
       this._mapKmTxt.push({
         worldX: x,
-        text: this.add.text(0, 0, `${km}km`, ms('#0a3a18')).setDepth(151).setOrigin(0.5, 1).setVisible(false),
+        text: this.add.text(0, 0, `${km}km`, ms('#2a8855')).setDepth(151).setOrigin(0.5, 1).setVisible(false),
       });
     }
 
@@ -241,6 +253,16 @@ export class GameScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.e)) {
       const t = this.sub.torpedoes.find(t => !t.exploded && t.armed);
       if (t) { t.cmdDetonate = true; this._logEvent('Detonacja zdalna!'); }
+    }
+
+    // T = wyrzuć wabię akustyczną
+    if (Phaser.Input.Keyboard.JustDown(this.keys.t)) {
+      if (this.sub.deployNoisemaker()) {
+        this._logEvent('Wabia akustyczna wyrzucona!');
+        this._shipLog(`Wyrzucono wabię akustyczną. Pozostało: ${this.sub.noisemakerCount}.`, 'good');
+      } else {
+        this._logEvent('Brak wabii akustycznych!');
+      }
     }
 
     // Wykrywanie torpedy przez wrogów — kontrmanewry
@@ -421,6 +443,7 @@ export class GameScene extends Phaser.Scene {
     this._updateTargetPanel();
     this._checkEvents();
     this._drawAimReticle();
+    this._drawNoisemakers();
 
     // Nagrywanie trasy gracza co 2s
     this._trailTimer += dt;
@@ -510,6 +533,10 @@ export class GameScene extends Phaser.Scene {
       sub.missileCount === 0 ? '#ff4a4a' : !canFire ? '#886600' : '#ffaa00');
 
     this._setText(hudWave, `${this._wave}`);
+
+    const nm = this.sub.noisemakerCount;
+    this._setText(hudNoisemakers, `${nm}`);
+    this._setCol(hudNoisemakers, nm === 0 ? '#ff4a4a' : nm === 1 ? '#ffcc44' : '#88ddff');
 
     this._setW(barBallast, ballast);
     this._setW(barNoise,   noiseEff);
@@ -635,13 +662,18 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Status rur torpedowych w panelu namierzania
-    if (sub.torpedoCount > 0) {
+    const salvoCD = sub._salvoCD || 0;
+    if (salvoCD > 0) {
+      // Inter-salvo cooldown — rura może być gotowa, ale nie możemy strzelać
+      this._setText(tpTorpCD, `SALWA ⟳ ${Math.ceil(salvoCD)}s`);
+      this._setCls(tpTorpCD, 'tp-value warning');
+    } else if (sub.torpedoCount > 0) {
       this._setText(tpTorpCD, `GOTOWA (${sub.torpedoCount}/4)`);
       this._setCls(tpTorpCD, 'tp-value ready');
     } else {
-      const secs = Math.ceil(sub.torpedoFireCD);
-      const m    = Math.floor(secs / 60);
-      const s    = secs % 60;
+      const secs    = Math.ceil(sub.torpedoFireCD);
+      const m       = Math.floor(secs / 60);
+      const s       = secs % 60;
       const timeStr = m > 0 ? `${m}m ${String(s).padStart(2,'0')}s` : `${secs}s`;
       this._setText(tpTorpCD, `⟳ ${timeStr}`);
       this._setCls(tpTorpCD, 'tp-value danger');
@@ -1024,13 +1056,52 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // ── Wabie akustyczne — rysowanie ──────────────────────────────────────────
+
+  _drawNoisemakers() {
+    if (!this._nmGfx) {
+      this._nmGfx = this.add.graphics().setDepth(14);
+    }
+    const g = this._nmGfx;
+    g.clear();
+
+    const t   = Date.now() * 0.001;
+    const cam = this.camX;
+
+    for (const nm of this.sub.noisemakers) {
+      const sx  = nm.x - cam;
+      const sy  = nm.y;
+      const frac = nm.age / nm.lifetime;
+      const alpha = 1 - frac * 0.6;
+
+      // Pierścień pulsujący — sygnał akustyczny
+      const pulse = 0.5 + 0.5 * Math.sin(t * 6);
+      g.lineStyle(1.5, 0x44aaff, alpha * 0.35 * pulse);
+      g.strokeCircle(sx, sy, 28 + pulse * 12);
+
+      // Bąbelki / ikona wabii
+      g.fillStyle(0x88ddff, alpha * 0.80);
+      g.fillCircle(sx, sy, 5);
+      g.fillStyle(0x0055aa, alpha * 0.55);
+      g.fillCircle(sx, sy, 3);
+
+      // Mały tekst czas życia (pasek postępu pod wabią)
+      const barW = 20;
+      const filled = (1 - frac) * barW;
+      g.fillStyle(0x003366, 0.50);
+      g.fillRect(sx - barW / 2, sy + 8, barW, 3);
+      g.fillStyle(0x44aaff, alpha * 0.80);
+      g.fillRect(sx - barW / 2, sy + 8, filled, 3);
+    }
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   _addDepthLabels() {
     const pxPerM = (OCEAN_FLOOR_Y - SURFACE_Y) / 600;
     for (const m of [0, 50, 100, 150, 200, 300, 400, 500, 600]) {
       this.add.text(4, SURFACE_Y + m * pxPerM + 2, `${m}m`, {
-        fontSize: '9px', color: '#1a4a3a', alpha: 0.55,
+        fontSize: '10px', color: '#44ccaa',
       });
     }
   }

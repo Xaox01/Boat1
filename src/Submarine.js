@@ -43,20 +43,25 @@ export class Submarine {
     this.onFloor        = false;
 
     this.torpedoes = [];
-    // 4 rury torpedowe — każda ładuje się osobno (55–80s)
+    // 4 rury torpedowe — każda ładuje się osobno (90–120s)
     this.tubes = Array.from({ length: 4 }, (_, i) => ({
       id:          i + 1,
       loaded:      true,
       reloadTimer: 0,
-      reloadBase:  55 + Math.random() * 25,   // 55–80s różne tempo na każdej rurze
+      reloadBase:  90 + Math.random() * 30,   // 90–120s — realistyczny czas przeładowania
     }));
     this._torpedosFired = 0;
+    this._salvoCD       = 0;   // 6s CD między kolejnymi wystrzeleniami z różnych rur
     this.recentTubeLoaded = null;   // ID rury która właśnie skończyła ładowanie
 
     this.missiles      = [];
     this.missileCount  = 2;
     this.missileFireCD = 0;
     this.noiseSurge    = 0;   // chwilowy skok hałasu po odpaleniu rakiety
+
+    // Wabie akustyczne (noisemakers)
+    this.noisemakerCount = 3;
+    this.noisemakers     = [];   // aktywne wabie w wodzie
 
 
     this._prevY    = y;   // for thermocline crossing detection
@@ -84,13 +89,28 @@ export class Submarine {
   }
 
   fireTorpedo(targetX, targetY) {
+    if (this._salvoCD > 0) return false;   // inter-salvo cooldown
     const tube = this.tubes.find(t => t.loaded);
     if (!tube) return false;
     tube.loaded = false;
     tube.reloadTimer = tube.reloadBase;
     this._torpedosFired++;
+    this._salvoCD = 6.0;   // 6s między kolejnymi wystrzeleniami
     this.torpedoes.push(new Torpedo(this.scene, this.x, this.y, targetX, targetY));
     return tube.id;   // truthy — kompatybilne z if(fireTorpedo(...))
+  }
+
+  deployNoisemaker() {
+    if (this.noisemakerCount <= 0) return false;
+    this.noisemakerCount--;
+    this.noisemakers.push({
+      x:        this.x,
+      y:        this.y,
+      age:      0,
+      lifetime: 45,        // 45s aktywności
+      noise:    1.2,       // silny sygnał akustyczny — wabik dla torped
+    });
+    return true;
   }
 
   // Rakieta wymaga głębokości ≤ 30m (prawie na powierzchni)
@@ -144,6 +164,7 @@ export class Submarine {
         }
       }
     }
+    this._salvoCD = Math.max(0, this._salvoCD - dt);
 
     // Przekaż wrogów do seekera głowicy akustycznej
     const enemies = (this.scene.enemies || []).filter(e => !e.destroyed);
@@ -154,6 +175,10 @@ export class Submarine {
     this.missileFireCD = Math.max(0, this.missileFireCD - dt);
     for (const m of this.missiles.filter(m => m.dead)) m.destroy();
     this.missiles = this.missiles.filter(m => !m.dead);
+
+    // Wabie akustyczne — starzenie i usuwanie
+    for (const n of this.noisemakers) n.age += dt;
+    this.noisemakers = this.noisemakers.filter(n => n.age < n.lifetime);
   }
 
   // ── Input ──────────────────────────────────────────────────────────────────
@@ -390,96 +415,180 @@ export class Submarine {
     const g = this.graphics;
     g.clear();
 
-    // Wake trail
+    // ── Ślad ruchu ────────────────────────────────────────────────────────────
     for (let i = 1; i < this.trail.length; i++) {
       const p    = this.trail[i];
       const frac = Math.max(0, 1 - p.age / 3.0);
-      g.fillStyle(0x4488aa, frac * 0.18);
-      g.fillCircle(p.x, p.y, 1.5 + frac * 2.5);
+      g.fillStyle(0x4488aa, frac * 0.15);
+      g.fillCircle(p.x, p.y, 1.2 + frac * 2.2);
     }
 
-    // Cavitation cloud behind propeller (world coords, before hull transform)
+    // ── Kawitacja za śrubą ────────────────────────────────────────────────────
     if (this.cavitating) {
-      const px = this.x - Math.cos(this.angle) * 38;
-      const py = this.y - Math.sin(this.angle) * 38;
-      const rx = -Math.sin(this.angle);   // perpendicular to heading
+      const px = this.x - Math.cos(this.angle) * 44;
+      const py = this.y - Math.sin(this.angle) * 44;
+      const rx = -Math.sin(this.angle);
       const ry =  Math.cos(this.angle);
-      for (let i = 0; i < 4; i++) {
-        const spread = Phaser.Math.Between(-7, 7);
-        const cx = px + rx * spread + Math.cos(this.angle) * Phaser.Math.Between(-2, 8);
-        const cy = py + ry * spread + Math.sin(this.angle) * Phaser.Math.Between(-2, 8);
-        g.fillStyle(0xcceeff, 0.18 + Math.random() * 0.22);
-        g.fillCircle(cx, cy, Phaser.Math.Between(2, 5));
+      for (let i = 0; i < 7; i++) {
+        const sp = Phaser.Math.Between(-9, 9);
+        const cx = px + rx * sp + Math.cos(this.angle) * Phaser.Math.Between(-2, 14);
+        const cy = py + ry * sp + Math.sin(this.angle) * Phaser.Math.Between(-2, 14);
+        g.fillStyle(0xbbddf8, 0.15 + Math.random() * 0.25);
+        g.fillCircle(cx, cy, Phaser.Math.Between(2, 7));
       }
     }
 
-    // Bubble stream when blowing ballast
-    if (this.ballast < NEUTRAL_BALLAST - 0.05 && Math.random() < 0.55) {
-      const bx = this.x - Math.cos(this.angle) * 24 + Phaser.Math.Between(-6, 6);
-      const by = this.y - Math.sin(this.angle) * 4  + Phaser.Math.Between(-3, 3);
-      g.fillStyle(0x88ccff, 0.35 + Math.random() * 0.2);
-      g.fillCircle(bx, by, Phaser.Math.Between(1, 3));
+    // ── Bąble przy przedmuchu balastów ────────────────────────────────────────
+    if (this.ballast < NEUTRAL_BALLAST - 0.05 && Math.random() < 0.6) {
+      const bx = this.x + Phaser.Math.Between(-20, 20);
+      const by = this.y + Phaser.Math.Between(-6, 4);
+      g.fillStyle(0x88ccff, 0.30 + Math.random() * 0.22);
+      g.fillCircle(bx, by, Phaser.Math.Between(1, 4));
     }
 
-    // Sediment cloud on floor
+    // ── Osad przy uderzeniu w dno ─────────────────────────────────────────────
     if (this.onFloor && Math.abs(this.vx) > 10) {
-      for (let i = 0; i < 2; i++) {
-        g.fillStyle(0x8a6a3a, 0.12 + Math.random() * 0.1);
-        g.fillCircle(
-          this.x + Phaser.Math.Between(-30, 30),
-          this.y + Phaser.Math.Between(2, 8),
-          Phaser.Math.Between(4, 10)
-        );
+      for (let i = 0; i < 3; i++) {
+        g.fillStyle(0x8a6a3a, 0.10 + Math.random() * 0.10);
+        g.fillCircle(this.x + Phaser.Math.Between(-35, 35), this.y + Phaser.Math.Between(3, 10), Phaser.Math.Between(5, 12));
       }
     }
 
-    // ── Rotated hull ──────────────────────────────────────────────────────
+    // ── Kadłub (układ lokalny) ────────────────────────────────────────────────
     g.save();
     g.translateCanvas(this.x, this.y);
     g.rotateCanvas(this.angle);
 
-    const hullColor = this.hull > 0.6 ? 0x2a3a4a
-                    : this.hull > 0.3 ? 0x3a2a1a : 0x3a1a1a;
-    g.fillStyle(hullColor);
-    g.fillEllipse(0, 0, 72, 22);
+    const hullCol = this.hull > 0.6 ? 0x2c3e50
+                  : this.hull > 0.3 ? 0x3d2418 : 0x3a1212;
 
-    g.fillStyle(0x1a2a3a);
-    g.fillRect(-8, -18, 22, 14);
+    // Cień / podwodna smuga (lekka poświata)
+    g.fillStyle(0x1a2e3e, 0.22);
+    g.fillEllipse(0, 3, 96, 14);
 
-    // Periscope / snorkel mast at shallow depth
+    // Główny kadłub — wielokąt (smuklejszy niż elipsa)
+    g.fillStyle(hullCol, 0.97);
+    g.beginPath();
+    g.moveTo( 48,  0);
+    g.lineTo( 38, -10);
+    g.lineTo(-30, -10);
+    g.lineTo(-44,  -4);
+    g.lineTo(-48,   0);
+    g.lineTo(-44,   4);
+    g.lineTo(-30,  10);
+    g.lineTo( 38,  10);
+    g.closePath();
+    g.fillPath();
+
+    // Ciemniejszy spód kadłuba (cień)
+    g.fillStyle(0x1a2838, 0.45);
+    g.beginPath();
+    g.moveTo( 38,  4);
+    g.lineTo(-30,  4);
+    g.lineTo(-44,  4);
+    g.lineTo(-30, 10);
+    g.lineTo( 38, 10);
+    g.closePath();
+    g.fillPath();
+
+    // Pas wodnicowy — linia między czarnym kadłubem a górną częścią
+    g.fillStyle(0x4a6a7a, 0.28);
+    g.fillRect(-30, -10, 68, 3);
+
+    // Zaokrąglone podkreślenie linii kadłuba
+    g.lineStyle(1, 0x3a5568, 0.40);
+    g.strokeLineShape(new Phaser.Geom.Line(-30, -10, 38, -10));
+
+    // ── Kiosk (sail/conning tower) ────────────────────────────────────────────
+    // Baza kiosku (przechodzi w kadłub)
+    g.fillStyle(0x1e2e3e, 0.95);
+    g.beginPath();
+    g.moveTo( 15, -10);
+    g.lineTo( 15, -24);
+    g.lineTo( 11, -29);
+    g.lineTo( -1, -29);
+    g.lineTo( -6, -24);
+    g.lineTo( -6, -10);
+    g.closePath();
+    g.fillPath();
+
+    // Lewy rant kiosku (podświetlenie)
+    g.fillStyle(0x2e4258, 0.55);
+    g.fillRect(-5, -28, 4, 18);
+
+    // Górna płyta kiosku
+    g.fillStyle(0x182838, 0.9);
+    g.fillRect(-2, -29, 12, 3);
+
+    // Płetwy boczne kiosku (fairwater planes)
+    g.fillStyle(0x1a2838, 0.88);
+    g.fillRect(-9, -16, 4, 3);
+    g.fillRect(15, -16, 4, 3);
+
+    // ── Maszty przy małej głębokości ─────────────────────────────────────────
     if (this.depthMetres < 40) {
-      g.fillStyle(0x1a2a3a);
-      g.fillRect(2, -28, 3, 12);
-      // Snorkel indicator: glows when charging battery
-      g.fillStyle(this.snorkeling ? 0x44ff44 : 0x4aff9a, 0.75);
-      g.fillCircle(3, -29, 3);
+      // Peryskop
+      g.fillStyle(0x152535, 0.95);
+      g.fillRect(4, -29, 2, 11);
+      // Głowica peryskopu
+      g.fillStyle(0x223344, 0.90);
+      g.fillRect(3, -34, 7, 3);
+      g.fillRect(6, -34, 2, 2);
+
+      // Maszt snorchla (cieńszy, wyższy)
+      g.fillStyle(0x152535, 0.85);
+      g.fillRect(-3, -29, 2, 13);
+      // Wskaźnik snorchla — świeci gdy ładuje baterię
+      g.fillStyle(this.snorkeling ? 0x44ff66 : 0x55cc88, this.snorkeling ? 0.90 : 0.55);
+      g.fillCircle(-2, -30, 2.5);
     }
 
-    // Damage cracks
+    // ── Stery rufowe ──────────────────────────────────────────────────────────
+    g.fillStyle(0x152535, 0.80);
+    // Górne stery pionowe (2 płetwy)
+    g.fillRect(-47, -17, 7, 5);
+    g.fillRect(-47,  12, 7, 5);
+    // Poziome stery głębokości (crucifix)
+    g.fillStyle(0x1c3040, 0.75);
+    g.fillRect(-46, -3, 9, 5);
+
+    // ── Śruba napędowa ────────────────────────────────────────────────────────
+    // Osłona śruby (nozzle)
+    g.lineStyle(1.5, 0x2a3e52, 0.65);
+    g.strokeCircle(-48, 0, 6.5);
+    g.fillStyle(0x1a2535, 0.55);
+    g.fillCircle(-48, 0, 5.5);
+
+    // Łopatki — 4-łopatowa śruba
+    const propSpd   = Math.abs(this.enginePower) * (this.battery > 0 ? 1 : 0);
+    const propAngle = (Date.now() * 0.005 * (1 + propSpd * 2.2) * (this.cavitating ? 1.9 : 1)) % (Math.PI * 2);
+    const propCol   = this.cavitating ? 0x99ddff : 0x4a8aaa;
+    g.lineStyle(2, propCol, 0.92);
+    for (let i = 0; i < 4; i++) {
+      const a = propAngle + (i * Math.PI * 2) / 4;
+      g.strokeLineShape(new Phaser.Geom.Line(-48, 0, -48 + Math.cos(a) * 7, Math.sin(a) * 7));
+    }
+
+    // ── Światła nawigacyjne ───────────────────────────────────────────────────
+    g.fillStyle(0xff2222, 1); g.fillCircle(-40, 0, 2.0);   // rufowe czerwone
+    g.fillStyle(0x22dd22, 1); g.fillCircle( 46, 0, 2.0);   // dziobowe zielone
+
+    // ── Uszkodzenia ───────────────────────────────────────────────────────────
     if (this.hull < 0.6) {
-      const ca = (0.6 - this.hull) * 2.8;
-      g.lineStyle(1, 0xff4a4a, ca);
-      g.strokeLineShape(new Phaser.Geom.Line(-22, 4, -12, -4));
-      g.strokeLineShape(new Phaser.Geom.Line(10, -5, 20, 4));
+      const ca = (0.6 - this.hull) * 3.5;
+      g.lineStyle(1.2, 0xff5533, ca);
+      g.strokeLineShape(new Phaser.Geom.Line(-22,  4, -12, -4));
+      g.strokeLineShape(new Phaser.Geom.Line( 12, -5,  22,  4));
       if (this.hull < 0.3) {
         g.strokeLineShape(new Phaser.Geom.Line(0, -8, 8, 5));
         g.strokeLineShape(new Phaser.Geom.Line(-5, 0, 5, 8));
+        // Wyciek ropy
+        if (Math.random() < 0.28) {
+          g.fillStyle(0x885522, 0.38);
+          g.fillCircle(Phaser.Math.Between(-22, 22), Phaser.Math.Between(-7, 7), Phaser.Math.Between(1, 3));
+        }
       }
     }
-
-    // Propeller — spins faster when cavitating, stops when battery dead
-    const propSpeed = Math.abs(this.enginePower) * (this.battery > 0 ? 1 : 0);
-    const propAngle = (Date.now() * 0.006 * propSpeed * (this.cavitating ? 1.6 : 1)) % (Math.PI * 2);
-    g.lineStyle(2, this.cavitating ? 0x88ccff : 0x4a7a9a, 0.85);
-    for (let i = 0; i < 3; i++) {
-      const a = propAngle + (i * Math.PI * 2) / 3;
-      g.strokeLineShape(new Phaser.Geom.Line(
-        -36, 0, -36 + Math.cos(a) * 9, Math.sin(a) * 9
-      ));
-    }
-
-    g.fillStyle(0xff2222, 1); g.fillCircle(-32, 0, 2);
-    g.fillStyle(0x22ff22, 1); g.fillCircle( 32, 0, 2);
 
     g.restore();
   }

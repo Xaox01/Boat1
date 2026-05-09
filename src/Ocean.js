@@ -70,23 +70,23 @@ export class Ocean {
     const H  = this.scene.scale.height + 30;
 
     // Niebo
-    g.fillStyle(0x000814);
+    g.fillStyle(0x000c1a);
     g.fillRect(0, 0, W, SURFACE_Y);
 
-    // Strefa epipelagiczna (powierzchnia → termoklina)
-    g.fillGradientStyle(0x001f3d, 0x001f3d, 0x003060, 0x003060, 1);
+    // Strefa epipelagiczna (powierzchnia → termoklina) — ciemny niebieski
+    g.fillGradientStyle(0x001e3d, 0x001e3d, 0x002a55, 0x002a55, 1);
     g.fillRect(0, SURFACE_Y, W, THERMO_Y - SURFACE_Y);
 
-    // Warstwa termokliny
-    g.fillStyle(0x0a4060, 0.35);
+    // Warstwa termokliny — subtelna granica
+    g.fillStyle(0x0a4a60, 0.50);
     g.fillRect(0, THERMO_Y - 3, W, 12);
 
-    // Strefa mezopelelagiczna (termoklina → dno)
-    g.fillGradientStyle(0x002040, 0x002040, 0x000810, 0x000810, 1);
+    // Strefa mezopelelagiczna — coraz ciemniej w głębinach
+    g.fillGradientStyle(0x001830, 0x001830, 0x000308, 0x000308, 1);
     g.fillRect(0, THERMO_Y, W, H - THERMO_Y);
 
     // ── Wielokąt terenu ───────────────────────────────────────────────────
-    g.fillStyle(0x1a0e06);
+    g.fillStyle(0x1c1008);
     g.beginPath();
     g.moveTo(0, H);
     g.lineTo(0, this._sampleAt(0));
@@ -101,7 +101,7 @@ export class Ocean {
     for (let x = 0; x <= W; x += 26) {
       const fy = this._sampleAt(x);
       const bh = 4 + Math.sin(x * 0.09) * 3 + Math.sin(x * 0.23) * 2;
-      g.fillStyle(0x2a1a0a, 0.72);
+      g.fillStyle(0x3c2810, 0.75);
       g.fillRect(x, fy, 17, Math.max(2, bh));
     }
 
@@ -113,24 +113,24 @@ export class Ocean {
         const rh = Math.min(70, (ROCK_THRESHOLD - fy) * 0.78 + 18);
 
         // Główna iglica
-        g.fillStyle(0x231912, 0.95);
+        g.fillStyle(0x352015, 0.95);
         g.fillTriangle(x - 32, fy + 1, x + 32, fy + 1, x, fy - rh);
         // Rozjaśniona ściana
-        g.fillStyle(0x3c2a1a, 0.62);
+        g.fillStyle(0x503a25, 0.68);
         g.fillTriangle(x - 10, fy + 1, x + 28, fy + 1, x + 10, fy - rh * 0.70);
         // Mała boczna skała
         if (x + 60 < W) {
-          g.fillStyle(0x231912, 0.80);
+          g.fillStyle(0x352015, 0.80);
           g.fillTriangle(x + 30, fy + 1, x + 58, fy + 1, x + 44, fy - rh * 0.44);
         }
         // Osad wokół podstawy
-        g.fillStyle(0x2a1a08, 0.45);
+        g.fillStyle(0x3a2208, 0.50);
         g.fillEllipse(x, fy + 3, 80, 10);
       }
     }
 
     // ── Linijka głębokości (lewa krawędź) ────────────────────────────────
-    g.lineStyle(1, 0x1a4a3a, 0.55);
+    g.lineStyle(1, 0x246655, 0.70);
     const pxPerM = (FLOOR_Y - SURFACE_Y) / 600;
     for (let m = 0; m <= 600; m += 50) {
       const ry = SURFACE_Y + m * pxPerM;
@@ -166,7 +166,7 @@ export class Ocean {
     const t = Date.now() * 0.001;
 
     // Fala powierzchniowa — tylko widoczny odcinek
-    g.lineStyle(1.5, 0x4af0ff, 0.60);
+    g.lineStyle(1.8, 0x55d8ff, 0.85);
     g.beginPath();
     const ws = camX - 4;
     const we = camX + CW + 8;
@@ -186,13 +186,13 @@ export class Ocean {
         p.x = Math.random() * this.W;
       }
       if (p.x >= camX - 100 && p.x <= camX + CW + 100) {
-        g.fillStyle(0x88ddff, p.alpha);
+        g.fillStyle(0x88ccee, p.alpha * 1.5);
         g.fillCircle(p.x, p.y, p.size);
       }
     }
 
     // Poświata termokliny
-    g.lineStyle(1, 0x00aacc, 0.07 + Math.sin(t * 2) * 0.04);
+    g.lineStyle(1.5, 0x00bbdd, 0.18 + Math.sin(t * 2) * 0.07);
     g.strokeLineShape(new Phaser.Geom.Line(camX, this.THERMO_Y + 3, camX + CW, this.THERMO_Y + 3));
   }
 }

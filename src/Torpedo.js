@@ -139,12 +139,14 @@ export class Torpedo {
   _explode() {
     this.exploded     = true;
     this.explodeTimer = 0.65;
+    this._explodeDur  = 0.65;
     if (!this.recentExplosion) this.recentExplosion = { dist: 9999 };
   }
 
   _expire() {
     this.exploded        = true;
     this.explodeTimer    = 0.40;
+    this._explodeDur     = 0.40;
     this.recentExplosion = { dist: 9999 };
   }
 
@@ -154,58 +156,114 @@ export class Torpedo {
     const g = this.gfx;
     g.clear();
 
+    // ── Wybuch ────────────────────────────────────────────────────────────────
     if (this.exploded) {
-      const frac = this.explodeTimer / 0.65;
-      const r    = (1 - frac) * BLAST_R * 2.2;
-      g.lineStyle(3, 0xff8800, frac * 0.85);
+      const dur  = this._explodeDur || 0.65;
+      const frac = Phaser.Math.Clamp(this.explodeTimer / dur, 0, 1);
+      const r    = (1 - frac) * BLAST_R * 2.4;
+
+      // Flash centralny (bardzo krótki)
+      if (frac > 0.82) {
+        g.fillStyle(0xffffff, (frac - 0.82) / 0.18 * 0.9);
+        g.fillCircle(this.x, this.y, r * 0.5 + 8);
+      }
+      // Kula ognia
+      g.fillStyle(0xff8800, frac * 0.70);
+      g.fillCircle(this.x, this.y, r * 0.45);
+      g.fillStyle(0xffdd44, frac * 0.55);
+      g.fillCircle(this.x, this.y, r * 0.25);
+
+      // Główna fala uderzeniowa
+      g.lineStyle(2.5, 0xff7700, frac * 0.80);
       g.strokeCircle(this.x, this.y, r);
-      g.lineStyle(1.5, 0xff4400, frac * 0.5);
-      g.strokeCircle(this.x, this.y, r * 1.5);
-      g.fillStyle(0xffdd00, frac * 0.55);
-      g.fillCircle(this.x, this.y, r * 0.38);
+
+      // Zewnętrzna fala (szybsza)
+      g.lineStyle(1.2, 0xff4400, frac * 0.40);
+      g.strokeCircle(this.x, this.y, r * 1.55);
+
+      // Bąble powietrza (podwodna eksplozja)
+      for (let i = 0; i < 6; i++) {
+        const a  = (i / 6) * Math.PI * 2;
+        const dr = r * (0.6 + (i % 2) * 0.3);
+        g.fillStyle(0xaaddff, frac * 0.45);
+        g.fillCircle(this.x + Math.cos(a) * dr, this.y + Math.sin(a) * dr, 3 + frac * 3);
+      }
       return;
     }
 
-    // Ślad bąbelkowy
+    // ── Ślad bąbelkowy ────────────────────────────────────────────────────────
     for (const p of this.trail) {
-      const frac = Math.max(0, 1 - p.age / 1.2);
-      g.fillStyle(0xaaddff, frac * 0.38);
-      g.fillCircle(p.x, p.y, 1.8 + frac * 2.8);
+      const frac = Math.max(0, 1 - p.age / 1.4);
+      // Podwójny ślad — większe bąble na środku, małe na bokach
+      g.fillStyle(0xbbddff, frac * 0.30);
+      g.fillCircle(p.x, p.y, 2.2 + frac * 3.0);
+      g.fillStyle(0xffffff, frac * 0.12);
+      g.fillCircle(p.x, p.y, 0.9 + frac * 1.2);
     }
 
     g.save();
     g.translateCanvas(this.x, this.y);
     g.rotateCanvas(this.heading);
 
-    // Stożek seekera (rysowany przed kadłubem żeby był pod spodem)
+    // ── Stożek seekera akustycznego ───────────────────────────────────────────
     if (this.armed) {
-      const coneLen   = 58;
+      const coneLen   = 62;
       const coneColor = this.seekerLocked ? 0x44ff88 : 0x226644;
-      const coneAlpha = this.seekerLocked ? 0.28    : 0.09;
+      const coneAlpha = this.seekerLocked ? 0.25     : 0.08;
       g.fillStyle(coneColor, coneAlpha);
       g.beginPath();
       g.moveTo(0, 0);
       g.arc(0, 0, coneLen, -SEEKER_HALF, SEEKER_HALF, false);
       g.closePath();
       g.fillPath();
-
-      // Krawędź stożka
-      g.lineStyle(0.8, coneColor, this.seekerLocked ? 0.70 : 0.22);
+      g.lineStyle(0.8, coneColor, this.seekerLocked ? 0.65 : 0.20);
       g.strokeLineShape(new Phaser.Geom.Line(0, 0, coneLen * Math.cos(-SEEKER_HALF), coneLen * Math.sin(-SEEKER_HALF)));
       g.strokeLineShape(new Phaser.Geom.Line(0, 0, coneLen * Math.cos( SEEKER_HALF), coneLen * Math.sin( SEEKER_HALF)));
     }
 
-    // Kadłub torpedy
-    g.fillStyle(this.armed ? 0xff4400 : 0xffaa00, 1);
-    g.fillEllipse(0, 0, 22, 7);
-    // Głowica (nos)
-    const noseCol = this.seekerLocked ? 0x44ff88 : 0xff2200;
-    g.fillStyle(noseCol, 1);
-    g.fillCircle(11, 0, 3.5);
-    // Stery
-    g.fillStyle(0xcc8800, 0.9);
-    g.fillRect(-11, -5, 5, 3);
-    g.fillRect(-11,  2, 5, 3);
+    // ── Korpus torpedy ────────────────────────────────────────────────────────
+    const bodyCol = this.armed ? 0xcc3300 : 0xdd8800;
+
+    // Obudowa silnika (tył)
+    g.fillStyle(0x774400, 0.90);
+    g.fillEllipse(-10, 0, 16, 7);
+
+    // Główny kadłub
+    g.fillStyle(bodyCol, 0.97);
+    g.fillEllipse(2, 0, 26, 8);
+
+    // Sekcja głowicy bojowej (jaśniejsza)
+    g.fillStyle(this.armed ? 0xee4400 : 0xeeaa00, 0.95);
+    g.fillEllipse(10, 0, 12, 8);
+
+    // Nos / głowica akustyczna
+    const noseCol = this.seekerLocked ? 0x44ffaa : (this.armed ? 0xff2200 : 0xffcc00);
+    g.fillStyle(noseCol, 1.0);
+    g.fillCircle(14, 0, 4.5);
+    // Odblask na głowicy
+    g.fillStyle(0xffffff, 0.35);
+    g.fillCircle(15, -1, 1.8);
+
+    // Linia podziału sekcji kadłuba
+    g.lineStyle(1, 0x551100, 0.55);
+    g.strokeLineShape(new Phaser.Geom.Line(3, -4, 3, 4));
+
+    // ── Stery rufowe (krzyżowe) ───────────────────────────────────────────────
+    g.fillStyle(0x883300, 0.88);
+    g.fillRect(-16, -7, 7, 3);   // górny
+    g.fillRect(-16,  4, 7, 3);   // dolny
+    g.fillRect(-19, -2, 4, 5);   // boczny pionowy (uproszczony)
+
+    // ── Pierścień śruby ───────────────────────────────────────────────────────
+    g.lineStyle(1.2, 0x664400, 0.70);
+    g.strokeCircle(-17, 0, 5);
+    // Łopatki śruby
+    const tPropA = (Date.now() * 0.018) % (Math.PI * 2);
+    g.lineStyle(1.5, 0x996633, 0.80);
+    for (let i = 0; i < 3; i++) {
+      const a = tPropA + (i * Math.PI * 2) / 3;
+      g.strokeLineShape(new Phaser.Geom.Line(-17, 0, -17 + Math.cos(a) * 4.5, Math.sin(a) * 4.5));
+    }
 
     g.restore();
   }

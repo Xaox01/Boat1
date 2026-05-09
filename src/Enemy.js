@@ -11,22 +11,22 @@ const HUNT_OVERSHOOT  = 180;
 const WITHDRAW_SPEED  = 44;   // Wycofywanie — szybciej niż patrol, wolniej niż atak
 
 // Zachowanie po trafieniu
-const SHOCK_BASE      = 5.0;  // sekundy dezorientacji/spowolnienia po trafieniu
+const SHOCK_BASE      = 3.0;  // sekundy dezorientacji — mniej czasu dla gracza
 
-// Wykrywanie — dłuższe buildup = więcej czasu na reakcję
-const BASE_HYDROPHONE  = 420;
+// Wykrywanie — agresywne, krótki buildup
+const BASE_HYDROPHONE  = 560;   // lepsze hydrofony
 const THERMO_MASK      = 0.50;
-const ALERT_THRESHOLD  = 2.2;
-const HUNT_THRESHOLD   = 8.0;    // dużo trudniej wykryć
-const SEARCH_DURATION  = 55;
+const ALERT_THRESHOLD  = 1.4;   // szybciej przechodzi w ALERT
+const HUNT_THRESHOLD   = 5.5;   // szybciej przechodzi w HUNT
+const SEARCH_DURATION  = 70;    // dłużej szuka po utracie kontaktu
 
 // Zarzuty głębinowe
-const CHARGE_COOLDOWN  = 14.0;
+const CHARGE_COOLDOWN  = 9.0;   // częstsze zrzuty
 const CHARGE_FALL_SPD  = 80;
-const CHARGE_BLAST_R   = 88;
+const CHARGE_BLAST_R   = 108;   // większy promień wybuchu
 
 // ASROC
-const ASROC_COOLDOWN   = 90;    // s między salwami — rzadki, ale groźny
+const ASROC_COOLDOWN   = 55;    // częstsze salwy
 const ASROC_MIN_DIST   = 400;
 const ASROC_MAX_DIST   = 3400;
 
@@ -111,8 +111,8 @@ export class Enemy {
     // Zgubienie namierzenia (szok zakłóca hydrofonię i radar)
     this.detectTimer = Math.max(0, this.detectTimer - 2.2);
 
-    // Po poważnym trafieniu — przejdź w tryb wycofywania
-    if (this.hull < 0.5 && !this._withdrawing) {
+    // Po poważnym trafieniu — przejdź w tryb wycofywania (dopiero przy małym kadłubie)
+    if (this.hull < 0.25 && !this._withdrawing) {
       this._withdrawing = true;
       // Zapamiętaj kierunek ucieczki (od okrętu gracza)
       this._withdrawDir = Math.sign(this.x - this.lastKnownSubX) || this.dir;
@@ -247,8 +247,8 @@ export class Enemy {
       this.overshootX  = null;
     }
 
-    // Wycofanie nadpisuje inne stany gdy okręt poważnie uszkodzony
-    if (this._withdrawing || this.hull < 0.25) {
+    // Wycofanie nadpisuje inne stany gdy okręt krytycznie uszkodzony
+    if (this._withdrawing || this.hull < 0.10) {
       this._withdrawing = true;
       this.state        = STATE.WITHDRAW;
     }
@@ -400,7 +400,7 @@ export class Enemy {
 
         if (dist < CHARGE_BLAST_R) {
           const ratio = 1 - dist / CHARGE_BLAST_R;
-          sub.hull -= Phaser.Math.Clamp(ratio * 0.40, 0.04, 0.40);
+          sub.hull -= Phaser.Math.Clamp(ratio * 0.58, 0.05, 0.58);
         }
         this.recentExplosions.push({ x: c.x, y: c.y, dist });
       }
@@ -609,42 +609,113 @@ export class Enemy {
       g.fillCircle(this.x - 8, SURF - 22, 3);
     }
 
-    // Kadłub
-    g.fillStyle(col, 0.92 * shipAlpha);
-    g.fillRect(this.x - 28, SURF - 9, 56, 9);
+    // Używamy układu lokalnego z centrum na (this.x, SURF)
+    g.save();
+    g.translateCanvas(this.x, SURF);
 
-    // Mostek
-    g.fillStyle(col, shipAlpha);
-    g.fillRect(this.x - 5, SURF - 18, 18, 9);
+    const d = this.dir;   // +1 = płynie w prawo (dziób po prawej)
+    const a = shipAlpha;
 
-    // Wyrzutnia ASROC
-    g.fillStyle(0x888888, 0.80 * shipAlpha);
-    g.fillRect(this.x + this.dir * 12, SURF - 13, this.dir * 10, 5);
-    g.fillStyle(0x444444, 0.70 * shipAlpha);
-    g.fillRect(this.x + this.dir * 14, SURF - 15, this.dir * 6, 3);
+    // ── Dziób (trójkąt przed kadłubem) ───────────────────────────────────────
+    g.fillStyle(col, 0.95 * a);
+    g.fillTriangle(d * 38, -4, d * 28, -11, d * 28, 1);
 
-    // Maszt
-    g.fillStyle(0xffffff, 0.45 * shipAlpha);
-    g.fillRect(this.x + 4, SURF - 25, 2, 7);
+    // ── Cień podwodnej części kadłuba ─────────────────────────────────────────
+    g.fillStyle(0x111820, 0.55 * a);
+    g.fillRect(-28, 0, 56, 6);
 
-    // Wskaźnik dziobu
-    g.fillStyle(0xffffff, 0.38 * shipAlpha);
-    g.fillTriangle(
-      this.x + this.dir * 28, SURF - 4,
-      this.x + this.dir * 19, SURF - 9,
-      this.x + this.dir * 19, SURF
-    );
+    // ── Główny kadłub (nad i pod linią wody) ──────────────────────────────────
+    g.fillStyle(col, 0.92 * a);
+    g.fillRect(-28, -10, 56, 10);
 
-    // Pęknięcia
-    if (this.hull < 0.6) {
-      const ca = (0.6 - this.hull) * 3.2 * shipAlpha;
-      g.lineStyle(1, 0xff4a4a, ca);
-      g.strokeLineShape(new Phaser.Geom.Line(this.x - 18, SURF - 6, this.x - 8, SURF - 2));
-      g.strokeLineShape(new Phaser.Geom.Line(this.x + 10, SURF - 7, this.x + 20, SURF - 1));
-      if (this.hull < 0.3) {
-        g.fillStyle(0xff8800, 0.35 * shipAlpha);
-        g.fillCircle(this.x + Phaser.Math.Between(-15, 15), SURF - 4, 5);
+    // Jasna linia wodnicowa
+    g.lineStyle(1, 0xffffff, 0.18 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(-28, 0, 28, 0));
+
+    // ── Pokład forecastle (dziób podniesiony) ─────────────────────────────────
+    g.fillStyle(col, 0.88 * a);
+    g.fillRect(d * 8, -14, d * 20, 4);
+
+    // ── Wieża artyleryjna na dziobie ──────────────────────────────────────────
+    g.fillStyle(0x666677, 0.88 * a);
+    g.fillCircle(d * 18, -13, 5);
+    // Lufa działa
+    g.lineStyle(2, 0x888899, 0.90 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(d * 18, -13, d * 30, -14));
+
+    // ── Mostek / nadbudówka (centrum okrętu) ──────────────────────────────────
+    // Podstawa nadbudówki
+    g.fillStyle(col, 0.95 * a);
+    g.fillRect(-8, -20, 18, 10);
+    // Piętro mostu
+    g.fillStyle(0x445566, 0.88 * a);
+    g.fillRect(-5, -27, 13, 7);
+    // Okna mostka (3 małe kwadraty)
+    g.fillStyle(0x99bbcc, 0.40 * a);
+    for (let i = 0; i < 3; i++) g.fillRect(-3 + i * 4, -26, 3, 3);
+
+    // ── Komin (funnel) ────────────────────────────────────────────────────────
+    g.fillStyle(0x334455, 0.90 * a);
+    g.fillRect(-d * 4, -31, 7, 11);
+    // Nasadka komina
+    g.fillStyle(0x223344, 0.95 * a);
+    g.fillRect(-d * 5, -33, 9, 3);
+
+    // Dym z komina (animowany) — tylko gdy silnik pracuje
+    if (this.state !== STATE.PATROL || this._listening === false) {
+      const t = Date.now() * 0.001;
+      for (let i = 0; i < 4; i++) {
+        const age  = (i * 0.25 + t * 0.35) % 1;
+        const sx   = -d * 1 + Math.sin(t * 0.8 + i) * 3 * age;
+        const sy   = -(33 + age * 28);
+        const sr   = 3 + age * 7;
+        g.fillStyle(0x888898, (1 - age) * 0.30 * a);
+        g.fillCircle(sx, sy, sr);
       }
     }
+
+    // ── Maszt z radarem ───────────────────────────────────────────────────────
+    g.fillStyle(0xbbccdd, 0.50 * a);
+    g.fillRect(-1, -36, 2, 9);   // maszt
+    // Antena radaru (obracający się element)
+    const radarAngle = (Date.now() * 0.0018) % (Math.PI * 2);
+    g.lineStyle(1.5, 0x88aacc, 0.65 * a);
+    const rx1 = Math.cos(radarAngle) * 7, ry1 = Math.sin(radarAngle) * 3;
+    g.strokeLineShape(new Phaser.Geom.Line(0, -36, rx1, -36 + ry1));
+    g.strokeLineShape(new Phaser.Geom.Line(0, -36, -rx1, -36 - ry1));
+
+    // ── Wyrzutnia ASROC ───────────────────────────────────────────────────────
+    g.fillStyle(0x778899, 0.82 * a);
+    g.fillRect(d * 10, -15, d * 12, 5);
+    g.fillStyle(0x556677, 0.75 * a);
+    g.fillRect(d * 11, -18, d * 8, 3);
+    // Wskaźnik gotowości ASROC (świeci gdy CD < 6s)
+    if (this.asrocCD < 6) {
+      const frac = 1 - this.asrocCD / 6;
+      g.fillStyle(0xff8800, frac * 0.90 * a);
+      g.fillCircle(d * 14, -19, 3);
+    }
+
+    // ── Wyrzutniki torped (burta) ─────────────────────────────────────────────
+    g.fillStyle(0x556677, 0.70 * a);
+    g.fillRect(-d * 20, -9, d * 6, 4);
+
+    // ── Pęknięcia / ogień przy uszkodzeniach ─────────────────────────────────
+    if (this.hull < 0.6) {
+      const ca = (0.6 - this.hull) * 3.5 * a;
+      g.lineStyle(1.2, 0xff5533, ca);
+      g.strokeLineShape(new Phaser.Geom.Line(-18, -7, -8, -2));
+      g.strokeLineShape(new Phaser.Geom.Line(10, -8, 20, -1));
+      if (this.hull < 0.3) {
+        // Ogień na pokładzie
+        const ft = Date.now() * 0.001;
+        g.fillStyle(0xff6600, (0.5 + 0.5 * Math.sin(ft * 8)) * 0.70 * a);
+        g.fillCircle(d * 5 + Math.sin(ft * 5) * 3, -13, 5 + Math.sin(ft * 7) * 2);
+        g.fillStyle(0xff2200, 0.45 * a);
+        g.fillCircle(d * 5, -16, 3);
+      }
+    }
+
+    g.restore();
   }
 }
