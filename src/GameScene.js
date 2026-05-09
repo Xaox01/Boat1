@@ -1122,17 +1122,14 @@ export class GameScene extends Phaser.Scene {
       fontSize: '14px', color: '#aaaaaa', fontFamily: 'Courier New',
     }).setOrigin(0.5).setDepth(201);
 
-    this.add.text(CAM_W / 2, CAM_H / 2 + 52, '[ ENTER — zagraj ponownie  ·  M — menu główne ]', {
+    this.add.text(CAM_W / 2, CAM_H / 2 + 52, '[ ENTER — zagraj ponownie ]', {
       fontSize: '10px', color: '#555555', fontFamily: 'Courier New',
     }).setOrigin(0.5).setDepth(201);
 
     this.input.keyboard.once('keydown-ENTER', () => {
       document.getElementById('game-ui').classList.remove('active');
+      document.getElementById('side-panel').classList.remove('active');
       this.scene.restart();
-    });
-    this.input.keyboard.once('keydown-M', () => {
-      document.getElementById('game-ui').classList.remove('active');
-      this.scene.start('MenuScene');
     });
   }
 
