@@ -71,8 +71,8 @@ export class Torpedo {
     if (this.distTraveled >= ARM_DIST) this.armed = true;
 
     const SURF  = this.scene.SURFACE_Y;
-    const FLOOR = this.scene.OCEAN_FLOOR_Y;
-    if (this.y < SURF || this.y > FLOOR) this._expire();
+    const FLOOR = this.scene.floorAt ? this.scene.floorAt(this.x) : this.scene.OCEAN_FLOOR_Y;
+    if (this.y < SURF || this.y >= FLOOR) this._expire();
 
     this.trail.push({ x: this.x, y: this.y, age: 0 });
     if (this.trail.length > 28) this.trail.shift();

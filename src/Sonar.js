@@ -97,7 +97,12 @@ export class Sonar {
         enemyNoise * 780 * sonarBonus / Math.max(info.distance, 80), 0, 1
       );
       if (sig < 0.03) {
-        // Poza zasięgiem — nie klasyfikuj
+        // Poza zasięgiem — klasyfikacja zanika (pamięć hydrofonu blaknie)
+        if (enemy.classifyTimer > 0) {
+          enemy.classifyTimer = Math.max(0, enemy.classifyTimer - dt * 0.4);
+          if (enemy.classifyTimer < 18) enemy.contactClass = 'UNK';
+          else if (enemy.classifyTimer < 55) enemy.contactClass = 'SURFACE';
+        }
         continue;
       }
 

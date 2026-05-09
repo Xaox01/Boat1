@@ -260,6 +260,15 @@ export class TestBot {
       this._log(`NASŁUCH — zatrzymanie silnika (${sub.depthMetres}m)`, 'phase');
     }
 
+    // Ping aktywny po 3s ciszy — gdy wróg nieznany i brak zagrożenia
+    if (this._stateTimer > 3 && this._stateTimer < 3.15 && !this._anyHunting()) {
+      const scene = this.scene;
+      if (scene._pingCD <= 0) {
+        scene._firePing();
+        this._log('PING aktywny — skanowanie zasięgu', 'phase');
+      }
+    }
+
     // Loguj jeśli wykryte kontakty
     const alerted = (this.scene.enemies || []).filter(e => e.detectTimer > 0.2);
     if (alerted.length && this._logCD <= 0) {
@@ -339,26 +348,41 @@ export class TestBot {
       return;
     }
 
+    // Czekaj na inter-salvo cooldown
+    if (sub._salvoCD > 0) {
+      if (this._logCD <= 0) {
+        this._log(`Salvo cooldown (${sub._salvoCD.toFixed(1)}s) — czekam`, 'info');
+        this._logCD = 2;
+      }
+      return;
+    }
+
+    // Brak gotowych rur — czekaj lub rezygnuj
+    if (sub.torpedoCount === 0) {
+      if (this._stateTimer > 12) {
+        this._log(`Brak gotowych rur — powrót do patrolu`, 'fail');
+        this._setState(STATES.PATROL);
+      }
+      return;
+    }
+
     // Wystrzał z punktem ołowiu
     const leadX = this._solution ? this._solution.x : target.x;
-    const leadY = SURFACE_Y + 5;   // torpeda płynie ku powierzchni — wróg tam jest
+    const leadY = SURFACE_Y + 5;
     const result = sub.fireTorpedo(leadX, leadY);
 
     if (result) {
       this._stats.torpsfired++;
       const range = Math.abs(target.x - sub.x);
-      this._log(`Torpeda #${result} → lead ${leadX.toFixed(0)}px (dystans: ${range.toFixed(0)}px)`, 'ok');
+      this._log(`Torpeda #${result} → lead ${leadX.toFixed(0)}px (dyst: ${range.toFixed(0)}px)`, 'ok');
       this._attackCD = 8;
       this._torpTestCD = 4;
       this._target = null;
-
-      // Zanurz głębiej po strzale
       sub.targetBallast = 0.88;
       this._setState(STATES.EVADE);
       this._log('Po strzale — nurkowanie defensywne', 'phase');
     } else if (this._stateTimer > 3) {
-      // Brak rur — wróć do patrolu
-      this._log(`Brak gotowych rur (${sub.torpedoCount}/4) — oczekiwanie`, 'fail');
+      this._log('Strzał niemożliwy — powrót do patrolu', 'fail');
       this._setState(STATES.PATROL);
     }
   }

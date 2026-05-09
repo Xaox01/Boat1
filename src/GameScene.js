@@ -334,10 +334,13 @@ export class GameScene extends Phaser.Scene {
     for (const enemy of this.enemies) {
       enemy.update(dt, this.sub);
       if (enemy.recentPingHit) {
-        this._logEvent('PING! Aktywny sonar — wykryto echo!');
+        this._logEvent('PING! Aktywny sonar — jesteśmy namierzeni!');
         const pb = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
         const pr = this._rng(this.sub.x, this.sub.y, enemy.x, enemy.y);
-        this._shipLog(`AKTYWNY: echa sonar — ${enemy.label || 'kontakt'}. Nam. ${pb}°, dyst. ${pr}m.`, 'warn');
+        this._shipLog(`PING aktywny z ${enemy.label || 'niszczyciela'}. Nam. ${pb}°, dyst. ${pr}m. Pozycja ujawniona.`, 'danger');
+        // Sonarne uderzenie — krótki błysk niebieski + lekki wstrząs
+        this.cameras.main.shake(90, 0.0045);
+        this.cameras.main.flash(55, 0, 180, 255, false);
       }
       if (enemy.recentASROC) {
         this._logEvent('ASROC! Rakieta p/okrętowa odpalona!');
