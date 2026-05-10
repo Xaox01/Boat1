@@ -7,6 +7,7 @@ import { TestBot } from './TestBot.js';
 import { Merchant } from './Merchant.js';
 import { MissionSystem } from './MissionSystem.js';
 import { SaveSystem } from './SaveSystem.js';
+import { TutorialMission } from './TutorialMission.js';
 
 const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
@@ -191,14 +192,6 @@ export class GameScene extends Phaser.Scene {
     this._sandboxSpawnCD  = 0;    // cooldown do następnego spawnu
     this._waveTimer       = 0;    // czas do eskalacji zagrożenia
 
-    // Samouczek — sekwencja podpowiedzi podczas odliczania do spawnu wrogów
-    this._tutorialTip  = document.getElementById('tutorial-tip');
-    this._tutorialText = document.getElementById('tutorial-text');
-    this._tutorialHints = [];
-    this._tutorialIdx   = 0;
-    this._tutorialTimer = 0;
-    this._tutorialHideTimer = 0;
-
     this._missionTime = 0;   // sekundy od startu misji
 
     // Mapa taktyczna
@@ -233,17 +226,10 @@ export class GameScene extends Phaser.Scene {
     this._activePings = [];   // { subX, subY, r, maxR, alpha, echoedEnemies, echoes }
     this._pingCD      = 0;
 
-    // ── Konwój statków handlowych — Misja 1 ───────────────────────────────
+    // ── Merchants i misja — inicjowane przez tutorial lub wczytanie ──────
     this.merchants = [];
-    const CONVOY_NAMES  = ['LENSKY', 'KALININ', 'TBLISI', 'NOVOROSSIYSK'];
-    const CONVOY_STARTS = [2200, 4000, 6200, 8400];
-    for (let i = 0; i < 4; i++) {
-      const m = new Merchant(this, CONVOY_STARTS[i], 1, CONVOY_NAMES[i]);
-      this.merchants.push(m);
-    }
-
-    // System misji
-    this.mission = new MissionSystem(this);
+    this.mission   = null;
+    this.tutorial  = null;
 
     // ── Zapis / wczytanie ──────────────────────────────────────────────────
     const fromSave = SaveSystem.consumeLoadRequest();
@@ -252,10 +238,10 @@ export class GameScene extends Phaser.Scene {
       if (save) {
         this._restoreFromSave(save);
       } else {
-        this.mission.startMission1();
+        this._startTutorial();
       }
     } else {
-      this.mission.startMission1();
+      this._startTutorial();
     }
 
     // Auto-zapis co 30s
@@ -298,7 +284,15 @@ export class GameScene extends Phaser.Scene {
     this._wave      = save.wave ?? 1;
     this._waveTimer = save.waveTimer ?? 0;
 
-    // Konwój
+    // Konwój — odtwórz z zapisu
+    const CONVOY = [
+      { x: 2200, dir: 1, label: 'LENSKY' },
+      { x: 4000, dir: -1, label: 'KALININ' },
+      { x: 6200, dir: 1, label: 'TBLISI' },
+      { x: 8400, dir: -1, label: 'NOVOROSSIYSK' },
+    ];
+    for (const c of CONVOY) this.merchants.push(new Merchant(this, c.x, c.dir, c.label));
+
     const sms = save.merchants ?? [];
     for (let i = 0; i < this.merchants.length; i++) {
       const sm = sms[i];
@@ -313,6 +307,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Misja
+    this.mission = new MissionSystem(this);
     this.mission.startMission1();
     if (save.mission) {
       this.mission.active.complete = save.mission.complete;
@@ -334,14 +329,13 @@ export class GameScene extends Phaser.Scene {
 
     const dt = delta / 1000;
 
-    // Opóźnione pojawienie się niszczycieli + samouczek
-    if (!this._enemiesSpawned) {
+    // Tutorial aktualizacja
+    if (this.tutorial) this.tutorial.update(dt);
+
+    // Opóźnione pojawienie się niszczycieli (tylko po tutorialu)
+    if (!this._enemiesSpawned && !this.tutorial) {
       this._enemySpawnTimer += dt;
       if (this._enemySpawnTimer >= 15) this._spawnEnemies();
-      this._updateTutorial(dt);
-    } else if (this._tutorialTip.classList.contains('visible')) {
-      // Ukryj panel po spawnie wrogów
-      this._tutorialTip.classList.remove('visible');
     }
 
     // B = toggle bota testowego
@@ -1421,29 +1415,6 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  _updateTutorial(dt) {
-    this._tutorialTimer += dt;
-
-    // Pokaż następną podpowiedź gdy nadszedł jej czas
-    if (this._tutorialIdx < this._tutorialHints.length) {
-      const hint = this._tutorialHints[this._tutorialIdx];
-      if (this._tutorialTimer >= hint.at) {
-        this._tutorialText.textContent = hint.msg;
-        this._tutorialTip.classList.add('visible');
-        this._tutorialIdx++;
-        this._tutorialHideTimer = 3.2; // tyle sekund widoczna
-      }
-    }
-
-    // Chowaj po czasie
-    if (this._tutorialTip.classList.contains('visible')) {
-      this._tutorialHideTimer -= dt;
-      if (this._tutorialHideTimer <= 0 && this._tutorialIdx >= this._tutorialHints.length) {
-        this._tutorialTip.classList.remove('visible');
-      }
-    }
-  }
-
   _getDifficulty() {
     return this.registry.get('difficulty') || { enemies: 3, speedMult: 1.0 };
   }
@@ -1465,6 +1436,49 @@ export class GameScene extends Phaser.Scene {
     for (const e of this.enemies) this._prevEnemyState.set(e, STATE.PATROL);
     this._logEvent(`UWAGA: Wykryto ${count} wrogie jednostki ZOP!`);
     this._shipLog(`Sygnał wywiadu: ${count} sowieckie BPK wykryte w rejonie operacji.`, 'danger');
+  }
+
+  // ── Tutorial ──────────────────────────────────────────────────────────────
+
+  _startTutorial() {
+    // Cel treningowy — jeden statek, bliżej gracza, wolno dryfujący
+    const trainingTarget = new Merchant(this, 1800, -1, 'CEL TRENINGOWY');
+    trainingTarget.speed = 8;   // wolniejszy — łatwiej namierzyć
+    this.merchants.push(trainingTarget);
+
+    this._enemiesSpawned = true;   // blokuj auto-spawn wrogów podczas tutorialu
+    this._enemySpawnTimer = 0;
+
+    this.tutorial = new TutorialMission(this);
+    this.tutorial.start(trainingTarget);
+  }
+
+  _startMission1Combat() {
+    // Usuń cel treningowy (zniszczony lub nie)
+    for (const m of this.merchants) {
+      if (m.gfx) m.gfx.destroy();
+    }
+    this.merchants = [];
+
+    // Dodaj konwój
+    const CONVOY = [
+      { x: 2200, dir:  1, label: 'LENSKY' },
+      { x: 4000, dir: -1, label: 'KALININ' },
+      { x: 6200, dir:  1, label: 'TBLISI' },
+      { x: 8400, dir: -1, label: 'NOVOROSSIYSK' },
+    ];
+    for (const c of CONVOY) this.merchants.push(new Merchant(this, c.x, c.dir, c.label));
+
+    // Start misji
+    this.mission = new MissionSystem(this);
+    this.mission.startMission1();
+
+    // Zresetuj i spawniaj wrogów
+    this.tutorial          = null;
+    this._enemiesSpawned   = false;
+    this._enemySpawnTimer  = 14;   // spawn przy następnej klatce
+
+    this._logEvent('ROZKAZ: Konwój sowiecki wykryty — przystąp do ataku!');
   }
 
   // ── Tryb piaskownicy — ciągłe uzupełnianie i eskalacja ────────────────────
