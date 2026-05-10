@@ -318,6 +318,45 @@
     }
     @keyframes threat-pulse { from { opacity: 0.6; } to { opacity: 1; } }
 
+    /* ── Panel misji ─────────────────────────────────────────── */
+    #mission-panel {
+      display: none;
+      padding: 0 10px 8px;
+      flex-shrink: 0;
+    }
+
+    #mission-name {
+      color: #ffcc44;
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      padding: 2px 0 5px;
+      text-shadow: 0 0 8px rgba(255,200,0,0.6);
+    }
+
+    .mission-obj {
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      padding: 2px 0;
+      line-height: 1.5;
+    }
+
+    .mission-obj.pending {
+      color: #88aaaa;
+    }
+
+    .mission-obj.done {
+      color: #44ffaa;
+      text-shadow: 0 0 7px rgba(50,255,130,0.5);
+    }
+
+    .mission-obj.mission-complete {
+      color: #ffdd55;
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-shadow: 0 0 10px rgba(255,210,0,0.8);
+      margin-top: 4px;
+    }
+
     /* ── Bot panel ───────────────────────────────────────────── */
     #bot-panel {
       display: none;
@@ -593,6 +632,15 @@
           <span class="tp-value nodata" id="tp-trend">---</span>
         </div>
         <div id="tp-threat" class="tp-threat"></div>
+      </div>
+
+      <div class="lp-divider">────────────────────────</div>
+
+      <!-- Panel misji -->
+      <div id="mission-panel">
+        <div class="lp-section-title">MISJA</div>
+        <div id="mission-name"></div>
+        <div id="mission-objectives"></div>
       </div>
 
       <div class="lp-divider">────────────────────────</div>

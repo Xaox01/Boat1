@@ -4,6 +4,8 @@ import { Submarine } from './Submarine.js';
 import { Enemy, STATE } from './Enemy.js';
 import { Sonar } from './Sonar.js';
 import { TestBot } from './TestBot.js';
+import { Merchant } from './Merchant.js';
+import { MissionSystem } from './MissionSystem.js';
 
 const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
@@ -230,6 +232,19 @@ export class GameScene extends Phaser.Scene {
     this._activePings = [];   // { subX, subY, r, maxR, alpha, echoedEnemies, echoes }
     this._pingCD      = 0;
 
+    // ── Konwój statków handlowych — Misja 1 ───────────────────────────────
+    this.merchants = [];
+    const CONVOY_NAMES  = ['LENSKY', 'KALININ', 'TBLISI', 'NOVOROSSIYSK'];
+    const CONVOY_STARTS = [2200, 4000, 6200, 8400];
+    for (let i = 0; i < 4; i++) {
+      const m = new Merchant(this, CONVOY_STARTS[i], 1, CONVOY_NAMES[i]);
+      this.merchants.push(m);
+    }
+
+    // System misji
+    this.mission = new MissionSystem(this);
+    this.mission.startMission1();
+
     this._logEvent('Zanurz się — wrogie jednostki w pobliżu!');
     this._shipLog('ORP Orzeł — misja bojowa. Zanurzono na pozycję.', 'info');
   }
@@ -381,25 +396,41 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Tykanie i trafienia rakiet gracza
-    for (const m of this.sub.missiles) {
-      m.update(dt, this.enemies.filter(e => !e.destroyed));
-      if (m.recentHit) {
-        const { enemy, damage } = m.recentHit;
-        enemy.hull -= damage;
-        enemy.onHit();
-        this.cameras.main.shake(400, 0.014);
+    const allMissileTargets = [
+      ...this.enemies.filter(e => !e.destroyed),
+      ...this.merchants.filter(m => !m.destroyed),
+    ];
+    for (const mis of this.sub.missiles) {
+      mis.update(dt, allMissileTargets);
+      if (mis.recentHit) {
+        const { enemy: target, damage } = mis.recentHit;
+        const isMerchant = this.merchants.includes(target);
+        target.hull -= damage;
+        target.onHit();
+        this.cameras.main.shake(isMerchant ? 350 : 400, isMerchant ? 0.012 : 0.014);
         this.cameras.main.flash(200, 255, 160, 60, false);
-        if (enemy.hull <= 0) {
-          enemy.destroyed = true;
-          this._logEvent(`${enemy.label || 'Niszczyciel'} zatopiony rakietą!`);
-          const mb2 = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
-          const mr2 = this._rng(this.sub.x, this.sub.y, enemy.x, enemy.y);
-          this._shipLog(`Cel zatopiony rakietą — ${enemy.label || 'niszczyciel'}. Nam. ${mb2}°, dyst. ${mr2}m.`, 'good');
+        if (target.hull <= 0) {
+          target.destroyed = true;
+          const mb2 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
+          const mr2 = this._rng(this.sub.x, this.sub.y, target.x, target.y);
+          if (isMerchant) {
+            this._logEvent(`${target.label} zatopiony rakietą!`);
+            this._shipLog(`Cel handlowy zatopiony rakietą — ${target.label}. Nam. ${mb2}°, dyst. ${mr2}m.`, 'good');
+            this.mission.onMerchantDestroyed(target);
+          } else {
+            this._logEvent(`${target.label || 'Niszczyciel'} zatopiony rakietą!`);
+            this._shipLog(`Cel zatopiony rakietą — ${target.label || 'niszczyciel'}. Nam. ${mb2}°, dyst. ${mr2}m.`, 'good');
+          }
         } else {
-          this._logEvent(`Rakieta trafiła — ${enemy.label || 'niszczyciel'} uszkodzony!`);
-          const mb3 = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
-          const withdrawMsg = enemy.hull < 0.5 ? ' Cel wycofuje się.' : '';
-          this._shipLog(`Trafienie rakietą — ${enemy.label || 'niszczyciel'}. Nam. ${mb3}°.${withdrawMsg}`, 'warn');
+          const mb3 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
+          if (isMerchant) {
+            this._logEvent(`Trafiono ${target.label} rakietą!`);
+            this._shipLog(`Trafienie rakietą — ${target.label}. Kadłub: ${Math.round(target.hull * 100)}%. Nam. ${mb3}°.`, 'warn');
+          } else {
+            this._logEvent(`Rakieta trafiła — ${target.label || 'niszczyciel'} uszkodzony!`);
+            const withdrawMsg = target.hull < 0.5 ? ' Cel wycofuje się.' : '';
+            this._shipLog(`Trafienie rakietą — ${target.label || 'niszczyciel'}. Nam. ${mb3}°.${withdrawMsg}`, 'warn');
+          }
         }
       }
     }
@@ -433,6 +464,43 @@ export class GameScene extends Phaser.Scene {
     for (const e of this.enemies.filter(e => e.destroyed)) e.gfx.destroy();
     this.enemies = this.enemies.filter(e => !e.destroyed);
 
+    // ── Konwój — aktualizacja i trafienia ────────────────────────────────────
+    for (const m of this.merchants) {
+      m.update(delta / 1000);
+    }
+
+    // Torpedy vs merchanty
+    for (const t of this.sub.torpedoes) {
+      for (const m of this.merchants.filter(m => !m.destroyed)) {
+        const dmg = t.checkHit(m);
+        if (dmg > 0) {
+          m.hull -= dmg;
+          m.onHit();
+          this.cameras.main.shake(200, 0.006);
+          this.cameras.main.flash(100, 255, 200, 80, false);
+          if (m.hull <= 0) {
+            m.destroyed = true;
+            this._logEvent(`${m.label} — zatopiony!`);
+            const mb = this._brg(this.sub.x, this.sub.y, m.x, m.y);
+            const mr = this._rng(this.sub.x, this.sub.y, m.x, m.y);
+            this._shipLog(`Cel handlowy zatopiony torpedą — ${m.label}. Nam. ${mb}°, dyst. ${mr}m.`, 'good');
+            this.mission.onMerchantDestroyed(m);
+          } else {
+            const mb = this._brg(this.sub.x, this.sub.y, m.x, m.y);
+            this._logEvent(`Trafiono ${m.label}!`);
+            this._shipLog(`Trafienie — ${m.label}. Kadłub: ${Math.round(m.hull * 100)}%. Nam. ${mb}°.`, 'warn');
+          }
+        }
+      }
+    }
+
+    // Usuń zatopione merchanty (gfx)
+    for (const m of this.merchants.filter(m => m.destroyed)) m.gfx.destroy();
+    this.merchants = this.merchants.filter(m => !m.destroyed);
+
+    // Aktualizacja misji
+    this.mission.update();
+
     // Piaskownica — ciągłe uzupełnianie wrogów
     if (!this._gameOver && this._enemiesSpawned) {
       this._sandboxUpdate(dt);
@@ -458,7 +526,7 @@ export class GameScene extends Phaser.Scene {
     this._applyCamera();
     this.ocean.update(delta, this.camX);
     this._updatePings(dt);
-    this.sonar.update(delta, this.sub, this.enemies, this.sub.torpedoes, this._activePings);
+    this.sonar.update(delta, this.sub, [...this.enemies, ...this.merchants], this.sub.torpedoes, this._activePings);
     this._drawBearingLines();
     this._drawPings();
     this._updateHUD();
@@ -501,6 +569,7 @@ export class GameScene extends Phaser.Scene {
     }
     for (const t of this.sub.torpedoes) t.gfx.x = -this.camX;
     for (const m of this.sub.missiles)  m.gfx.x = -this.camX;
+    for (const m of this.merchants)     m.gfx.x = -this.camX;
   }
 
   // ── HUD ────────────────────────────────────────────────────────────────────
@@ -613,15 +682,19 @@ export class GameScene extends Phaser.Scene {
 
   _updateTargetPanel() {
     const sub     = this.sub;
-    const enemies = this.enemies.filter(e => !e.destroyed);
+    const allTargets = [
+      ...this.enemies.filter(e => !e.destroyed),
+      ...this.merchants.filter(m => !m.destroyed),
+    ];
 
-    // Znajdź najbliższego wroga
+    // Znajdź najbliższy cel
     let nearest = null, nearestDist = Infinity;
-    for (const e of enemies) {
+    for (const e of allTargets) {
       const dx = e.x - sub.x, dy = e.y - sub.y;
       const d  = Math.sqrt(dx * dx + dy * dy);
       if (d < nearestDist) { nearestDist = d; nearest = e; }
     }
+    const enemies = allTargets;
 
     if (!nearest) {
       this._setText(tpBearing,  '---');
@@ -796,6 +869,29 @@ export class GameScene extends Phaser.Scene {
 
     const sx = sub.x;
     const sy = sub.y;
+
+    // Linie namiarowe od merchantów — ciepły bursztynowy kolor (odróżnia od niszczycieli)
+    for (const m of this.merchants) {
+      const dx   = m.x - sx;
+      const dy   = m.y - sy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const sig  = Phaser.Math.Clamp(0.28 * 780 / Math.max(dist, 80), 0, 1);
+      if (sig < 0.04) continue;
+      const bearing = Math.atan2(dy, dx);
+      const col = 0xddaa44;   // bursztynowy — rozróżnienie od niszczycieli
+      g.lineStyle(0.6 + sig * 1.0, col, sig * 0.20);
+      g.strokeLineShape(new Phaser.Geom.Line(sx, sy, sx + Math.cos(bearing) * 2200, sy + Math.sin(bearing) * 2200));
+      const tickDist = 80;
+      const tx = sx + Math.cos(bearing) * tickDist;
+      const ty = sy + Math.sin(bearing) * tickDist;
+      const perp = bearing + Math.PI / 2;
+      const tLen = 4 + sig * 3;
+      g.lineStyle(1.2, col, sig * 0.55);
+      g.strokeLineShape(new Phaser.Geom.Line(
+        tx + Math.cos(perp) * tLen, ty + Math.sin(perp) * tLen,
+        tx - Math.cos(perp) * tLen, ty - Math.sin(perp) * tLen
+      ));
+    }
 
     for (const enemy of this.enemies) {
       const dx   = enemy.x - sx;
@@ -1009,8 +1105,8 @@ export class GameScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    // Znaczniki namierzania przy każdym widocznym niszczycielu
-    for (const enemy of this.enemies.filter(e => !e.destroyed)) {
+    // Znaczniki namierzania przy każdym widocznym celu (niszczyciel + merchant)
+    for (const enemy of [...this.enemies, ...this.merchants].filter(e => !e.destroyed)) {
       const ex = enemy.x - this.camX;
       const ey = enemy.y;
 
@@ -1116,6 +1212,13 @@ export class GameScene extends Phaser.Scene {
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < PING_ALERT_R) enemy.receivePing(sub.x, sub.y);
     }
+    // Merchanty — ping ujawnia pozycję na PPI
+    for (const m of this.merchants) {
+      const dx   = m.x - sub.x;
+      const dy   = m.y - sub.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < PING_ALERT_R) m.receivePing(sub.x, sub.y);
+    }
   }
 
   _updatePings(dt) {
@@ -1126,24 +1229,23 @@ export class GameScene extends Phaser.Scene {
       p.r    += PING_SPEED * dt;
       p.alpha = Math.max(0, p.alpha - dt * 0.28);
 
-      // Sprawdź echo od każdego niszczyciela
-      for (const enemy of this.enemies) {
-        if (enemy.destroyed || p.echoedEnemies.has(enemy)) continue;
-        const dx   = enemy.x - p.subX;
-        const dy   = enemy.y - p.subY;
+      // Sprawdź echo od każdego niszczyciela i merchantów
+      for (const target of [...this.enemies, ...this.merchants]) {
+        if (target.destroyed || p.echoedEnemies.has(target)) continue;
+        const dx   = target.x - p.subX;
+        const dy   = target.y - p.subY;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (prevR < dist && p.r >= dist && dist <= p.maxR) {
-          p.echoedEnemies.add(enemy);
-          p.echoes.push({ x: enemy.x, y: enemy.y, age: 0 });
+          p.echoedEnemies.add(target);
+          p.echoes.push({ x: target.x, y: target.y, age: 0 });
 
-          // Precyzyjne ujawnienie pozycji na sonarze na 5s
-          enemy.revealTimer = Math.max(enemy.revealTimer, 5.0);
+          target.revealTimer = Math.max(target.revealTimer, 5.0);
 
-          const eb = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
-          const er = this._rng(this.sub.x, this.sub.y, enemy.x, enemy.y);
+          const eb = this._brg(this.sub.x, this.sub.y, target.x, target.y);
+          const er = this._rng(this.sub.x, this.sub.y, target.x, target.y);
           this._logEvent(`ECHO nam. ${eb}°`);
-          this._shipLog(`ECHO — ${enemy.label || 'kontakt'}: nam. ${eb}°, dyst. ${er}m. Namierzono precyzyjnie.`, 'warn');
+          this._shipLog(`ECHO — ${target.label || 'kontakt'}: nam. ${eb}°, dyst. ${er}m. Namierzono precyzyjnie.`, 'warn');
         }
       }
 
@@ -1553,6 +1655,19 @@ export class GameScene extends Phaser.Scene {
     // Pionowa linia głębokości gracza
     g.lineStyle(0.7, 0x44ff88, 0.32);
     g.strokeLineShape(new Phaser.Geom.Line(spx, wy(SURF), spx, spy));
+
+    // ── Merchanty — bursztynowe romby na powierzchni ──────────────────────
+    for (const m of this.merchants) {
+      const mx2 = wx(m.x), my2 = wy(SURF);
+      const ms = 5;
+      g.lineStyle(1.5, 0xddaa44, 0.85);
+      g.strokeLineShape(new Phaser.Geom.Line(mx2,      my2 - ms, mx2 + ms, my2));
+      g.strokeLineShape(new Phaser.Geom.Line(mx2 + ms, my2,      mx2,      my2 + ms));
+      g.strokeLineShape(new Phaser.Geom.Line(mx2,      my2 + ms, mx2 - ms, my2));
+      g.strokeLineShape(new Phaser.Geom.Line(mx2 - ms, my2,      mx2,      my2 - ms));
+      g.fillStyle(0xddaa44, 0.45);
+      g.fillCircle(mx2, my2, 2);
+    }
 
     // ── Ikona łodzi podwodnej ─────────────────────────────────────────────
     g.fillStyle(0xffffff, 0.95);
