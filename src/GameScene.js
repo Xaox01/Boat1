@@ -6,6 +6,7 @@ import { Sonar } from './Sonar.js';
 import { TestBot } from './TestBot.js';
 import { Merchant } from './Merchant.js';
 import { MissionSystem } from './MissionSystem.js';
+import { SaveSystem } from './SaveSystem.js';
 
 const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
@@ -243,10 +244,89 @@ export class GameScene extends Phaser.Scene {
 
     // System misji
     this.mission = new MissionSystem(this);
-    this.mission.startMission1();
+
+    // ── Zapis / wczytanie ──────────────────────────────────────────────────
+    const fromSave = SaveSystem.consumeLoadRequest();
+    if (fromSave) {
+      const save = SaveSystem.load();
+      if (save) {
+        this._restoreFromSave(save);
+      } else {
+        this.mission.startMission1();
+      }
+    } else {
+      this.mission.startMission1();
+    }
+
+    // Auto-zapis co 30s
+    this.time.addEvent({
+      delay: 30000,
+      loop:  true,
+      callback: () => {
+        if (!this._gameOver) {
+          SaveSystem.save(this);
+          this._logEvent('AUTO-ZAPIS OK');
+        }
+      },
+    });
 
     this._logEvent('Zanurz się — wrogie jednostki w pobliżu!');
     this._shipLog('ORP Orzeł — misja bojowa. Zanurzono na pozycję.', 'info');
+  }
+
+  _restoreFromSave(save) {
+    // Podmiot
+    const s = save.sub;
+    this.sub.x              = s.x;
+    this.sub.y              = s.y;
+    this.sub.vx             = s.vx ?? 0;
+    this.sub.vy             = s.vy ?? 0;
+    this.sub.hull           = s.hull;
+    this.sub.battery        = s.battery;
+    this.sub.oxygen         = s.oxygen;
+    this.sub.ballast        = s.ballast;
+    this.sub.targetBallast  = s.targetBallast ?? s.ballast;
+    this.sub.missileCount   = s.missileCount;
+    this.sub.noisemakerCount = s.noisemakerCount;
+    if (s.tubes) {
+      s.tubes.forEach((t, i) => {
+        if (this.sub.tubes[i]) Object.assign(this.sub.tubes[i], t);
+      });
+    }
+
+    // Fala
+    this._wave      = save.wave ?? 1;
+    this._waveTimer = save.waveTimer ?? 0;
+
+    // Konwój
+    const sms = save.merchants ?? [];
+    for (let i = 0; i < this.merchants.length; i++) {
+      const sm = sms[i];
+      if (!sm) continue;
+      const m = this.merchants[i];
+      m.x         = sm.x;
+      m.dir       = sm.dir;
+      m.hull      = sm.hull;
+      m.destroyed = sm.destroyed;
+      if (sm.contactClass)  m.contactClass  = sm.contactClass;
+      if (sm.classifyTimer) m.classifyTimer = sm.classifyTimer;
+    }
+
+    // Misja
+    this.mission.startMission1();
+    if (save.mission) {
+      this.mission.active.complete = save.mission.complete;
+      this.mission.active.failed   = save.mission.failed;
+      save.mission.objectives.forEach((so, i) => {
+        if (this.mission.active.objectives[i]) {
+          Object.assign(this.mission.active.objectives[i], so);
+        }
+      });
+      this.mission._updateUI();
+    }
+
+    this._logEvent('Wczytano zapis — kontynuujesz patrol');
+    this._shipLog('System: dane pokładowe przywrócone z ostatniego zapisu.', 'info');
   }
 
   update(_time, delta) {

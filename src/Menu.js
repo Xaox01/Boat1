@@ -1,3 +1,5 @@
+import { SaveSystem } from './SaveSystem.js';
+
 const ACCENT = '#e8413a';
 
 const SUB_SVG = `
@@ -58,14 +60,15 @@ const SUB_SVG = `
   <text x="1394" y="74" fill="${ACCENT}" font-size="9" font-family="monospace" text-anchor="end" letter-spacing="3" opacity="0.85">PR. 671RTM · K-244</text>
 </svg>`;
 
-function buildMenuHTML() {
+function buildMenuHTML(saveInfo) {
+  const hasSave = !!saveInfo;
   const items = [
-    { key: 'new',    label: 'NOWY PATROL',  code: 'F1',  disabled: false },
-    { key: 'cont',   label: 'KONTYNUUJ',    code: 'F2',  disabled: true  },
-    { key: 'briefs', label: 'ARCHIWUM',     code: 'F3',  disabled: true  },
-    { key: 'fleet',  label: 'FLOTYLLA',     code: 'F4',  disabled: true  },
-    { key: 'set',    label: 'USTAWIENIA',   code: 'F5',  disabled: true  },
-    { key: 'exit',   label: 'WYNURZ',       code: 'ESC', disabled: true  },
+    { key: 'new',    label: 'NOWY PATROL',  code: 'F1',  disabled: false     },
+    { key: 'cont',   label: 'KONTYNUUJ',    code: 'F2',  disabled: !hasSave  },
+    { key: 'briefs', label: 'ARCHIWUM',     code: 'F3',  disabled: true      },
+    { key: 'fleet',  label: 'FLOTYLLA',     code: 'F4',  disabled: true      },
+    { key: 'set',    label: 'USTAWIENIA',   code: 'F5',  disabled: true      },
+    { key: 'exit',   label: 'WYNURZ',       code: 'ESC', disabled: true      },
   ];
 
   const itemsHTML = items.map((item, i) => `
@@ -279,10 +282,17 @@ function buildMenuHTML() {
         <div id="menu-list">${itemsHTML}</div>
         <div id="menu-briefing">
           <div id="menu-briefing-hdr">// BRIEFING</div>
-          <div>
-            Ostatni patrol: <span style="color:#f3ede0">14 dni temu</span><br>
-            Status flotylli: <span style="color:#f3ede0">4 / 6 okrętów aktywnych</span><br>
-            Pogoda: <span style="color:#f3ede0">sztorm 7°B, widoczność 800m</span>
+          <div id="menu-briefing-body">
+            ${hasSave ? `
+              Ostatni patrol: <span style="color:#f3ede0">${saveInfo.date}</span><br>
+              Fala zagrożenia: <span style="color:#f3ede0">${saveInfo.wave}</span><br>
+              Kadłub: <span style="color:${saveInfo.hull < 40 ? '#ff7070' : saveInfo.hull < 70 ? '#ffdd44' : '#f3ede0'}">${saveInfo.hull}%</span><br>
+              Zatopiono: <span style="color:#f3ede0">${saveInfo.kills}/3 statków</span>
+            ` : `
+              Brak aktywnego patrolu.<br>
+              Status flotylli: <span style="color:#f3ede0">4 / 6 okrętów aktywnych</span><br>
+              Pogoda: <span style="color:#f3ede0">sztorm 7°B, widoczność 800m</span>
+            `}
           </div>
         </div>
       </div>
@@ -350,9 +360,10 @@ export class Menu {
   }
 
   _mount() {
+    const saveInfo = SaveSystem.getSaveInfo();
     const el = document.createElement('div');
     el.id = 'menu-root';
-    el.innerHTML = buildMenuHTML();
+    el.innerHTML = buildMenuHTML(saveInfo);
     document.body.appendChild(el);
     this._el = el;
 
@@ -382,24 +393,40 @@ export class Menu {
   _activate(i) {
     const key = this._items[i]?.dataset.key;
     if (key === 'new') {
+      SaveSystem.clear();
       this.hide();
-      this._resolve?.();
+      this._resolve?.({ fromSave: false });
+    } else if (key === 'cont') {
+      this.hide();
+      this._resolve?.({ fromSave: true });
     }
   }
 
   _handleKey(e) {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      let next = (this._selected + 1) % this._items.length;
+      // Pomiń zablokowane przy nawigacji klawiaturą
+      let next = this._selected;
+      do { next = (next + 1) % this._items.length; }
+      while (this._items[next]?.disabled && next !== this._selected);
       this._setSelected(next);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      let prev = (this._selected - 1 + this._items.length) % this._items.length;
+      let prev = this._selected;
+      do { prev = (prev - 1 + this._items.length) % this._items.length; }
+      while (this._items[prev]?.disabled && prev !== this._selected);
       this._setSelected(prev);
-    } else if (e.key === 'Enter' || e.key === 'F1') {
+    } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (e.key === 'F1') this._setSelected(0);
       this._activate(this._selected);
+    } else if (e.key === 'F1') {
+      e.preventDefault();
+      this._setSelected(0);
+      this._activate(0);
+    } else if (e.key === 'F2' && !this._items[1]?.disabled) {
+      e.preventDefault();
+      this._setSelected(1);
+      this._activate(1);
     }
   }
 

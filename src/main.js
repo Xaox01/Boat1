@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
 import { GameScene } from './GameScene.js';
 import { Menu } from './Menu.js';
+import { SaveSystem } from './SaveSystem.js';
 
 const W = 1024;
 const H = 640;
 
 const menu = new Menu();
-menu.show().then(() => {
+menu.show().then(({ fromSave } = {}) => {
+  if (fromSave) SaveSystem.requestLoad();
   new Phaser.Game({
     type: Phaser.CANVAS,
     width: W,
