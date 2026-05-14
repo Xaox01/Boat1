@@ -4,6 +4,32 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.28] — 2026-05-14
+
+### Dodano — Stacja BROŃ (F4) z kartami uzbrojenia i live updates
+
+**index.html — CSS:**
+- Nowa stacja `#weapon-station` z tłem radialnym w odcieniu ciemnego bursztynu (`#120a03`)
+- Klasy `.ws-tube`, `.ws-tube-status`, `.ws-tube-cd` — siatka rur torpedowych z kolorami: ready (green), reloading (amber), empty (faint)
+- Klasy `.ws-inv-grid`, `.ws-inv-item`, `.ws-inv-val` — zapasy bojowe w siatce 3-kolumnowej (28px cyfry)
+- Klasy `.ws-card-body`, `.ws-spec-grid`, `.ws-spec-lbl`, `.ws-spec-val`, `.ws-card-desc`, `.ws-card-name`, `.ws-weapon-type-badge` — karty uzbrojenia z tabelą specyfikacji
+
+**index.html — HTML:**
+- Lewa kolumna: nagłówek z etykietą zabezpieczenia, panel 4 rur torpedowych (TRP-1..4), panel zapasów bojowych (torpedy/rakiety/wabie), panel sterowania ogniem z listą klawiszy
+- Prawa kolumna (scrollowana): 3 karty uzbrojenia — Mk.48 ADCAP, P-15 Termit, ВГС-Н Noisemaker — każda z odznaka typu, tabelą specyfikacji i opisem taktycznym
+
+**index.html — JavaScript:**
+- `_wsActive` — nowa flaga stanu stacji BROŃ
+- `_switchStation`: obsługa `id === 'weapon'`, deaktywacja `weaponStation` przy przełączaniu
+- Skrót `F4` / `4` → otwiera stację BROŃ; `ESC` gdy `_wsActive` → wraca do CONN
+- Tab BROŃ: zmiana `data-station="conn"` → `data-station="weapon"`
+- `weaponLoop()` — RAF loop synchronizujący zapasy z ukrytego HUD (`hud-torpedoes`, `hud-missiles`, `hud-noisemakers`), aktualizujący liczniki nagłówków i kolor wg stanu, odczytujący `window._sonar.tubes` do wyświetlenia cooldownu rur
+
+**src/GameScene.js — `_exportSonarState`:**
+- `window._sonar.tubes` — eksport stanu 4 rur torpedowych: `{ ready: bool, cd: number }` na potrzeby weaponLoop
+
+---
+
 ## [0.10.27] — 2026-05-14
 
 ### Dodano — Integracja peryskopowa: selekcja, hałas, badge, FOV w CONN

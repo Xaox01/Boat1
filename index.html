@@ -307,6 +307,83 @@
 
     #ps-esm-panel { flex-shrink: 0; }
 
+    /* ══ WEAPON STATION ══════════════════════════════════ */
+    #weapon-station {
+      display: none;
+      position: absolute; inset: 0; z-index: 12;
+      background: radial-gradient(ellipse at 35% 40%, #120a03 0%, var(--bg) 68%);
+      grid-template-columns: 0.85fr 1.15fr;
+      grid-template-rows: 1fr;
+      gap: 14px; padding: 14px;
+    }
+    #weapon-station.active { display: grid; }
+
+    #ws-left { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+    #ws-header-row { display: flex; justify-content: space-between; align-items: baseline; flex-shrink: 0; }
+    #ws-right { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; padding-right: 2px; }
+
+    .ws-tube {
+      display: grid;
+      grid-template-columns: 38px 1fr auto;
+      align-items: center; gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--ink-faint);
+    }
+    .ws-tube-id { font-family: var(--fm); font-size: 10px; font-weight: 500; color: var(--ink); letter-spacing: 1px; }
+    .ws-tube-status { font-family: var(--fd); font-size: 12px; letter-spacing: 1px; }
+    .ws-tube-status.ready { color: var(--green); }
+    .ws-tube-status.reloading { color: var(--amber); }
+    .ws-tube-status.empty { color: var(--ink-faint); }
+    .ws-tube-cd { font-family: var(--fm); font-size: 9px; color: var(--ink-faint); min-width: 28px; text-align: right; }
+
+    .ws-inv-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      padding: 4px 0;
+    }
+    .ws-inv-item {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 10px 6px; border-right: 1px solid var(--ink-faint);
+    }
+    .ws-inv-item:last-child { border-right: none; }
+    .ws-inv-lbl { font-size: 8px; letter-spacing: 2px; color: var(--ink-faint); text-align: center; }
+    .ws-inv-val { font-family: var(--fd); font-size: 28px; line-height: 1.1; margin-top: 2px; }
+    .ws-inv-sub { font-size: 8px; letter-spacing: 1px; color: var(--ink-faint); margin-top: 1px; }
+
+    .ws-card-body { padding: 12px 14px; }
+    .ws-spec-grid {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 5px 10px;
+      align-items: baseline;
+    }
+    .ws-spec-lbl {
+      font-size: 8px; letter-spacing: 2px;
+      color: var(--ink-faint); text-transform: uppercase;
+      padding-top: 1px;
+    }
+    .ws-spec-val {
+      font-family: var(--fm); font-size: 10px;
+      color: var(--ink); letter-spacing: 0.3px;
+      line-height: 1.5;
+    }
+    .ws-card-desc {
+      margin-top: 10px; padding-top: 8px;
+      border-top: 1px solid var(--ink-faint);
+      font-size: 9px; line-height: 1.7; letter-spacing: 0.3px;
+      color: var(--ink-dim);
+    }
+    .ws-card-name {
+      font-family: var(--fd); font-size: 18px; letter-spacing: 2px;
+      color: var(--ink); margin-bottom: 10px; display: block;
+    }
+    .ws-weapon-type-badge {
+      display: inline-block;
+      padding: 2px 8px; font-size: 8px; letter-spacing: 2px;
+      border: 1px solid currentColor; margin-bottom: 10px;
+    }
+
     /* ── LEFT PANEL ────────────────────────────────────── */
     #left-panel {
       width:200px; flex-shrink:0;
@@ -657,7 +734,7 @@
         <span class="stab-lbl">PERYSKOP</span>
         <span class="stab-code">F3</span>
       </div>
-      <div class="stab" data-station="conn">
+      <div class="stab" data-station="weapon">
         <span class="stab-lbl">BROŃ</span>
         <span class="stab-code">F4</span>
       </div>
@@ -922,6 +999,183 @@
         </div>
       </div><!-- #periscope-station -->
 
+      <!-- ══ BROŃ STATION ══ -->
+      <div id="weapon-station">
+
+        <!-- Lewa kolumna: status operacyjny -->
+        <div id="ws-left">
+          <div id="ws-header-row">
+            <span class="ss-label">UZBROJENIE · KONTROLA OGNIA</span>
+            <span class="ss-label" style="color:var(--accent)">● ZABEZP. ZDJĘTE</span>
+          </div>
+
+          <!-- Rury torpedowe -->
+          <div class="ss-panel">
+            <div class="ss-panel-header">
+              <span>RURY TORPEDOWE</span>
+              <span id="ws-tubes-ready" style="color:var(--green)">4/4 GOTOWE</span>
+            </div>
+            <div id="ws-tubes-list">
+              <div class="ws-tube" id="ws-tube-1">
+                <span class="ws-tube-id">TRP-1</span>
+                <span class="ws-tube-status ready">GOTOWA</span>
+                <span class="ws-tube-cd" id="ws-cd-1"></span>
+              </div>
+              <div class="ws-tube" id="ws-tube-2">
+                <span class="ws-tube-id">TRP-2</span>
+                <span class="ws-tube-status ready">GOTOWA</span>
+                <span class="ws-tube-cd" id="ws-cd-2"></span>
+              </div>
+              <div class="ws-tube" id="ws-tube-3">
+                <span class="ws-tube-id">TRP-3</span>
+                <span class="ws-tube-status ready">GOTOWA</span>
+                <span class="ws-tube-cd" id="ws-cd-3"></span>
+              </div>
+              <div class="ws-tube" id="ws-tube-4">
+                <span class="ws-tube-id">TRP-4</span>
+                <span class="ws-tube-status ready">GOTOWA</span>
+                <span class="ws-tube-cd" id="ws-cd-4"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Zapasy bojowe -->
+          <div class="ss-panel">
+            <div class="ss-panel-header">
+              <span>ZAPASY BOJOWE</span>
+            </div>
+            <div class="ws-inv-grid">
+              <div class="ws-inv-item">
+                <span class="ws-inv-lbl">TORPEDY</span>
+                <span class="ws-inv-val" id="ws-inv-torp" style="color:var(--ink)">4</span>
+                <span class="ws-inv-sub">Mk.48</span>
+              </div>
+              <div class="ws-inv-item">
+                <span class="ws-inv-lbl">RAKIETY</span>
+                <span class="ws-inv-val" id="ws-inv-miss" style="color:var(--amber)">3</span>
+                <span class="ws-inv-sub">P-15</span>
+              </div>
+              <div class="ws-inv-item">
+                <span class="ws-inv-lbl">WABIE</span>
+                <span class="ws-inv-val" id="ws-inv-decoy" style="color:var(--blue)">5</span>
+                <span class="ws-inv-sub">ВГС-Н</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sterowanie ogniem -->
+          <div class="ss-panel" style="flex-shrink:0">
+            <div class="ss-panel-header"><span>STEROWANIE OGNIEM</span></div>
+            <div style="padding:10px 14px; display:flex; flex-direction:column; gap:7px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <kbd>LPM</kbd>
+                <span style="font-size:9px; letter-spacing:0.5px; color:var(--ink-dim)">Torpeda Mk.48 — namiar kursora</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <kbd>R</kbd><kbd>PPM</kbd>
+                <span style="font-size:9px; letter-spacing:0.5px; color:var(--ink-dim)">Rakieta p/okr. (maks. 70m)</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <kbd>T</kbd>
+                <span style="font-size:9px; letter-spacing:0.5px; color:var(--ink-dim)">Wabia akustyczna</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <kbd>E</kbd>
+                <span style="font-size:9px; letter-spacing:0.5px; color:var(--ink-dim)">Detonacja zdalna torpedy</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <kbd>ESC</kbd>
+                <span style="font-size:9px; letter-spacing:0.5px; color:var(--ink-dim)">Powrót do CONN</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Prawa kolumna: karty uzbrojenia -->
+        <div id="ws-right">
+
+          <!-- Torpeda Mk.48 -->
+          <div class="ss-panel">
+            <div class="ss-panel-header">
+              <span>TORPEDA CIĘŻKA</span>
+              <span style="color:var(--green)" id="ws-hdr-torp">4 SZT. GOTOWE</span>
+            </div>
+            <div class="ws-card-body">
+              <span class="ws-card-name">Mk.48 ADCAP</span>
+              <span class="ws-weapon-type-badge" style="color:var(--green)">PODWODNA / NAWODNA</span>
+              <div class="ws-spec-grid">
+                <span class="ws-spec-lbl">Kaliber</span><span class="ws-spec-val">533 mm</span>
+                <span class="ws-spec-lbl">Prędkość</span><span class="ws-spec-val">55 węzłów (102 km/h)</span>
+                <span class="ws-spec-lbl">Zasięg</span><span class="ws-spec-val">&gt;38 km przy 55 w</span>
+                <span class="ws-spec-lbl">Głowica</span><span class="ws-spec-val">292 kg PBXN-103</span>
+                <span class="ws-spec-lbl">Naprow.</span><span class="ws-spec-val">Aktywno-pasywny sonar akustyczny</span>
+                <span class="ws-spec-lbl">Przeład.</span><span class="ws-spec-val">55–75 s / rura</span>
+                <span class="ws-spec-lbl">Cooldown</span><span class="ws-spec-val">3 s między salwami</span>
+              </div>
+              <div class="ws-card-desc">
+                Ciężka torpeda samonaprowadzająca konstrukcji US Navy, adaptowana przez ORP Orzeł.
+                Szukacz akustyczny aktywuje się po ~2s lotu. Umożliwia detonację zdalną klawiszem <kbd style="font-size:8px">E</kbd>.
+                Torpedy naprowadzają się na wabię akustyczną jeśli ta jest aktywna.
+              </div>
+            </div>
+          </div>
+
+          <!-- Rakieta P-15 -->
+          <div class="ss-panel">
+            <div class="ss-panel-header">
+              <span>RAKIETA PRZECIWOKRĘTOWA</span>
+              <span style="color:var(--amber)" id="ws-hdr-miss">3 SZT. GOTOWE</span>
+            </div>
+            <div class="ws-card-body">
+              <span class="ws-card-name">P-15 TERMIT</span>
+              <span class="ws-weapon-type-badge" style="color:var(--amber)">NAWODNA · SEA-SKIMMING</span>
+              <div class="ws-spec-grid">
+                <span class="ws-spec-lbl">Kaliber</span><span class="ws-spec-val">760 mm</span>
+                <span class="ws-spec-lbl">Prędkość</span><span class="ws-spec-val">320 m/s (Mach 0.9)</span>
+                <span class="ws-spec-lbl">Zasięg</span><span class="ws-spec-val">~80 km</span>
+                <span class="ws-spec-lbl">Głowica</span><span class="ws-spec-val">513 kg HE — przebijalność pancerza</span>
+                <span class="ws-spec-lbl">Naprow.</span><span class="ws-spec-val">Radar aktywny w fazie końcowej</span>
+                <span class="ws-spec-lbl">Lot</span><span class="ws-spec-val">Sea-skimming — 25 m nad poziomem morza</span>
+                <span class="ws-spec-lbl">Limit gł.</span><span class="ws-spec-val">Start tylko przy głębokości ≤70m</span>
+              </div>
+              <div class="ws-card-desc">
+                Rakieta leci tuż nad powierzchnią morza utrudniając wykrycie radarowe.
+                Przeznaczona wyłącznie do rażenia celów nawodnych.
+                Wystrzelenie z dużej głębokości jest niemożliwe — niezbędne wynurzenie.
+              </div>
+            </div>
+          </div>
+
+          <!-- Wabia akustyczna -->
+          <div class="ss-panel">
+            <div class="ss-panel-header">
+              <span>WABIA AKUSTYCZNA</span>
+              <span style="color:var(--blue)" id="ws-hdr-decoy">5 SZT. GOTOWE</span>
+            </div>
+            <div class="ws-card-body">
+              <span class="ws-card-name">ВГС-Н NOISEMAKER</span>
+              <span class="ws-weapon-type-badge" style="color:var(--blue)">ŚRODEK OBRONY BIERNEJ</span>
+              <div class="ws-spec-grid">
+                <span class="ws-spec-lbl">Typ</span><span class="ws-spec-val">Akustyczna wabia holowana</span>
+                <span class="ws-spec-lbl">Czas dział.</span><span class="ws-spec-val">45 s na wabię</span>
+                <span class="ws-spec-lbl">Tonal</span><span class="ws-spec-val">~25 Hz — imitacja sygnatury okrętu</span>
+                <span class="ws-spec-lbl">Skutecz.</span><span class="ws-spec-val">Naprowadza torpedy Mk.48 i ASROC</span>
+                <span class="ws-spec-lbl">Limit</span><span class="ws-spec-val">1 aktywna jednocześnie</span>
+                <span class="ws-spec-lbl">Zasięg</span><span class="ws-spec-val">Wykrywalna do ~820px przez sonar</span>
+              </div>
+              <div class="ws-card-desc">
+                Wyrzucana za rufą, generuje głośny sygnał tonalny imitujący okręt podwodny.
+                Skuteczna przeciwko torpedowej głowicy samonaprowadzającej i ASROC.
+                Po wyczerpaniu czasu wabia gaśnie i tonie — należy ją wyrzucić przed detekcją torpedy.
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div><!-- #weapon-station -->
+
     </div><!-- #game-container -->
 
     <!-- ══ PRAWY PANEL — DZIENNIK ══ -->
@@ -1108,6 +1362,7 @@
   const stabs          = document.querySelectorAll('.stab[data-station]');
   const sonarStation   = document.getElementById('sonar-station');
   const periscopeStation = document.getElementById('periscope-station');
+  const weaponStation  = document.getElementById('weapon-station');
 
   function _switchStation(id) {
     stabs.forEach(t => t.classList.remove('active'));
@@ -1116,8 +1371,10 @@
 
     sonarStation    && sonarStation.classList.remove('active');
     periscopeStation && periscopeStation.classList.remove('active');
+    weaponStation   && weaponStation.classList.remove('active');
     _ssActive = false;
     _pActive  = false;
+    _wsActive = false;
 
     if (id === 'sonar') {
       sonarStation && sonarStation.classList.add('active');
@@ -1127,6 +1384,9 @@
       _pActive = true;
       // Ustaw kurs peryskopowy na aktualny kurs łodzi przy otwarciu stacji
       if (window._sonar?.heading != null) _pBearing = window._sonar.heading;
+    } else if (id === 'weapon') {
+      weaponStation && weaponStation.classList.add('active');
+      _wsActive = true;
     }
   }
 
@@ -1142,12 +1402,15 @@
     if (e.key === 'F1' || e.key === '1') { e.preventDefault(); _switchStation('conn'); }
     if (e.key === 'F2' || e.key === '2') { e.preventDefault(); _switchStation('sonar'); }
     if (e.key === 'F3' || e.key === '3') { e.preventDefault(); _switchStation('periscope'); }
+    if (e.key === 'F4' || e.key === '4') { e.preventDefault(); _switchStation('weapon'); }
     // ESC
     if (e.key === 'Escape') {
       if (_ssActive) {
         if (_ssSelContact) { _ssSelContact = null; if (window._sonar) window._sonar.selectedId = null; }
         else { _switchStation('conn'); }
       } else if (_pActive) {
+        _switchStation('conn');
+      } else if (_wsActive) {
         _switchStation('conn');
       }
     }
@@ -1162,6 +1425,9 @@
       }
     }
   });
+
+  // ── WEAPON STATION state ────────────────────────────────
+  let _wsActive = false;
 
   // ── SONAR STATION rendering ─────────────────────────────
   let _ssActive     = false;
@@ -1998,6 +2264,58 @@
     requestAnimationFrame(periscopeLoop);
   }
   requestAnimationFrame(periscopeLoop);
+
+  // ══════════════════════════════════════════════════════
+  // ── WEAPON STATION ────────────────────────────────────
+  // ══════════════════════════════════════════════════════
+  function weaponLoop() {
+    if (_wsActive) {
+      const torp  = document.getElementById('hud-torpedoes')?.textContent || '4/4';
+      const miss  = document.getElementById('hud-missiles')?.textContent  || '3';
+      const decoy = document.getElementById('hud-noisemakers')?.textContent || '5';
+
+      const torpNum = torp.split('/')[0];
+      document.getElementById('ws-inv-torp').textContent = torpNum;
+      document.getElementById('ws-inv-miss').textContent = miss;
+      document.getElementById('ws-inv-decoy').textContent = decoy;
+
+      document.getElementById('ws-hdr-torp').textContent  = `${torpNum} SZT.`;
+      document.getElementById('ws-hdr-miss').textContent  = `${miss} SZT.`;
+      document.getElementById('ws-hdr-decoy').textContent = `${decoy} SZT.`;
+
+      const torpEl = document.getElementById('ws-inv-torp');
+      torpEl.style.color = +torpNum <= 1 ? 'var(--accent)' : +torpNum <= 2 ? 'var(--amber)' : 'var(--ink)';
+
+      const missEl = document.getElementById('ws-inv-miss');
+      missEl.style.color = +miss === 0 ? 'var(--accent)' : 'var(--amber)';
+
+      const tubes = window._sonar?.tubes || [];
+      let readyCount = 0;
+      for (let i = 1; i <= 4; i++) {
+        const t = tubes[i - 1];
+        const statusEl = document.querySelector(`#ws-tube-${i} .ws-tube-status`);
+        const cdEl = document.getElementById(`ws-cd-${i}`);
+        if (!statusEl) continue;
+        if (!t || t.ready) {
+          statusEl.textContent = 'GOTOWA';
+          statusEl.className = 'ws-tube-status ready';
+          if (cdEl) cdEl.textContent = '';
+          readyCount++;
+        } else {
+          statusEl.textContent = 'ŁADOWANIE';
+          statusEl.className = 'ws-tube-status reloading';
+          if (cdEl) cdEl.textContent = `${Math.ceil(t.cd)}s`;
+        }
+      }
+      const readyEl = document.getElementById('ws-tubes-ready');
+      if (readyEl) {
+        readyEl.textContent = `${readyCount}/4 GOTOWE`;
+        readyEl.style.color = readyCount === 0 ? 'var(--accent)' : readyCount < 4 ? 'var(--amber)' : 'var(--green)';
+      }
+    }
+    requestAnimationFrame(weaponLoop);
+  }
+  requestAnimationFrame(weaponLoop);
 })();
 </script>
 </body>

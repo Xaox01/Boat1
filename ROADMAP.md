@@ -119,6 +119,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | System fal — numer bieżącej fali w HUD |
 | ✅ | CRT scanlines i winietowanie rogów |
 | ✅ | Mapa taktyczna [M] — live overlay z terenem, trasą, kontaktami, zasięgami |
+| ✅ | Stacja BROŃ (F4) — rury torpedowe, zapasy bojowe, 3 karty uzbrojenia, live sync z HUD |
 | 🔴 | Zegar prawdziwy 24h — pora dnia wpływa na widoczność (peryskop) |
 | 🔴 | Panel uszkodzeń — lista systemów z ikonami statusu (OK / AWARIA) |
 | 🟡 | Wiadomości radiowe — przychodzące meldunki ze sztabu (fabuła) |
@@ -140,14 +141,17 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | System misji — konkretne cele (namierz + zniszcz) z panelem UI |
 | ✅ | Misja 1: Operacja Szlak Handlowy — konwój 4 statków, namierz i zatop 3 |
 | ✅ | Szkolenie taktyczne (7 faz) — modal wyjaśniający kroki, pauza gry podczas czytania |
-| 🔴 | Misja 2: Śledzenie i identyfikacja nieznanego kontaktu |
+| 🔴 | Misja 2: Śledzenie i identyfikacja nieznanego kontaktu — wymagane użycie peryskopu do potwierdzenia klasy |
 | 🔴 | Misja 3: Eskortowanie sojuszniczego okrętu przez strefę zagrożenia |
-| 🔴 | System reputacji — ocena taktyczna po misji (bez wykrycia = bonus) |
+| 🔴 | System reputacji — ocena taktyczna po misji (bez wykrycia = bonus, trafność sonarowa, czas peryskopowy) |
+| 🔴 | Samouczek peryskopu — dedykowana faza w szkoleniu (głębokość, FOV, klasyfikacja wizualna) |
+| 🟡 | Mechanika ciszy — bonus za misję ukończoną bez aktywnego sonaru i bez unoszenia masztu w zasięgu wroga |
 | 🟡 | Kampania — 6–8 misji z narastającym napięciem zimnej wojny |
-| 🟡 | Ukryte rozkazy — dodatkowe cele odkrywane podczas misji |
+| 🟡 | Ukryte rozkazy — dodatkowe cele odkrywane podczas misji (np. sfotografuj okręt przez peryskop) |
 | 🟡 | Wydarzenie historyczne — intro tekstowe przed misją |
+| 🟡 | Sonar kontekstowy — po triangulacji kontaktu odblokuj opcję „identyfikuj przez peryskop" w panelu namierzania |
 | 🟢 | Tryb survival — nieskończone fale, ranking punktowy |
-| 🟢 | Tryb sandox — wolna eksploracja, brak wrogów |
+| 🟢 | Tryb sandbox — wolna eksploracja, brak wrogów |
 
 ---
 

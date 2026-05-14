@@ -724,6 +724,12 @@ export class GameScene extends Phaser.Scene {
       .filter(t => !t.exploded)
       .map(t => ({ ...toBD(t.x, t.y), seekerLocked: t.seekerLocked }));
 
+    // Stan rur torpedowych
+    window._sonar.tubes = (sub.tubes || []).map(t => ({
+      ready: (t.cd || 0) <= 0,
+      cd: t.cd || 0,
+    }));
+
     // Torpedy ASROC wrogów
     window._sonar.asroc = this.enemies.flatMap(e =>
       (e.homingTorpedoes || []).filter(ht => !ht.dead)
@@ -798,10 +804,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Dziennik: peryskop podniesiony/opuszczony
-    if (pActive !== (this._prevPActive ?? false)) {
-      this._prevPActive = pActive;
-      this._log(pActive ? 'PERYSKOP: PODNIESIONY' : 'PERYSKOP: OPUSZCZONY');
+    const pActiveNow = pActive === true;
+    if (this._prevPActive !== undefined && pActiveNow !== this._prevPActive) {
+      this._shipLog(pActiveNow ? 'PERYSKOP: PODNIESIONY' : 'PERYSKOP: OPUSZCZONY', 'info');
     }
+    this._prevPActive = pActiveNow;
   }
 
   _updateHUD() {
