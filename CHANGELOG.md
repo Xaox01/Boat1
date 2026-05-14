@@ -4,6 +4,25 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.29] — 2026-05-14
+
+### Zmieniono — AI wrogów v2: dead reckoning, posiłki, flanking, lepszy SEARCH
+
+**src/Enemy.js:**
+- **Dead reckoning (DR)** — w stanie HUNT wróg przewiduje ruch łodzi na podstawie ostatnio zarejestrowanej prędkości (`sub.vx`); im dłużej bez kontaktu, tym dalej koryguje cel (waga 0.60, max 9s projekcji)
+- **Prędkość HUNT** — gdy kontakt świeży (< 3s), niszczyciel przyspiesza o 18% (`HUNT_SPEED × 1.18`)
+- **Szybsza utrata kontaktu w HUNT** — decay 0.35 (było 0.25); pod termoklinem: 0.55 — realne nagradzanie ukrycia się
+- **Wezwanie posiłków** — po 18s ciągłego HUNT bez likwidacji łodzi ustawiana flaga `needsReinforcement`
+- **Koordynacja flankowania** — `receiveRadioAlert(subX, subY, hunterX)` — gdy oba okręty po tej samej stronie łodzi, drugi przechodzi na przeciwną (kleszczy)
+- **ALERT z flankowaniem** — nowy branch `_flankApproach` kieruje okręt 180px za łódź, nie bezpośrednio na nią
+- **SEARCH faza 1 (0–11s)** — konwergencja do `lastKnownSubX` (atakuje ostatnią pozycję); **faza 2** — rozszerzający się sweep (swing +16px/s) zamiast statycznych 90px
+- **`_contactAge` i `_lastKnownVX`** — śledzone przy każdym świeżym kontakcie sonarowym i pingowym
+
+**src/GameScene.js:**
+- **Obsługa posiłków** — gdy `hunter.needsReinforcement`, spawna `_spawnReinforcement(hunter)` z cooldownem 85s i limitem 6 okrętów
+- **`_spawnReinforcement(hunter)`** — nowa metoda: posiłki przybywają z PRZECIWNEJ strony niż łowca (efekt kleszczy), od razu w stanie ALERT ze znajomością ostatniej pozycji łodzi
+- **Radio z flankowaniem** — `receiveRadioAlert` przekazuje teraz `hunter.x` jako trzeci argument
+
 ## [0.10.28] — 2026-05-14
 
 ### Dodano — Stacja BROŃ (F4) z kartami uzbrojenia i live updates

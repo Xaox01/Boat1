@@ -460,14 +460,29 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Koordynacja radiowa — atakujący niszczyciel alarmuje pobliskich
+    // Koordynacja radiowa — atakujący niszczyciel alarmuje pobliskich (z flankowaniem)
     for (const hunter of this.enemies) {
       if (hunter.state !== STATE.HUNT) continue;
       for (const other of this.enemies) {
         if (other === hunter) continue;
         if (Math.abs(other.x - hunter.x) < 2200)
-          other.receiveRadioAlert(hunter.lastKnownSubX, hunter.lastKnownSubY);
+          other.receiveRadioAlert(hunter.lastKnownSubX, hunter.lastKnownSubY, hunter.x);
       }
+    }
+
+    // Posiłki — gdy niszczyciel ściga zbyt długo i nie likwiduje łodzi
+    this._reinforceCooldown = (this._reinforceCooldown || 0) - dt;
+    for (const hunter of this.enemies.filter(e => !e.destroyed)) {
+      if (!hunter.needsReinforcement) continue;
+      if (this._reinforceCooldown > 0) { hunter.needsReinforcement = false; continue; }
+      const alive = this.enemies.filter(e => !e.destroyed).length;
+      if (alive >= 6) { hunter.needsReinforcement = false; continue; }
+      hunter.needsReinforcement  = false;
+      this._reinforceCooldown    = 85;
+      this._shipLog(`SYGNAŁ RADIOWY — ${hunter.label || 'BPK'} wzywa posiłki! Nowy kontakt w rejonie.`, 'danger');
+      this._logEvent('Wróg wezwał posiłki radiowe!');
+      this._spawnReinforcement(hunter);
+      break;
     }
 
     // Tykanie i trafienia rakiet gracza
@@ -1714,6 +1729,32 @@ export class GameScene extends Phaser.Scene {
       this._shipLog(`Dowództwo: Wzrost aktywności wroga. Zagrożenie: poziom ${this._wave}.`, 'warn');
       this._setText($('hud-wave'), `${this._wave}`);
     }
+  }
+
+  _spawnReinforcement(hunter) {
+    const subX = this.sub.x;
+    // Posiłki przybywają z PRZECIWNEJ strony niż łowca (efekt kleszczy)
+    const preferSide = -Math.sign(hunter.x - subX) || 1;
+    const minDist    = 1400;
+    const maxDist    = 3200;
+    let   cx         = subX + preferSide * (minDist + Math.random() * (maxDist - minDist));
+    cx = Phaser.Math.Clamp(cx, 150, WORLD_W - 150);
+
+    const hw    = 1100 + Math.random() * 1200;
+    const left  = Math.max(80,           cx - hw);
+    const right = Math.min(WORLD_W - 80, cx + hw);
+
+    this._enemySerial++;
+    const label = `BPK-${this._enemySerial}`;
+    const e     = new Enemy(this, cx, left, right, label);
+    e.patrolSpeed *= this._getDifficulty().speedMult;
+    // Posiłki już wiedzą gdzie zgłoszono łódź — przechodzą od razu w ALERT
+    e.receiveRadioAlert(hunter.lastKnownSubX, hunter.lastKnownSubY, hunter.x);
+    this.enemies.push(e);
+    this._prevEnemyState.set(e, STATE.ALERT);
+
+    const distKm = Math.round(Math.abs(cx - subX) / 1000);
+    this._shipLog(`${label} — posiłki na kursie, dystans ~${distKm}km. Zawrócić!`, 'danger');
   }
 
   _spawnSandboxEnemy() {

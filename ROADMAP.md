@@ -91,7 +91,13 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Zarzuty głębinowe z obrażeniami i screen shake |
 | ✅ | ASROC — rakieta z torpedą samonaprowadzającą |
 | ✅ | Sprint-and-listen — szybki sprint, potem nasłuch |
-| ✅ | Koordynacja radiowa — HUNT alarmuje pobliskie okręty |
+| ✅ | Koordynacja radiowa — HUNT alarmuje pobliskie okręty (z przekazaniem pozycji łodzi) |
+| ✅ | Flanking — drugi niszczyciel podchodzi z przeciwnej strony (efekt kleszczy) |
+| ✅ | Wezwanie posiłków — po 18s HUNT bez likwidacji: nowy BPK z przeciwnego kierunku w ALERT |
+| ✅ | Dead reckoning — HUNT przewiduje ruch łodzi na bazie prędkości (do 9s projekcji) |
+| ✅ | SEARCH dwufazowy — faza konwergencji (0–11s) + rozszerzający się sweep |
+| ✅ | Szybsza utrata kontaktu pod termoklinem (decay 0.55 vs 0.35) — nagroda za ukrycie |
+| ✅ | Prędkość HUNT +18% gdy kontakt świeży (< 3s) |
 | ✅ | Szok po trafieniu — spowolnienie 15%→100% przez kilka sekund |
 | ✅ | Ślad olejowy — widoczny na powierzchni podczas WITHDRAW |
 | ✅ | Manewr unikania torpedy — zdrowy vs uszkodzony |

@@ -35,6 +35,12 @@ const PING_SPEED        = 195;
 const PING_BOOST        = 3.5;
 const PING_BOOST_THERMO = 0.8;
 
+// Ulepszenia AI v2
+const HUNT_DECAY_THERMO = 0.55;   // szybsza utrata kontaktu gdy gracz pod termoklinem
+const HUNT_DECAY_BASE   = 0.35;   // normalna utrata w HUNT (było 0.25) — nagradza ciszę
+const DR_VX_WEIGHT      = 0.60;   // współczynnik dead-reckoning (predykcja ruchu łodzi)
+const REINFORCE_DELAY   = 18;     // sekundy HUNT bez likwidacji → wezwanie posiłków
+
 export class Enemy {
   constructor(scene, x, patrolLeft, patrolRight, label) {
     this.scene = scene;
@@ -102,6 +108,13 @@ export class Enemy {
     this.recentExplosions = [];
     this.recentPingHit    = false;
     this.recentASROC      = false;
+
+    // AI v2 — dead reckoning + koordynacja
+    this._contactAge      = 0;      // sekundy od ostatniego świeżego kontaktu sonarowego
+    this._lastKnownVX     = 0;      // prędkość x łodzi w momencie ostatniego kontaktu
+    this._huntDuration    = 0;      // ile czasu (s) ciągłego HUNT — do wezwania posiłków
+    this.needsReinforcement = false; // flaga — GameScene odczytuje i spawna posiłki
+    this._flankApproach   = false;  // czy obchodzić z flanki (koordinacja)
   }
 
   // Wywoływane z GameScene gdy torpeda lub rakieta trafi
@@ -175,12 +188,21 @@ export class Enemy {
   }
 
   // Koordynacja radiowa
-  receiveRadioAlert(subX, subY) {
+  receiveRadioAlert(subX, subY, hunterX = null) {
     if (this.state === STATE.HUNT) return;
     this.lastKnownSubX    = subX;
     this.lastKnownSubY    = subY;
     this.lastBearingToSub = Math.atan2(subY - this.y, subX - this.x);
     this.detectTimer      = Math.max(this.detectTimer, ALERT_THRESHOLD + 1.2);
+    this._contactAge      = 0;
+
+    // Flanking coordination — jeśli oba okręty po tej samej stronie łodzi,
+    // ten przechodzi na drugą stronę by zamknąć pułapkę
+    if (hunterX !== null) {
+      const hunterSide = Math.sign(hunterX - subX);
+      const thisSide   = Math.sign(this.x   - subX);
+      this._flankApproach = (hunterSide === thisSide && hunterSide !== 0);
+    }
   }
 
   // ── Aktywny sonar ──────────────────────────────────────────────────────────
@@ -212,6 +234,8 @@ export class Enemy {
         this.lastBearingToSub = Math.atan2(dy, dx);
         this.lastKnownSubX    = sub.x;
         this.lastKnownSubY    = sub.y;
+        this._contactAge      = 0;
+        this._lastKnownVX     = sub.vx || 0;
         this.recentPingHit    = true;
         // Ping ujawnia okręt gracza — ale też gracz widzi echo = pozycja wroga
         this.revealTimer = Math.max(this.revealTimer, 6.0);
@@ -252,14 +276,20 @@ export class Enemy {
       this.lastBearingToSub = Math.atan2(dy, dx);
       this.lastKnownSubX    = sub.x;
       this.lastKnownSubY    = sub.y;
+      this._contactAge      = 0;
+      this._lastKnownVX     = sub.vx || 0;
     } else {
+      this._contactAge += dt;
+
       // W HUNT z aktywną wabią → niszczyciel skieruje się na wabię zamiast okrętu
       if (bestDecoy && decoyMask > 0.25 && (this.state === STATE.HUNT || this.state === STATE.ALERT)) {
         this.lastKnownSubX = bestDecoy.x;
         this.lastKnownSubY = this.scene.SURFACE_Y;
       }
-      // Cichy gracz szybciej "znika" z hydrofonu
-      const decay = this.state === STATE.HUNT ? 0.25 : 0.75;
+
+      // Zanik: szybszy pod termoklinem (nagroda za krycie się), wolniejszy na otwartej wodzie
+      const huntDecay = sub.belowThermocline ? HUNT_DECAY_THERMO : HUNT_DECAY_BASE;
+      const decay = this.state === STATE.HUNT ? huntDecay : 0.75;
       this.detectTimer = Math.max(0, this.detectTimer - decay * dt);
     }
 
@@ -276,9 +306,21 @@ export class Enemy {
       this.state = STATE.PATROL;
     }
 
+    // Śledzenie czasu HUNT — do wezwania posiłków
+    if (this.state === STATE.HUNT) {
+      this._huntDuration += dt;
+      if (this._huntDuration >= REINFORCE_DELAY && !this.needsReinforcement) {
+        this.needsReinforcement = true;
+      }
+    } else {
+      this._huntDuration = Math.max(0, this._huntDuration - dt * 0.5);
+      if (this._huntDuration === 0) this.needsReinforcement = false;
+    }
+
     if (prev === STATE.HUNT && this.state !== STATE.HUNT && this.state !== STATE.WITHDRAW) {
-      this.searchTimer = SEARCH_DURATION;
-      this.overshootX  = null;
+      this.searchTimer  = SEARCH_DURATION;
+      this.overshootX   = null;
+      this._contactAge  = 0;  // reset DR przy utracie — szuka od ostatniej pozycji
     }
 
     // Wycofanie nadpisuje inne stany gdy okręt krytycznie uszkodzony
@@ -331,21 +373,35 @@ export class Enemy {
         break;
       }
       case STATE.ALERT: {
-        const txDir = Math.cos(this.lastBearingToSub);
-        if (Math.abs(txDir) > 0.15) this.dir = Math.sign(txDir);
+        if (this._flankApproach) {
+          // Koordynacja: obejdź z flanki — kieruj się na stronę PRZECIWNĄ do reportującego
+          const flankOffset = Math.sign(this.x - this.lastKnownSubX) * 180;
+          const flankTarget = this.lastKnownSubX + flankOffset;
+          const fd = flankTarget - this.x;
+          if (Math.abs(fd) > 20) this.dir = Math.sign(fd);
+        } else {
+          const txDir = Math.cos(this.lastBearingToSub);
+          if (Math.abs(txDir) > 0.15) this.dir = Math.sign(txDir);
+        }
         this.x += this.dir * ALERT_SPEED * dmgMult * dt;
         this.x  = Phaser.Math.Clamp(this.x, 0, WORLD_W);
         break;
       }
       case STATE.HUNT: {
-        let dx = this.lastKnownSubX - this.x;
+        // Dead reckoning — przewiduj gdzie łódź odpłynęła od ostatniego kontaktu
+        const drAge   = Math.min(this._contactAge, 9);
+        const drTargX = this.lastKnownSubX + this._lastKnownVX * drAge * DR_VX_WEIGHT;
+        let   dx      = drTargX - this.x;
         if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
+
+        // Prędkość: wyższa gdy kontakt świeży (< 3s), normalna gdy stracimy na chwilę
+        const huntSpd = this._contactAge < 3 ? HUNT_SPEED * 1.18 : HUNT_SPEED;
 
         if (this.overshootX === null) {
           if (Math.abs(dx) > 20) this.dir = Math.sign(dx);
-          this.x += this.dir * HUNT_SPEED * dmgMult * dt;
+          this.x += this.dir * huntSpd * dmgMult * dt;
         } else {
-          this.x += this.dir * HUNT_SPEED * dmgMult * dt;
+          this.x += this.dir * huntSpd * dmgMult * dt;
           const reached = this.dir > 0
             ? this.x >= this.overshootX
             : this.x <= this.overshootX;
@@ -359,12 +415,21 @@ export class Enemy {
       }
       case STATE.SEARCH: {
         const elapsed = SEARCH_DURATION - this.searchTimer;
-        const swing   = Math.min(90 + elapsed * 15, 360);
-        const left    = this.lastKnownSubX - swing;
-        const right   = this.lastKnownSubX + swing;
-        this.x += this.dir * ALERT_SPEED * 0.75 * dmgMult * dt;
-        if (this.x > right) this.dir = -1;
-        if (this.x < left)  this.dir =  1;
+        if (elapsed < 11) {
+          // Faza 1: konwergencja — pędź do ostatniej pozycji (zrzuć zarzuty)
+          let cdx = this.lastKnownSubX - this.x;
+          if (Math.abs(cdx) > WORLD_W / 2) cdx -= Math.sign(cdx) * WORLD_W;
+          if (Math.abs(cdx) > 25) this.dir = Math.sign(cdx);
+          this.x += this.dir * ALERT_SPEED * dmgMult * dt;
+        } else {
+          // Faza 2: rozszerzający się sweep od ostatniej pozycji
+          const swing = Math.min(80 + (elapsed - 11) * 16, 420);
+          const left  = this.lastKnownSubX - swing;
+          const right = this.lastKnownSubX + swing;
+          this.x += this.dir * ALERT_SPEED * 0.78 * dmgMult * dt;
+          if (this.x > right) this.dir = -1;
+          if (this.x < left)  this.dir =  1;
+        }
         this.x = Phaser.Math.Clamp(this.x, 0, WORLD_W);
         break;
       }
