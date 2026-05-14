@@ -279,6 +279,24 @@ export class Sonar {
       }
     }
 
+    // ── Podświetlenie wybranego kontaktu (z stacji SONAR) ────────────────────
+    const _selId = window._sonar?.selectedId;
+    if (_selId) {
+      const _selIdx = parseInt(_selId.replace('K-', '')) - 1;
+      if (_selIdx >= 0 && _selIdx < contacts.length) {
+        const sc  = contacts[_selIdx];
+        const pls = 0.55 + 0.45 * Math.sin(Date.now() * 0.007);
+        // Biały pierścień na krawędzi PPI przy namiarze wybranego kontaktu
+        const sx = this.cx + Math.cos(sc.bearing) * (this.r - 5);
+        const sy = this.cy + Math.sin(sc.bearing) * (this.r - 5);
+        g.lineStyle(1.5, 0xffffff, pls * 0.75);
+        g.strokeCircle(sx, sy, 8 + pls * 2);
+        // Przerywana linia namiarowa
+        g.lineStyle(0.7, 0xffffff, 0.35);
+        g.strokeLineShape(new Phaser.Geom.Line(this.cx, this.cy, sx, sy));
+      }
+    }
+
     // ── Torpedy ASROC ─────────────────────────────────────────────────────────
     const blink = Math.sin(Date.now() * 0.022) > 0;
     for (const enemy of enemies) {

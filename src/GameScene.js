@@ -233,15 +233,16 @@ export class GameScene extends Phaser.Scene {
 
     // ── Zapis / wczytanie ──────────────────────────────────────────────────
     const fromSave = SaveSystem.consumeLoadRequest();
+    // TYMCZASOWO: samouczek wyłączony do testów — przywrócić _startTutorial()
     if (fromSave) {
       const save = SaveSystem.load();
       if (save) {
         this._restoreFromSave(save);
       } else {
-        this._startTutorial();
+        this._spawnTestEnemies();
       }
     } else {
-      this._startTutorial();
+      this._spawnTestEnemies();
     }
 
     // Auto-zapis co 30s
@@ -490,7 +491,7 @@ export class GameScene extends Phaser.Scene {
           if (isMerchant) {
             this._logEvent(`${target.label} zatopiony rakietą!`);
             this._shipLog(`Cel handlowy zatopiony rakietą — ${target.label}. Nam. ${mb2}°, dyst. ${mr2}m.`, 'good');
-            this.mission.onMerchantDestroyed(target);
+            this.mission?.onMerchantDestroyed(target);
           } else {
             this._logEvent(`${target.label || 'Niszczyciel'} zatopiony rakietą!`);
             this._shipLog(`Cel zatopiony rakietą — ${target.label || 'niszczyciel'}. Nam. ${mb2}°, dyst. ${mr2}m.`, 'good');
@@ -558,7 +559,7 @@ export class GameScene extends Phaser.Scene {
             const mb = this._brg(this.sub.x, this.sub.y, m.x, m.y);
             const mr = this._rng(this.sub.x, this.sub.y, m.x, m.y);
             this._shipLog(`Cel handlowy zatopiony torpedą — ${m.label}. Nam. ${mb}°, dyst. ${mr}m.`, 'good');
-            this.mission.onMerchantDestroyed(m);
+            this.mission?.onMerchantDestroyed(m);
           } else {
             const mb = this._brg(this.sub.x, this.sub.y, m.x, m.y);
             this._logEvent(`Trafiono ${m.label}!`);
@@ -573,7 +574,7 @@ export class GameScene extends Phaser.Scene {
     this.merchants = this.merchants.filter(m => !m.destroyed);
 
     // Aktualizacja misji
-    this.mission.update();
+    this.mission?.update();
 
     // Piaskownica — ciągłe uzupełnianie wrogów
     if (!this._gameOver && this._enemiesSpawned) {
@@ -601,6 +602,7 @@ export class GameScene extends Phaser.Scene {
     this.ocean.update(delta, this.camX);
     this._updatePings(dt);
     this.sonar.update(delta, this.sub, [...this.enemies, ...this.merchants], this.sub.torpedoes, this._activePings);
+    this._exportSonarState();
     this._drawBearingLines();
     this._drawPings();
     this._updateHUD();
@@ -653,6 +655,86 @@ export class GameScene extends Phaser.Scene {
   _setCls(el, v)  { if (el.className   !== v) el.className   = v; }
   _setW(el, pct)  { const s = `${pct}%`; if (el.style.width !== s) el.style.width = s; }
   _setCol(el, v)  { if (el.style.color !== v) el.style.color = v; }
+
+  _exportSonarState() {
+    if (!window._sonar) window._sonar = { contacts: [], heading: 0, listenMode: false, tick: 0 };
+    const sub = this.sub;
+    const SONAR_RANGE = 820;
+
+    const toBD = (wx, wy) => {
+      const dx = wx - sub.x, dy = wy - sub.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      // Minimalny pionowy składnik = głębokość termokliny, żeby namiary na cele
+      // nawodne nie zbijały się do ~090° przy małej głębokości własnej.
+      const REF = THERMO_Y - SURFACE_Y;                          // ~200 px
+      const dyEff = Math.sign(dy || -1) * Math.max(Math.abs(dy), REF);
+      const brg   = (Math.atan2(dx, -dyEff) * 180 / Math.PI + 360) % 360;
+      return { bearing: brg, dist, distFrac: Math.min(1, dist / SONAR_RANGE) };
+    };
+
+    // Heading: oparty na poziomej prędkości (sub porusza się lewo/prawo)
+    if (Math.abs(sub.vx) > 1) {
+      window._sonar.heading = sub.vx > 0 ? 90 : 270;
+    }
+    window._sonar.listenMode    = sub.listenMode;
+    window._sonar.silentRunning = sub.silentRunning;
+    window._sonar.depth         = sub.depthMetres;
+    window._sonar.tick++;
+
+    // Synchronizuj wybór z stacji SONAR do systemu celowania
+    const selId = window._sonar.selectedId;
+    if (selId && selId !== this._prevSonarSelId) {
+      this._prevSonarSelId = selId;
+      const idx = parseInt(selId.replace('K-', '')) - 1;
+      const ct  = this.sonar.contacts?.[idx];
+      if (ct) this._selectedEnemy = ct.enemy;
+    } else if (!selId && this._prevSonarSelId) {
+      this._prevSonarSelId = null;
+    }
+
+    // Kontakty z silnika sonaru
+    window._sonar.contacts = (this.sonar.contacts || []).map((c, i) => ({
+      id: `K-${i + 1}`,
+      ...toBD(c.enemy.x, c.enemy.y),
+      sig:      c.sig,
+      approach: c.approach,
+      cls:      c.enemy.contactClass,
+      threat:   c.enemy.state === STATE.HUNT,
+    }));
+
+    // Torpedy gracza
+    window._sonar.torpedoes = (sub.torpedoes || [])
+      .filter(t => !t.exploded)
+      .map(t => ({ ...toBD(t.x, t.y), seekerLocked: t.seekerLocked }));
+
+    // Torpedy ASROC wrogów
+    window._sonar.asroc = this.enemies.flatMap(e =>
+      (e.homingTorpedoes || []).filter(ht => !ht.dead)
+        .map(ht => ({ ...toBD(ht.x, ht.y), locked: ht.locked }))
+    );
+
+    // Wabie akustyczne
+    window._sonar.noisemakers = (sub.noisemakers || [])
+      .map(n => ({ ...toBD(n.x, n.y), age: n.age, lifetime: n.lifetime }));
+
+    // Aktywne pingi
+    window._sonar.pings = (this._activePings || []).map(p => ({
+      rFrac:  Math.min(1, p.r / SONAR_RANGE),
+      alpha:  p.alpha,
+      echoes: (p.echoes || []).map(e => ({ ...toBD(e.x, e.y), age: e.age })),
+    }));
+
+    // Triangulowane pozycje
+    window._sonar.triangulated = [];
+    if (this._triangulated) {
+      this._triangulated.forEach((tri, _enemy) => {
+        if (tri.age >= 28) return;
+        window._sonar.triangulated.push({
+          ...toBD(tri.x, tri.y), age: tri.age, accurate: tri.accurate,
+        });
+      });
+    }
+  }
 
   _updateHUD() {
     const sub     = this.sub;
@@ -1440,10 +1522,20 @@ export class GameScene extends Phaser.Scene {
 
   // ── Tutorial ──────────────────────────────────────────────────────────────
 
+  _spawnTestEnemies() {
+    // Tryb testowy: kilka wrogów od razu, bez samouczka
+    this._enemiesSpawned = true;
+    for (let i = 0; i < 3; i++) {
+      const x = 400 + i * 500 + Phaser.Math.Between(-100, 100);
+      this.enemies.push(new Enemy(this, x, 80));
+    }
+    this.merchants.push(new Merchant(this, 1800, 1, 'KONWÓJ'));
+  }
+
   _startTutorial() {
     // Cel treningowy — jeden statek, bliżej gracza, wolno dryfujący
-    const trainingTarget = new Merchant(this, 1800, -1, 'CEL TRENINGOWY');
-    trainingTarget.speed = 8;   // wolniejszy — łatwiej namierzyć
+    const trainingTarget = new Merchant(this, 900, 1, 'CEL TRENINGOWY');
+    trainingTarget.speed = 1;   // prawie nieruchomy — zawsze widoczny na ekranie
     this.merchants.push(trainingTarget);
 
     this._enemiesSpawned = true;   // blokuj auto-spawn wrogów podczas tutorialu

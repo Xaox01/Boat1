@@ -4,607 +4,600 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Operacja Październik</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500&family=Oswald:wght@300;400;500&display=swap" rel="stylesheet" />
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* ── Design tokens ─────────────────────────────────── */
+    :root {
+      --bg:         #02080b;
+      --bg-panel:   rgba(6,21,27,0.88);
+      --ink:        #f3ede0;
+      --ink-dim:    rgba(243,237,224,0.52);
+      --ink-faint:  rgba(243,237,224,0.16);
+      --accent:     #e8413a;
+      --accent-s:   rgba(232,65,58,0.18);
+      --green:      #5fcf7a;
+      --blue:       #42b8d4;
+      --amber:      #ffb347;
+      --fd: 'Bebas Neue', 'Oswald', sans-serif;
+      --fm: 'JetBrains Mono', 'Courier New', monospace;
+    }
 
-    body {
-      background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100vh; overflow:hidden; background:var(--bg); color:var(--ink); font-family:var(--fm); }
+    ::-webkit-scrollbar { width:4px; }
+    ::-webkit-scrollbar-track { background:rgba(243,237,224,0.04); }
+    ::-webkit-scrollbar-thumb { background:rgba(232,65,58,0.3); }
+
+    /* ── Shell grid ────────────────────────────────────── */
+    #game-shell {
       height: 100vh;
+      display: grid;
+      grid-template-rows: 52px 640px 76px;
+      grid-template-columns: 1fr;
+      background: radial-gradient(ellipse at 28% 28%, #0a2530 0%, var(--bg) 68%);
       overflow: hidden;
-      font-family: 'Courier New', monospace;
     }
 
-    /* ── Layout główny ─────────────────────────────────────────── */
-    #game-wrapper {
-      display: flex;
-      align-items: flex-start;
+    /* CRT scanlines */
+    #game-shell::before {
+      content:'';
+      position:fixed; inset:0;
+      background-image: repeating-linear-gradient(0deg,
+        rgba(0,0,0,0.13) 0px, rgba(0,0,0,0.13) 1px,
+        transparent 1px, transparent 3px);
+      pointer-events:none; z-index:200;
+    }
+    /* Vignette */
+    #game-shell::after {
+      content:'';
+      position:fixed; inset:0;
+      background:radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,0.68) 100%);
+      pointer-events:none; z-index:199;
     }
 
-    #game-container { position: relative; flex-shrink: 0; }
-
-    /* ── Cały UI gry — ukryty podczas menu ───────────────────── */
-    #game-ui { display: none; }
-    #game-ui.active { display: block; }
-
-    /* ── HUD top bar ─────────────────────────────────────────── */
-    #hud {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      padding: 8px 12px;
-      display: flex;
-      gap: 16px;
-      pointer-events: none;
-      z-index: 10;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
+    /* ── TOP BAR ───────────────────────────────────────── */
+    #top-bar {
+      display: flex; align-items: center;
+      padding: 0 20px; gap: 20px;
+      border-bottom: 1px solid var(--ink-faint);
+      background: rgba(2,8,11,0.65);
+      z-index: 10; position: relative;
     }
 
-    .hud-item {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 64px;
+    #tb-ship { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+
+    #tb-dot {
+      width:10px; height:10px; border-radius:50%;
+      background:var(--accent); box-shadow:0 0 8px var(--accent);
+      animation: dot-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes dot-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.82)} }
+
+    #tb-name { font-family:var(--fd); font-size:20px; letter-spacing:4px; color:var(--ink); }
+    #tb-class { font-size:9px; letter-spacing:2px; color:var(--ink-dim); }
+
+    /* Station tabs */
+    #station-tabs { flex:1; display:flex; justify-content:center; gap:2px; }
+
+    .stab {
+      all:unset; cursor:default;
+      padding: 6px 16px;
+      display:flex; flex-direction:column; align-items:center; gap:1px;
+      border-top: 2px solid transparent;
+      transition: border-color 0.15s;
+    }
+    .stab.active { border-top-color:var(--accent); background:var(--accent-s); }
+    .stab-lbl { font-family:var(--fd); font-size:14px; letter-spacing:3px; color:var(--ink-dim); }
+    .stab.active .stab-lbl { color:var(--accent); }
+    .stab-code { font-size:7px; letter-spacing:1.5px; color:var(--ink-faint); }
+
+    #tb-meta {
+      display:flex; align-items:center; gap:18px;
+      font-size:10px; letter-spacing:2px; color:var(--ink-dim); flex-shrink:0;
+    }
+    #tb-badge {
+      padding:3px 10px; color:var(--accent);
+      border:1px solid var(--accent); font-size:9px; letter-spacing:2px;
     }
 
-    .hud-label {
-      color: #aaffcc;
-      font-size: 8px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      opacity: 1;
-    }
+    /* ── MAIN AREA ─────────────────────────────────────── */
+    #main-area { display:flex; overflow:hidden; min-height:0; position:relative; }
 
-    .hud-value {
-      color: #ffffff;
-      font-size: 15px;
-      font-weight: bold;
-      text-shadow: 0 0 8px #55ffaa, 0 0 16px #22cc77;
-      line-height: 1;
-    }
+    /* ── STATION TABS — klikalne ───────────────────────── */
+    .stab { cursor: pointer; }
 
-    .hud-bar {
-      width: 64px;
-      height: 4px;
-      background: #143a22;
-      border: 1px solid #2a7a48;
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 2px;
-    }
-
-    .hud-bar-fill {
-      height: 100%;
-      background: #44ffaa;
-      transition: width 0.15s, background 0.3s;
-      border-radius: 2px;
-      box-shadow: 0 0 5px rgba(60,255,160,0.8);
-    }
-
-    .hud-bar-fill.warning    { background: #ffdd44; box-shadow: 0 0 6px #ffcc00; }
-    .hud-bar-fill.danger     { background: #ff6060; box-shadow: 0 0 8px #ff3333; }
-    .hud-bar-fill.cavitating { background: #ff8800; box-shadow: 0 0 6px #ff6600; animation: cavi-pulse 0.25s ease-in-out infinite alternate; }
-    .hud-bar-fill.charging   { background: #44ffcc; box-shadow: 0 0 8px #22ffaa; }
-    @keyframes cavi-pulse { from { opacity: 0.7; } to { opacity: 1; } }
-
-    .hud-label.masked { color: #88eeff; }
-    .hud-label.listen { color: #44ffaa; font-weight: bold; text-shadow: 0 0 8px rgba(44,255,170,1); }
-
-    /* ── Alert banner ────────────────────────────────────────── */
-    #alert-banner {
-      position: absolute;
-      top: 50px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 4px 20px;
-      font-size: 11px;
-      letter-spacing: 4px;
-      opacity: 0;
-      transition: opacity 0.2s, background 0.2s, border-color 0.2s;
-      pointer-events: none;
-      z-index: 20;
-      white-space: nowrap;
-    }
-    #alert-banner.visible.warning {
-      opacity: 1;
-      background: rgba(200,150,0,0.13);
-      border: 1px solid #ffbb00;
-      color: #ffbb00;
-      text-shadow: 0 0 8px #ffbb00;
-    }
-    #alert-banner.visible.danger {
-      opacity: 1;
-      background: rgba(200,30,0,0.15);
-      border: 1px solid #ff3300;
-      color: #ff3300;
-      text-shadow: 0 0 10px #ff3300;
-      animation: hunt-pulse 0.6s ease-in-out infinite alternate;
-    }
-    @keyframes hunt-pulse { from { opacity: 0.7; } to { opacity: 1; } }
-
-    /* ── Panel lewy — namierzanie + sterowanie ──────────────── */
-    #left-panel {
+    /* ══ SONAR STATION ════════════════════════════════════ */
+    /* Sonar station lives inside #game-container (position:relative, 1024px wide).
+       z-index 12 → above Phaser canvas (auto), below tutorial overlays (35-49)
+       and alert-banner (20) which we raise to 55. */
+    #sonar-station {
       display: none;
-      flex-direction: column;
-      width: 195px;
-      height: 640px;
-      background: #021c0a;
-      border-right: 2px solid #00cc55;
-      border-top: 1px solid #008840;
-      border-bottom: 1px solid #008840;
-      border-left: 1px solid #008840;
-      position: relative;
-      overflow: hidden;
-      box-shadow:
-        inset 0 0 30px rgba(0,255,80,0.08),
-        inset -2px 0 12px rgba(0,0,0,0.30);
-      flex-shrink: 0;
-      padding-bottom: 6px;
+      position: absolute; inset: 0; z-index: 12;
+      background: radial-gradient(ellipse at 28% 30%, #071820 0%, var(--bg) 68%);
+      grid-template-columns: 1.1fr 1fr;
+      grid-template-rows: 1fr;
+      gap: 14px; padding: 14px;
     }
-    #left-panel.active { display: flex; }
+    #sonar-station.active { display: grid; }
 
-    /* scanlines na lewym panelu */
+    #ss-left {
+      display: flex; flex-direction: column; gap: 8px;
+      min-height: 0; position: relative;
+    }
+    #ss-header-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      flex-shrink: 0;
+    }
+    .ss-label {
+      font-family: var(--fm); font-size: 9px;
+      letter-spacing: 2.5px; color: var(--ink-dim);
+    }
+    #ss-listen-badge {
+      font-family: var(--fm); font-size: 9px; letter-spacing: 2px;
+      padding: 2px 8px; border: 1px solid var(--blue);
+      color: var(--blue); display: none;
+    }
+    #ss-listen-badge.active { display: inline; }
+
+    #ss-wheel-wrap {
+      flex: 1; min-height: 0;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    #ss-wheel {
+      max-width: 100%; max-height: 100%;
+      display: block; cursor: crosshair;
+    }
+
+    #ss-right {
+      display: flex; flex-direction: column; gap: 12px; min-height: 0;
+    }
+
+    .ss-panel {
+      border: 1px solid var(--ink-faint);
+      background: var(--bg-panel);
+      display: flex; flex-direction: column;
+      position: relative;
+    }
+    /* Corner brackets on panels */
+    .ss-panel::before {
+      content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
+      background:
+        linear-gradient(var(--accent),var(--accent)) top left  / 10px 1px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) top left  / 1px 10px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) bottom right / 10px 1px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) bottom right / 1px 10px no-repeat;
+      opacity: 0.5;
+    }
+    .ss-panel-header {
+      padding: 8px 12px; flex-shrink: 0;
+      display: flex; justify-content: space-between; align-items: baseline;
+      border-bottom: 1px solid var(--ink-faint);
+      font-family: var(--fm); font-size: 9px; letter-spacing: 2.5px; color: var(--ink-dim);
+    }
+
+    #ss-wf-panel { flex: 1; min-height: 0; overflow: hidden; }
+    #ss-wf-inner {
+      flex: 1; min-height: 0; position: relative;
+      display: flex; overflow: hidden;
+    }
+    #ss-waterfall {
+      flex: 1; height: 100%;
+      display: block; image-rendering: pixelated;
+    }
+    #ss-bearing-axis {
+      position: absolute; left: 28px; top: 0; bottom: 0;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 3px 0; pointer-events: none;
+      font-family: var(--fm); font-size: 8px; letter-spacing: 1px; color: var(--ink-faint);
+    }
+
+    #ss-demon-panel { flex-shrink: 0; height: 88px; }
+    #ss-demon-inner { flex: 1; overflow: hidden; position: relative; }
+    #ss-demon { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+
+    #ss-contacts-panel { flex-shrink: 0; height: 170px; }
+    #ss-contact-list { flex: 1; overflow-y: auto; }
+    .ss-contact {
+      display: grid;
+      grid-template-columns: 36px 1fr 48px 42px 52px 44px;
+      align-items: center; gap: 6px;
+      padding: 7px 12px;
+      border-left: 3px solid transparent;
+      cursor: pointer; transition: background 80ms;
+    }
+    .ss-contact:hover { background: rgba(243,237,224,0.03); }
+    .ss-contact.sel { background: rgba(232,65,58,0.07); }
+    .ss-cid { font-family: var(--fm); font-size: 11px; font-weight: 500; }
+    .ss-cls { font-family: var(--fd); font-size: 13px; letter-spacing: 1px; }
+    .ss-brg { font-family: var(--fm); font-size: 10px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+    .ss-rng { font-family: var(--fm); font-size: 9px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+    .ss-trend { font-family: var(--fm); font-size: 9px; letter-spacing: 1px; }
+    .ss-bars { display: flex; gap: 2px; align-items: center; }
+    .ss-bar  { width: 6px; height: 10px; background: rgba(243,237,224,0.08); }
+    .ss-empty {
+      font-family: var(--fm); font-size: 10px; letter-spacing: 2px;
+      color: var(--ink-faint); padding: 14px 12px;
+    }
+
+    /* ── LEFT PANEL ────────────────────────────────────── */
+    #left-panel {
+      width:200px; flex-shrink:0;
+      background:var(--bg-panel);
+      border-right:1px solid var(--ink-faint);
+      display:none; flex-direction:column; overflow:hidden;
+      position:relative;
+    }
+    #left-panel.active { display:flex; }
+
+    /* Corner brackets via gradient trick */
     #left-panel::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image: repeating-linear-gradient(
-        to bottom,
-        transparent 0px, transparent 3px,
-        rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px
-      );
-      pointer-events: none;
-      z-index: 20;
+      content:''; position:absolute; inset:0; z-index:5; pointer-events:none;
+      background:
+        linear-gradient(var(--accent),var(--accent)) top left / 12px 1px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) top left / 1px 12px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) bottom right / 12px 1px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) bottom right / 1px 12px no-repeat;
+      opacity:0.6;
     }
 
     .lp-section-title {
-      color: #44ffaa;
-      font-size: 8px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      padding: 7px 10px 5px;
-      border-bottom: 1px solid #2a8850;
-      margin-bottom: 3px;
-      text-shadow: 0 0 8px rgba(50,255,130,0.7);
-      flex-shrink: 0;
+      color:var(--accent); font-size:8px; letter-spacing:3px;
+      padding:8px 10px 6px;
+      border-bottom:1px solid var(--ink-faint); flex-shrink:0;
     }
 
     .lp-divider {
-      color: #229960;
-      font-size: 7px;
-      padding: 4px 10px;
-      letter-spacing: 0;
-      border-top: 1px solid #007740;
-      border-bottom: 1px solid #007740;
-      background: #021808;
-      overflow: hidden;
-      white-space: nowrap;
-      flex-shrink: 0;
-      margin: 4px 0;
+      color:rgba(232,65,58,0.35); font-size:7px;
+      padding:3px 10px;
+      border-top:1px solid var(--ink-faint); border-bottom:1px solid var(--ink-faint);
+      background:rgba(6,21,27,0.6); flex-shrink:0; margin:4px 0;
+      overflow:hidden; white-space:nowrap;
     }
 
-    /* ── Panel kontrolek (w lewym panelu) ───────────────────── */
-    #controls-panel {
-      pointer-events: none;
-      padding: 0 10px 6px;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      flex-shrink: 0;
-    }
+    /* ── Target / Targeting panel ───────────────────────── */
+    #target-panel { padding:0 10px 6px; pointer-events:none; flex-shrink:0; }
 
-    .ctrl-title {
-      color: #55ffaa;
-      font-size: 9px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      border-bottom: 1px solid #2a8850;
-      padding-bottom: 3px;
-      margin-bottom: 1px;
-    }
-
-    .ctrl-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .ctrl-keys { display: flex; gap: 2px; }
-
-    kbd {
-      display: inline-block;
-      background: #1a4028;
-      border: 1px solid #3a9060;
-      color: #aaffe0;
-      font-family: 'Courier New', monospace;
-      font-size: 9px;
-      padding: 1px 5px;
-      min-width: 18px;
-      text-align: center;
-      line-height: 14px;
-    }
-
-    .ctrl-desc {
-      color: #99ddbb;
-      font-size: 9px;
-      letter-spacing: 0.5px;
-    }
-
-    /* ── Event log ───────────────────────────────────────────── */
-    #event-log {
-      position: absolute;
-      bottom: 168px;
-      right: 10px;
-      width: 168px;
-      pointer-events: none;
-      z-index: 10;
-    }
-
-    .event-msg {
-      color: #ffdd66;
-      font-size: 10px;
-      font-weight: bold;
-      letter-spacing: 1px;
-      line-height: 1.6;
-      text-align: right;
-      text-shadow: 0 0 6px #ffaa00;
-      opacity: 1;
-      transition: opacity 0.5s;
-    }
-    .event-msg.fading { opacity: 0; }
-
-    /* ── Tutorial tip (dół środek) ───────────────────────────── */
-    #tutorial-tip {
-      position: absolute;
-      bottom: 18px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,18,8,0.90);
-      border: 1px solid #1a5a2a;
-      padding: 6px 16px;
-      color: #4aff9a;
-      font-size: 10px;
-      letter-spacing: 1.5px;
-      pointer-events: none;
-      z-index: 15;
-      text-align: center;
-      white-space: nowrap;
-      opacity: 0;
-      transition: opacity 0.4s;
-    }
-    #tutorial-tip.visible { opacity: 1; }
-    #tutorial-icon { color: #2aff7a; margin-right: 7px; }
-
-    /* ── Panel namierzania (w lewym panelu) ─────────────────── */
-    #target-panel {
-      padding: 0 10px 6px;
-      pointer-events: none;
-      flex-shrink: 0;
-    }
     .tp-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 3px;
+      display:flex; justify-content:space-between; align-items:center;
+      gap:10px; margin-bottom:4px;
     }
-    .tp-label {
-      color: #88ddaa;
-      font-size: 9px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-    }
+    .tp-label { color:var(--ink-dim); font-size:9px; letter-spacing:1.5px; }
     .tp-value {
-      color: #ffffff;
-      font-size: 13px;
-      font-weight: bold;
-      text-shadow: 0 0 6px #44ffaa;
-      letter-spacing: 1px;
+      color:var(--ink); font-family:var(--fm); font-size:13px; font-weight:500;
+      letter-spacing:1px; font-variant-numeric:tabular-nums;
     }
-    .tp-value.warning { color: #ffee66; text-shadow: 0 0 7px #ffcc00; }
-    .tp-value.danger  { color: #ff7070; text-shadow: 0 0 9px #ff3333; }
-    .tp-value.ready   { color: #55ffcc; text-shadow: 0 0 9px #22ffaa; }
-    .tp-value.nodata  { color: #668877; text-shadow: none; }
+    .tp-value.warning { color:var(--amber); }
+    .tp-value.danger  { color:var(--accent); }
+    .tp-value.ready   { color:var(--green); }
+    .tp-value.nodata  { color:var(--ink-faint); }
     .tp-threat {
-      margin-top: 4px;
-      font-size: 9px;
-      letter-spacing: 1px;
-      color: #ff6060;
-      text-shadow: 0 0 8px #ff3333;
-      min-height: 13px;
+      margin-top:4px; font-size:9px; letter-spacing:1px;
+      color:var(--accent); min-height:13px;
       animation: threat-pulse 0.5s ease-in-out infinite alternate;
     }
-    @keyframes threat-pulse { from { opacity: 0.6; } to { opacity: 1; } }
+    @keyframes threat-pulse { from{opacity:0.6} to{opacity:1} }
 
-    /* ── Panel misji ─────────────────────────────────────────── */
-    #mission-panel {
-      display: none;
-      padding: 0 10px 8px;
-      flex-shrink: 0;
+    /* ── Mission panel ─────────────────────────────────── */
+    #mission-panel { display:none; padding:0 10px 8px; flex-shrink:0; }
+    #mission-name { color:var(--amber); font-size:9px; letter-spacing:1.5px; padding:2px 0 5px; }
+    .mission-obj { font-size:9px; letter-spacing:0.5px; padding:2px 0; line-height:1.5; }
+    .mission-obj.pending { color:var(--ink-dim); }
+    .mission-obj.done { color:var(--green); }
+    .mission-obj.mission-complete { color:var(--amber); font-size:10px; letter-spacing:1px; margin-top:4px; }
+
+    /* ── Controls panel ────────────────────────────────── */
+    #controls-panel {
+      pointer-events:none; padding:0 10px 6px;
+      display:flex; flex-direction:column; gap:3px; flex-shrink:0;
+      overflow-y:auto;
     }
-
-    #mission-name {
-      color: #ffcc44;
-      font-size: 9px;
-      letter-spacing: 1.5px;
-      padding: 2px 0 5px;
-      text-shadow: 0 0 8px rgba(255,200,0,0.6);
+    .ctrl-title {
+      color:var(--accent); font-size:9px; letter-spacing:3px;
+      border-bottom:1px solid var(--ink-faint);
+      padding-bottom:3px; margin-bottom:2px;
     }
-
-    .mission-obj {
-      font-size: 9px;
-      letter-spacing: 0.5px;
-      padding: 2px 0;
-      line-height: 1.5;
+    .ctrl-row { display:flex; align-items:center; gap:6px; }
+    .ctrl-keys { display:flex; gap:2px; }
+    kbd {
+      display:inline-block;
+      background:rgba(232,65,58,0.08);
+      border:1px solid rgba(232,65,58,0.38);
+      border-bottom:2px solid rgba(232,65,58,0.22);
+      color:var(--accent); font-family:var(--fm);
+      font-size:9px; padding:1px 5px; min-width:18px;
+      text-align:center; line-height:14px; border-radius:2px;
     }
+    .ctrl-desc { color:var(--ink-dim); font-size:9px; letter-spacing:0.5px; }
 
-    .mission-obj.pending {
-      color: #88aaaa;
+    /* ── GAME CONTAINER (canvas) ───────────────────────── */
+    #game-container { position:relative; flex-shrink:0; width:1024px; overflow:hidden; }
+
+    /* ── Canvas overlays ───────────────────────────────── */
+    #game-ui { display:none; }
+    #game-ui.active { display:block; }
+
+    /* #hud kept for JS id references but moved to bottom bar */
+    #hud { display:none; }
+
+    /* Alert banner — z-index 55 → above sonar station (12) */
+    #alert-banner {
+      position:absolute; top:50px; left:50%; transform:translateX(-50%);
+      padding:4px 20px; font-size:11px; letter-spacing:4px;
+      opacity:0; transition:opacity 0.2s, background 0.2s, border-color 0.2s;
+      pointer-events:none; z-index:55; white-space:nowrap;
     }
-
-    .mission-obj.done {
-      color: #44ffaa;
-      text-shadow: 0 0 7px rgba(50,255,130,0.5);
+    #alert-banner.visible.warning {
+      opacity:1; background:rgba(200,150,0,0.12); border:1px solid var(--amber);
+      color:var(--amber);
     }
-
-    .mission-obj.mission-complete {
-      color: #ffdd55;
-      font-size: 10px;
-      letter-spacing: 1px;
-      text-shadow: 0 0 10px rgba(255,210,0,0.8);
-      margin-top: 4px;
+    #alert-banner.visible.danger {
+      opacity:1; background:rgba(232,65,58,0.12); border:1px solid var(--accent);
+      color:var(--accent); animation: hunt-pulse 0.6s ease-in-out infinite alternate;
     }
+    @keyframes hunt-pulse { from{opacity:0.7} to{opacity:1} }
 
-    /* ── Bot panel ───────────────────────────────────────────── */
+    /* Tutorial tip — z-index 55 → above sonar station (12) */
+    #tutorial-tip {
+      position:absolute; bottom:18px; left:50%; transform:translateX(-50%);
+      background:rgba(2,8,11,0.92); border:1px solid rgba(232,65,58,0.4);
+      padding:6px 16px; color:var(--accent); font-size:10px; letter-spacing:1.5px;
+      pointer-events:none; z-index:55; text-align:center; white-space:nowrap;
+      opacity:0; transition:opacity 0.4s;
+    }
+    #tutorial-tip.visible { opacity:1; }
+    #tutorial-icon { color:var(--accent); margin-right:7px; }
+
+    /* Event log — z-index 55 → above sonar station (12) */
+    #event-log {
+      position:absolute; bottom:168px; right:10px;
+      width:168px; pointer-events:none; z-index:55;
+    }
+    .event-msg {
+      color:var(--amber); font-size:10px; font-weight:bold;
+      letter-spacing:1px; line-height:1.6; text-align:right;
+      opacity:1; transition:opacity 0.5s;
+    }
+    .event-msg.fading { opacity:0; }
+
+    /* Bot panel — z-index 55 → above sonar station (12) */
     #bot-panel {
-      display: none;
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      width: 320px;
-      max-height: 220px;
-      background: rgba(0,4,2,0.88);
-      border: 1px solid #0a4a28;
-      z-index: 30;
-      flex-direction: column;
+      display:none; position:absolute; bottom:10px; left:10px;
+      width:320px; max-height:220px;
+      background:rgba(2,8,11,0.92); border:1px solid rgba(232,65,58,0.25);
+      z-index:55; flex-direction:column;
     }
-    #bot-panel.visible { display: flex; }
-
+    #bot-panel.visible { display:flex; }
     #bot-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 8px;
-      border-bottom: 1px solid #0a3a1a;
-      font-size: 8px;
-      letter-spacing: 2px;
-      color: #2a8a5a;
-      text-transform: uppercase;
+      display:flex; align-items:center; gap:8px;
+      padding:4px 8px; border-bottom:1px solid rgba(232,65,58,0.18);
+      font-size:8px; letter-spacing:2px; color:var(--ink-dim);
     }
-    #bot-status {
-      margin-left: auto;
-      color: #4aff9a;
-      font-size: 9px;
-    }
-    #bot-log {
-      overflow-y: auto;
-      padding: 4px 8px;
-      flex: 1;
-    }
-    .bot-line { font-size: 9px; line-height: 1.6; letter-spacing: 0.3px; }
-    .bot-ok   { color: #44ff88; }
-    .bot-fail { color: #ff4444; }
-    .bot-phase{ color: #88aaff; }
-    .bot-info { color: #888888; }
+    #bot-status { margin-left:auto; color:var(--green); font-size:9px; }
+    #bot-log { overflow-y:auto; padding:4px 8px; flex:1; }
+    .bot-line { font-size:9px; line-height:1.6; letter-spacing:0.3px; }
+    .bot-ok   { color:var(--green); }
+    .bot-fail { color:var(--accent); }
+    .bot-phase{ color:var(--blue); }
+    .bot-info { color:var(--ink-dim); }
 
-    /* ══════════════════════════════════════════════════════════
-       PANEL BOCZNY — DZIENNIK POKŁADOWY (terminal fosforowy)
-       ══════════════════════════════════════════════════════════ */
-
+    /* ── RIGHT RAIL (ship log) ─────────────────────────── */
     #side-panel {
-      display: none;
-      flex-direction: column;
-      width: 252px;
-      height: 640px;
-      background: #021c0a;
-      border-left: 2px solid #00cc55;
-      border-top: 1px solid #008840;
-      border-bottom: 1px solid #008840;
-      border-right: 1px solid #008840;
-      position: relative;
-      overflow: hidden;
-      box-shadow:
-        inset 0 0 40px rgba(0,255,80,0.10),
-        inset 2px 0 16px rgba(0,0,0,0.35);
-      flex-shrink: 0;
+      flex:1; min-width:250px;
+      background:var(--bg-panel);
+      border-left:1px solid var(--ink-faint);
+      display:none; flex-direction:column; overflow:hidden; position:relative;
     }
-    #side-panel.active { display: flex; }
+    #side-panel.active { display:flex; }
 
-    /* scanlines */
     #side-panel::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image: repeating-linear-gradient(
-        to bottom,
-        transparent 0px, transparent 3px,
-        rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px
-      );
-      pointer-events: none;
-      z-index: 20;
+      content:''; position:absolute; inset:0; z-index:5; pointer-events:none;
+      background:
+        linear-gradient(var(--accent),var(--accent)) top right / 12px 1px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) top right / 1px 12px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) bottom left / 12px 1px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) bottom left / 1px 12px no-repeat;
+      opacity:0.5;
     }
 
-    /* vignette corners */
-    #side-panel::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0,0,0,0.30) 100%);
-      pointer-events: none;
-      z-index: 20;
-    }
-
-    /* ── Nagłówek panelu ─────────────────────────────────────── */
+    /* Log header */
     #log-panel-header {
-      flex-shrink: 0;
-      background: #031e0c;
-      border-bottom: 1px solid #009944;
-      padding: 0;
+      flex-shrink:0; background:rgba(6,21,27,0.6);
+      border-bottom:1px solid var(--ink-faint); padding:0;
     }
-
     #log-panel-title-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 7px 11px 5px;
+      display:flex; justify-content:space-between; align-items:center;
+      padding:7px 12px 5px;
     }
-
-    #log-panel-title {
-      color: #44ffaa;
-      font-size: 8px;
-      letter-spacing: 3.5px;
-      text-transform: uppercase;
-      text-shadow: 0 0 10px rgba(50,255,150,0.9);
-    }
-
+    #log-panel-title { color:var(--accent); font-size:8px; letter-spacing:3.5px; }
     #ship-log-time {
-      color: #66ffcc;
-      font-size: 13px;
-      font-weight: bold;
-      letter-spacing: 2px;
-      text-shadow: 0 0 14px rgba(60,255,180,1);
-      font-variant-numeric: tabular-nums;
+      color:var(--ink); font-family:var(--fd); font-size:18px; letter-spacing:2px;
+      font-variant-numeric:tabular-nums;
     }
-
     #log-panel-subrow {
-      padding: 0px 11px 5px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      padding:0 12px 5px; display:flex; align-items:center; gap:6px;
     }
-
-    #log-panel-vessel {
-      color: #44cc88;
-      font-size: 7.5px;
-      letter-spacing: 1.5px;
-    }
-
     #log-panel-status-dot {
-      width: 5px; height: 5px;
-      border-radius: 50%;
-      background: #00ff55;
-      box-shadow: 0 0 5px #00ff55;
-      animation: status-blink 2.5s ease-in-out infinite alternate;
-      flex-shrink: 0;
+      width:5px; height:5px; border-radius:50%;
+      background:var(--accent); box-shadow:0 0 5px var(--accent);
+      animation:status-blink 2.5s ease-in-out infinite alternate; flex-shrink:0;
     }
-    @keyframes status-blink { from { opacity: 0.4; } to { opacity: 1; } }
+    @keyframes status-blink { from{opacity:0.4} to{opacity:1} }
+    #log-panel-vessel { color:var(--ink-dim); font-size:7.5px; letter-spacing:1.5px; }
 
-    /* ── Separator "────────────────" ────────────────────────── */
     .log-divider {
-      flex-shrink: 0;
-      color: #229960;
-      font-size: 7px;
-      padding: 2px 11px;
-      letter-spacing: 0;
-      border-bottom: 1px solid #007740;
-      background: #021808;
-      overflow: hidden;
-      white-space: nowrap;
+      flex-shrink:0; color:rgba(232,65,58,0.3); font-size:7px;
+      padding:2px 12px; letter-spacing:0;
+      border-bottom:1px solid var(--ink-faint); background:rgba(6,21,27,0.5);
+      overflow:hidden; white-space:nowrap;
     }
 
-    /* ── Wpisy ───────────────────────────────────────────────── */
+    /* DEMON display */
+    #demon-display {
+      display:block; margin:0 10px 2px; flex-shrink:0;
+      image-rendering:pixelated;
+      border:1px solid rgba(232,65,58,0.2); border-radius:1px;
+    }
+
+    /* Ship log entries */
     #ship-log-entries {
-      flex: 1;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
+      flex:1; overflow:hidden;
+      display:flex; flex-direction:column;
     }
-
     .log-entry {
-      padding: 5px 11px 4px;
-      font-size: 10px;
-      line-height: 1.5;
-      letter-spacing: 0.25px;
-      display: flex;
-      gap: 0;
-      align-items: flex-start;
-      border-bottom: 1px solid rgba(0,140,60,0.25);
-      flex-direction: column;
+      padding:5px 12px 4px; font-size:10px; line-height:1.5;
+      letter-spacing:0.25px; border-bottom:1px solid rgba(232,65,58,0.1);
+      display:flex; flex-direction:column; gap:0;
     }
+    .log-time { color:var(--accent); font-size:8.5px; letter-spacing:0.5px; margin-bottom:1px; }
+    .log-time::before { content:'['; }
+    .log-time::after  { content:']'; }
+    .log-text { color:rgba(243,237,224,0.75); word-break:break-word; }
+    .log-text.warn  { color:var(--amber); }
+    .log-text.danger{
+      color:var(--accent);
+      animation:log-flicker 0.9s ease-in-out infinite alternate;
+    }
+    @keyframes log-flicker { from{opacity:0.82} to{opacity:1} }
+    .log-text.good  { color:var(--green); }
+    .log-text.info  { color:var(--blue); }
 
-    .log-time {
-      color: #44dd88;
-      font-size: 8.5px;
-      letter-spacing: 0.5px;
-      margin-bottom: 1px;
-      font-weight: bold;
-    }
-
-    .log-time::before { content: '['; }
-    .log-time::after  { content: ']'; }
-
-    .log-text {
-      color: #55ff99;
-      text-shadow: 0 0 6px rgba(50,255,130,0.5);
-      word-break: break-word;
-    }
-    .log-text.warn {
-      color: #ffee66;
-      text-shadow: 0 0 7px rgba(255,220,0,0.6);
-    }
-    .log-text.danger {
-      color: #ff7070;
-      text-shadow: 0 0 10px rgba(255,60,0,0.75);
-      animation: log-danger-flicker 0.9s ease-in-out infinite alternate;
-    }
-    .log-text.good {
-      color: #55ffcc;
-      text-shadow: 0 0 9px rgba(50,255,180,0.75);
-    }
-    .log-text.info {
-      color: #88ddff;
-      text-shadow: 0 0 7px rgba(100,200,255,0.6);
-    }
-    @keyframes log-danger-flicker {
-      from { opacity: 0.82; text-shadow: 0 0 4px rgba(255,40,0,0.3); }
-      to   { opacity: 1;    text-shadow: 0 0 9px rgba(255,60,0,0.7); }
-    }
-
-    /* ── Pasek dolny — kursor ────────────────────────────────── */
+    /* Log cursor bar */
     #log-cursor-bar {
-      flex-shrink: 0;
-      padding: 5px 11px;
-      border-top: 1px solid #009944;
-      background: #031e0c;
-      color: #44cc88;
-      font-size: 8.5px;
-      letter-spacing: 1px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      flex-shrink:0; padding:5px 12px; border-top:1px solid var(--ink-faint);
+      background:rgba(6,21,27,0.6); color:var(--ink-dim); font-size:8.5px; letter-spacing:1px;
+      display:flex; align-items:center; gap:6px;
     }
-
-    #log-cursor-bar span { color: #33aa66; }
-
     #log-blink {
-      color: #44ffaa;
-      text-shadow: 0 0 10px #44ffaa;
-      font-size: 12px;
-      animation: cursor-blink 1.1s step-end infinite;
+      color:var(--accent); font-size:12px;
+      animation:cursor-blink 1.1s step-end infinite;
     }
-    @keyframes cursor-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+    @keyframes cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
+    /* ── BOTTOM BAR ────────────────────────────────────── */
+    #bottom-bar {
+      display:flex; align-items:center; gap:0;
+      padding:0 20px;
+      border-top:1px solid var(--ink-faint);
+      background:rgba(2,8,11,0.65);
+      z-index:10; position:relative;
+      overflow:hidden;
+    }
+
+    /* ── HUD items (now in bottom bar) ────────────────── */
+    .hud-group { display:flex; gap:16px; align-items:center; }
+    .hud-sep {
+      width:1px; height:40px; background:var(--ink-faint);
+      flex-shrink:0; margin:0 10px;
+    }
+
+    .hud-item { display:flex; flex-direction:column; gap:2px; min-width:54px; }
+
+    .hud-label {
+      color:var(--ink-dim); font-size:8px; letter-spacing:2px; text-transform:uppercase;
+    }
+    .hud-label.masked { color:var(--blue); }
+    .hud-label.listen { color:var(--accent); font-weight:bold; }
+
+    .hud-value {
+      color:var(--ink); font-family:var(--fd);
+      font-size:20px; line-height:1;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .hud-bar {
+      width:54px; height:3px;
+      background:rgba(232,65,58,0.12); overflow:hidden; margin-top:2px;
+    }
+    .hud-bar-fill {
+      height:100%; background:var(--accent); transition:width 0.15s, background 0.3s;
+      box-shadow:0 0 4px rgba(232,65,58,0.6);
+    }
+    .hud-bar-fill.warning    { background:var(--amber); box-shadow:0 0 4px rgba(255,179,71,0.6); }
+    .hud-bar-fill.danger     { background:#ff3333; box-shadow:0 0 6px rgba(255,50,50,0.7); }
+    .hud-bar-fill.cavitating { background:var(--amber); animation:cavi-pulse 0.25s ease-in-out infinite alternate; }
+    .hud-bar-fill.charging   { background:var(--green); box-shadow:0 0 4px rgba(95,207,122,0.6); }
+    @keyframes cavi-pulse { from{opacity:0.7} to{opacity:1} }
+
+    /* Weapon counts */
+    .hud-weapon {
+      display:flex; flex-direction:column; gap:2px;
+      min-width:42px; align-items:center;
+    }
+    .hud-weapon .hud-label { text-align:center; }
+    .hud-weapon .hud-value { font-size:18px; text-align:center; }
+
+    /* Bottom toggles */
+    .hud-toggles { display:flex; gap:5px; flex-shrink:0; }
+    .hud-toggle {
+      all:unset; cursor:default;
+      padding:6px 11px;
+      font-size:9px; letter-spacing:2px;
+      border:1px solid var(--ink-faint); color:var(--ink-dim);
+      transition:all 120ms;
+    }
+    .hud-toggle.tg-active {
+      background:var(--accent-s); border-color:var(--accent); color:var(--accent);
+    }
+
+    /* Ping + wave small */
+    .hud-small { display:flex; flex-direction:column; gap:2px; min-width:52px; }
+    .hud-small .hud-label { font-size:8px; }
+    .hud-small .sv { font-size:11px; letter-spacing:0.5px; color:var(--ink); }
   </style>
 </head>
 <body>
-  <div id="game-wrapper">
+<div id="game-shell">
 
-    <!-- ══ PANEL LEWY — NAMIERZANIE + STEROWANIE ══ -->
+  <!-- ══ TOP BAR ══ -->
+  <div id="top-bar">
+    <div id="tb-ship">
+      <div id="tb-dot"></div>
+      <span id="tb-name">ORP ORZEŁ</span>
+      <span id="tb-class">PROJEKT 641B · MISJA BOJOWA</span>
+    </div>
+
+    <div id="station-tabs">
+      <div class="stab active" data-station="conn">
+        <span class="stab-lbl">CONN</span>
+        <span class="stab-code">F1</span>
+      </div>
+      <div class="stab" data-station="sonar">
+        <span class="stab-lbl">SONAR</span>
+        <span class="stab-code">F2</span>
+      </div>
+      <div class="stab" data-station="conn">
+        <span class="stab-lbl">PERYSKOP</span>
+        <span class="stab-code">F3</span>
+      </div>
+      <div class="stab" data-station="conn">
+        <span class="stab-lbl">BROŃ</span>
+        <span class="stab-code">F4</span>
+      </div>
+      <div class="stab" data-station="conn">
+        <span class="stab-lbl">NAWIGACJA</span>
+        <span class="stab-code">F5</span>
+      </div>
+      <div class="stab" data-station="conn">
+        <span class="stab-lbl">AWARIE</span>
+        <span class="stab-code">F6</span>
+      </div>
+    </div>
+
+    <div id="tb-meta">
+      <span id="tb-utc">UTC 00:00:00</span>
+      <span id="tb-badge">● PATROL BOJOWY</span>
+    </div>
+  </div>
+
+  <!-- ══ MAIN AREA ══ -->
+  <div id="main-area">
+
+    <!-- ══ PANEL LEWY ══ -->
     <div id="left-panel">
 
-      <!-- Panel namierzania -->
       <div id="target-panel">
         <div class="lp-section-title">NAMIERZANIE</div>
         <div class="tp-row">
@@ -636,7 +629,6 @@
 
       <div class="lp-divider">────────────────────────</div>
 
-      <!-- Panel misji -->
       <div id="mission-panel">
         <div class="lp-section-title">MISJA</div>
         <div id="mission-name"></div>
@@ -645,7 +637,6 @@
 
       <div class="lp-divider">────────────────────────</div>
 
-      <!-- Sterowanie -->
       <div id="controls-panel">
         <div class="ctrl-title">Sterowanie</div>
         <div class="ctrl-row">
@@ -689,106 +680,107 @@
           <span class="ctrl-desc">Ping aktywny (14s CD)</span>
         </div>
         <div class="ctrl-title" style="margin-top:6px">Sonar</div>
-        <div class="ctrl-row"><span style="color:#44ff88;font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Patrol</span></div>
-        <div class="ctrl-row"><span style="color:#ffbb00;font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Wykryty</span></div>
-        <div class="ctrl-row"><span style="color:#ff3300;font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Atak</span></div>
+        <div class="ctrl-row"><span style="color:var(--green);font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Patrol</span></div>
+        <div class="ctrl-row"><span style="color:var(--amber);font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Wykryty</span></div>
+        <div class="ctrl-row"><span style="color:var(--accent);font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Atak</span></div>
       </div>
 
     </div><!-- #left-panel -->
 
+    <!-- ══ CANVAS ══ -->
     <div id="game-container">
 
-      <!-- UI gry — widoczne tylko podczas rozgrywki -->
+      <!-- #hud is hidden here; IDs still used by GameScene.js -->
+      <div id="hud">
+        <div class="hud-item"><span class="hud-label">Głębokość</span><span class="hud-value" id="hud-depth">0 m</span></div>
+        <div class="hud-item"><span class="hud-label" id="label-speed">Prędkość</span><span class="hud-value" id="hud-speed">0 w</span></div>
+        <div class="hud-item"><span class="hud-label">Balast</span><div class="hud-bar"><div class="hud-bar-fill" id="bar-ballast"></div></div><span class="hud-value" id="hud-ballast">35%</span></div>
+        <div class="hud-item"><span class="hud-label" id="label-noise">Hałas</span><div class="hud-bar"><div class="hud-bar-fill" id="bar-noise"></div></div><span class="hud-value" id="hud-noise">0%</span></div>
+        <div class="hud-item"><span class="hud-label">Kadłub</span><div class="hud-bar"><div class="hud-bar-fill" id="bar-hull"></div></div><span class="hud-value" id="hud-hull">100%</span></div>
+        <div class="hud-item"><span class="hud-label" id="label-battery">Bateria</span><div class="hud-bar"><div class="hud-bar-fill" id="bar-battery"></div></div><span class="hud-value" id="hud-battery">100%</span></div>
+        <div class="hud-item"><span class="hud-label">Tlen O₂</span><div class="hud-bar"><div class="hud-bar-fill" id="bar-oxygen"></div></div><span class="hud-value" id="hud-oxygen">100%</span></div>
+        <div class="hud-item"><span class="hud-label">Torpedy</span><span class="hud-value" id="hud-torpedoes">4/4</span><span id="hud-torp-reload"></span></div>
+        <div class="hud-item"><span class="hud-label">Rakiety</span><span class="hud-value" id="hud-missiles">2</span></div>
+        <div class="hud-item"><span class="hud-label">Wabia</span><span class="hud-value" id="hud-noisemakers">3</span></div>
+        <div class="hud-item"><span class="hud-label">A.Sonar</span><span class="hud-value" id="hud-ping">GOTOWY</span></div>
+        <div class="hud-item"><span class="hud-label">Fala</span><span class="hud-value" id="hud-wave">1</span></div>
+      </div>
+
       <div id="game-ui">
-
-        <!-- HUD -->
-        <div id="hud">
-          <div class="hud-item">
-            <span class="hud-label">Głębokość</span>
-            <span class="hud-value" id="hud-depth">0 m</span>
-          </div>
-          <div class="hud-item">
-            <span class="hud-label" id="label-speed">Prędkość</span>
-            <span class="hud-value" id="hud-speed">0 w</span>
-          </div>
-          <div class="hud-item">
-            <span class="hud-label">Balast</span>
-            <div class="hud-bar"><div class="hud-bar-fill" id="bar-ballast"></div></div>
-            <span class="hud-value" id="hud-ballast">35%</span>
-          </div>
-          <div class="hud-item">
-            <span class="hud-label" id="label-noise">Hałas</span>
-            <div class="hud-bar"><div class="hud-bar-fill" id="bar-noise"></div></div>
-            <span class="hud-value" id="hud-noise">0%</span>
-          </div>
-          <div class="hud-item">
-            <span class="hud-label">Kadłub</span>
-            <div class="hud-bar"><div class="hud-bar-fill" id="bar-hull"></div></div>
-            <span class="hud-value" id="hud-hull">100%</span>
-          </div>
-          <div class="hud-item">
-            <span class="hud-label" id="label-battery">Bateria</span>
-            <div class="hud-bar"><div class="hud-bar-fill" id="bar-battery"></div></div>
-            <span class="hud-value" id="hud-battery">100%</span>
-          </div>
-          <div class="hud-item">
-            <span class="hud-label">Tlen O₂</span>
-            <div class="hud-bar"><div class="hud-bar-fill" id="bar-oxygen"></div></div>
-            <span class="hud-value" id="hud-oxygen">100%</span>
-          </div>
-          <div class="hud-item" style="min-width:60px">
-            <span class="hud-label">Torpedy</span>
-            <span class="hud-value" id="hud-torpedoes" style="font-size:17px">4/4</span>
-            <span id="hud-torp-reload" style="font-size:10px;color:#aaffcc;min-height:13px;letter-spacing:0.5px"></span>
-          </div>
-          <div class="hud-item" style="min-width:48px">
-            <span class="hud-label">Rakiety</span>
-            <span class="hud-value" id="hud-missiles" style="font-size:17px;color:#ffcc44">2</span>
-          </div>
-          <div class="hud-item" style="min-width:44px">
-            <span class="hud-label">Wabia</span>
-            <span class="hud-value" id="hud-noisemakers" style="font-size:17px;color:#88ddff">3</span>
-          </div>
-          <div class="hud-item" style="min-width:60px">
-            <span class="hud-label">A.Sonar</span>
-            <span class="hud-value" id="hud-ping" style="font-size:12px;color:#44ffdd;letter-spacing:0.5px">GOTOWY</span>
-          </div>
-          <div class="hud-item" style="min-width:44px">
-            <span class="hud-label">Fala</span>
-            <span class="hud-value" id="hud-wave" style="font-size:17px;color:#ccddff">1</span>
-          </div>
-        </div>
-
-        <!-- Alert -->
         <div id="alert-banner">!! WYKRYTO !!</div>
-
-        <!-- Tutorial -->
-        <div id="tutorial-tip">
-          <span id="tutorial-icon">▶</span>
-          <span id="tutorial-text"></span>
-        </div>
-
-        <!-- Event log -->
+        <div id="tutorial-tip"><span id="tutorial-icon">▶</span><span id="tutorial-text"></span></div>
         <div id="event-log"></div>
-
-        <!-- Bot panel -->
         <div id="bot-panel">
-          <div id="bot-header">
-            ▶ BOT TESTOWY
-            <span id="bot-status">nieaktywny</span>
-          </div>
+          <div id="bot-header">▶ BOT TESTOWY<span id="bot-status">nieaktywny</span></div>
           <div id="bot-log"></div>
         </div>
+      </div>
 
-      </div><!-- #game-ui -->
+      <!-- ══ SONAR STATION — overlay wewnątrz game-container (z-index 12) ══ -->
+      <div id="sonar-station">
+
+        <!-- Lewa kolumna: koło namiarów -->
+        <div id="ss-left">
+          <div id="ss-header-row">
+            <span class="ss-label">NAMIAR · DALEKOSIĘŻNY HYDROFON</span>
+            <span id="ss-listen-badge">◉ NASŁUCH</span>
+          </div>
+          <div id="ss-wheel-wrap">
+            <canvas id="ss-wheel"></canvas>
+          </div>
+        </div>
+
+        <!-- Prawa kolumna: BTR + DEMON + kontakty -->
+        <div id="ss-right">
+
+          <div id="ss-wf-panel" class="ss-panel">
+            <div class="ss-panel-header">
+              <span>WODOSPAD · KĄTY NAMIERZANIA (BTR)</span>
+              <span style="color:var(--accent)">● REC</span>
+            </div>
+            <div id="ss-wf-inner">
+              <canvas id="ss-waterfall" width="400" height="360"></canvas>
+              <div id="ss-bearing-axis">
+                <span>000°</span>
+                <span>090°</span>
+                <span>180°</span>
+                <span>270°</span>
+                <span>360°</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="ss-demon-panel" class="ss-panel">
+            <div class="ss-panel-header">
+              <span>DEMON · WIDMO 8–35 Hz</span>
+              <span id="ss-demon-mode" style="color:var(--blue)">PAS.</span>
+            </div>
+            <div id="ss-demon-inner">
+              <canvas id="ss-demon"></canvas>
+            </div>
+          </div>
+
+          <div id="ss-contacts-panel" class="ss-panel">
+            <div class="ss-panel-header">
+              <span>KONTAKTY · KLASYFIKACJA</span>
+              <span id="ss-contact-count" style="color:var(--accent)">0 ŚLEDZ.</span>
+            </div>
+            <div id="ss-contact-list">
+              <div class="ss-empty">BRAK KONTAKTÓW SONAROWYCH</div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- #sonar-station -->
+
     </div><!-- #game-container -->
 
-    <!-- ══ PANEL BOCZNY — DZIENNIK POKŁADOWY ══ -->
+    <!-- ══ PRAWY PANEL — DZIENNIK ══ -->
     <div id="side-panel">
 
       <div id="log-panel-header">
         <div id="log-panel-title-row">
-          <span id="log-panel-title">Dziennik Pokładowy</span>
+          <span id="log-panel-title">DZIENNIK POKŁADOWY</span>
           <span id="ship-log-time">00:00</span>
         </div>
         <div id="log-panel-subrow">
@@ -797,11 +789,9 @@
         </div>
       </div>
 
-      <div class="log-divider">────────────────────────────────────────────────</div>
-
-      <div class="log-divider" style="color:#007a35;font-size:6px;letter-spacing:2px;border-bottom:none;padding-bottom:2px">DEMON WATERFALL · 8–35 Hz</div>
-      <canvas id="demon-display" width="232" height="78" style="display:block;margin:0 10px 2px;flex-shrink:0;image-rendering:pixelated;border:1px solid #002810;border-radius:1px"></canvas>
-      <div class="log-divider" style="font-size:6px;border-top:none;padding-top:2px">───── DZIENNIK ─────────────────────────────────</div>
+      <div class="log-divider" style="color:rgba(232,65,58,0.4);font-size:6px;letter-spacing:2px;border-bottom:none;padding-bottom:2px">DEMON WATERFALL · 8–35 Hz</div>
+      <canvas id="demon-display" width="232" height="78" style="width:calc(100% - 20px)"></canvas>
+      <div class="log-divider" style="font-size:6px;border-top:none;padding-top:2px">───── DZIENNIK ─────────────────────────</div>
 
       <div id="ship-log-entries"></div>
 
@@ -812,8 +802,670 @@
 
     </div><!-- #side-panel -->
 
-  </div><!-- #game-wrapper -->
+  </div><!-- #main-area -->
 
-  <script type="module" src="/src/main.js"></script>
+  <!-- ══ BOTTOM BAR — HUD ══ -->
+  <div id="bottom-bar">
+
+    <!-- Readouts: depth / speed / ballast / noise -->
+    <div class="hud-group">
+      <div class="hud-item">
+        <span class="hud-label">GŁĘBOKOŚĆ</span>
+        <span class="hud-value" id="bb-depth">0 m</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label" id="bb-lbl-speed">PRĘDKOŚĆ</span>
+        <span class="hud-value" id="bb-speed">0.0 w</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">BALAST</span>
+        <div class="hud-bar"><div class="hud-bar-fill" id="bb-bar-ballast"></div></div>
+        <span class="hud-value" id="bb-ballast">35%</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label" id="bb-lbl-noise">HAŁAS</span>
+        <div class="hud-bar"><div class="hud-bar-fill" id="bb-bar-noise"></div></div>
+        <span class="hud-value" id="bb-noise">0%</span>
+      </div>
+    </div>
+
+    <div class="hud-sep"></div>
+
+    <!-- System bars -->
+    <div class="hud-group">
+      <div class="hud-item">
+        <span class="hud-label">KADŁUB</span>
+        <div class="hud-bar"><div class="hud-bar-fill" id="bb-bar-hull"></div></div>
+        <span class="hud-value" id="bb-hull">100%</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label" id="bb-lbl-battery">BATERIA</span>
+        <div class="hud-bar"><div class="hud-bar-fill" id="bb-bar-battery"></div></div>
+        <span class="hud-value" id="bb-battery">100%</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">TLEN O₂</span>
+        <div class="hud-bar"><div class="hud-bar-fill" id="bb-bar-oxygen"></div></div>
+        <span class="hud-value" id="bb-oxygen">100%</span>
+      </div>
+    </div>
+
+    <div class="hud-sep"></div>
+
+    <!-- Weapons -->
+    <div class="hud-group">
+      <div class="hud-weapon">
+        <span class="hud-label">TORPEDY</span>
+        <span class="hud-value" id="bb-torpedoes" style="color:var(--ink)">4/4</span>
+        <span id="bb-torp-reload" style="font-size:8px;color:var(--ink-dim);min-height:11px;letter-spacing:0.5px"></span>
+      </div>
+      <div class="hud-weapon">
+        <span class="hud-label">RAKIETY</span>
+        <span class="hud-value" id="bb-missiles" style="color:var(--amber)">3</span>
+      </div>
+      <div class="hud-weapon">
+        <span class="hud-label">WABIA</span>
+        <span class="hud-value" id="bb-noisemakers" style="color:var(--blue)">5</span>
+      </div>
+    </div>
+
+    <div class="hud-sep"></div>
+
+    <!-- Toggles -->
+    <div class="hud-toggles">
+      <div class="hud-toggle" id="bb-ping">
+        A.SONAR<br><span style="font-size:8px;color:var(--green)" id="bb-ping-lbl">GOTOWY</span>
+      </div>
+      <div class="hud-toggle" id="bb-wave-badge">
+        FALA<br><span style="font-size:14px;font-family:var(--fd)" id="bb-wave">1</span>
+      </div>
+    </div>
+
+  </div><!-- #bottom-bar -->
+
+</div><!-- #game-shell -->
+
+<script type="module" src="/src/main.js"></script>
+
+<!-- Mirror HUD values from hidden #hud to bottom bar -->
+<script>
+(function() {
+  const PAIRS = [
+    ['hud-depth',      'bb-depth'],
+    ['hud-speed',      'bb-speed'],
+    ['hud-ballast',    'bb-ballast'],
+    ['hud-noise',      'bb-noise'],
+    ['hud-hull',       'bb-hull'],
+    ['hud-battery',    'bb-battery'],
+    ['hud-oxygen',     'bb-oxygen'],
+    ['hud-torpedoes',  'bb-torpedoes'],
+    ['hud-torp-reload','bb-torp-reload'],
+    ['hud-missiles',   'bb-missiles'],
+    ['hud-noisemakers','bb-noisemakers'],
+    ['hud-ping',       'bb-ping-lbl'],
+    ['hud-wave',       'bb-wave'],
+  ];
+  const BAR_PAIRS = [
+    ['bar-ballast', 'bb-bar-ballast'],
+    ['bar-noise',   'bb-bar-noise'],
+    ['bar-hull',    'bb-bar-hull'],
+    ['bar-battery', 'bb-bar-battery'],
+    ['bar-oxygen',  'bb-bar-oxygen'],
+  ];
+  const LABEL_PAIRS = [
+    ['label-speed',   'bb-lbl-speed'],
+    ['label-noise',   'bb-lbl-noise'],
+    ['label-battery', 'bb-lbl-battery'],
+  ];
+
+  function mirror() {
+    for (const [src, dst] of PAIRS) {
+      const s = document.getElementById(src);
+      const d = document.getElementById(dst);
+      if (s && d && d.textContent !== s.textContent) d.textContent = s.textContent;
+    }
+    for (const [src, dst] of BAR_PAIRS) {
+      const s = document.getElementById(src);
+      const d = document.getElementById(dst);
+      if (!s || !d) continue;
+      if (d.style.width !== s.style.width) d.style.width = s.style.width;
+      // sync class names for color
+      const cls = s.className;
+      if (d.className !== cls) d.className = cls;
+    }
+    for (const [src, dst] of LABEL_PAIRS) {
+      const s = document.getElementById(src);
+      const d = document.getElementById(dst);
+      if (!s || !d) continue;
+      if (d.textContent !== s.textContent) d.textContent = s.textContent;
+      if (d.className !== s.className) d.className = s.className;
+    }
+    requestAnimationFrame(mirror);
+  }
+  requestAnimationFrame(mirror);
+
+  // Real UTC clock in top bar
+  function tickClock() {
+    const el = document.getElementById('tb-utc');
+    if (el) el.textContent = 'UTC ' + new Date().toISOString().slice(11,19);
+    setTimeout(tickClock, 1000);
+  }
+  tickClock();
+
+  // ── Station tab switching ───────────────────────────────
+  const stabs = document.querySelectorAll('.stab[data-station]');
+  const sonarStation = document.getElementById('sonar-station');
+
+  function _switchStation(id) {
+    stabs.forEach(t => t.classList.remove('active'));
+    const tab = [...stabs].find(t => t.dataset.station === id && t.querySelector('.stab-lbl')?.textContent === (id === 'sonar' ? 'SONAR' : null)) || [...stabs].find(t => t.dataset.station === id);
+    if (tab) tab.classList.add('active');
+    if (id === 'sonar') {
+      sonarStation && sonarStation.classList.add('active');
+      _ssActive = true;
+    } else {
+      sonarStation && sonarStation.classList.remove('active');
+      _ssActive = false;
+    }
+  }
+
+  stabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const lbl = tab.querySelector('.stab-lbl')?.textContent;
+      _switchStation(lbl === 'SONAR' ? 'sonar' : 'conn');
+    });
+  });
+
+  // Skróty klawiszowe: F1/1 → CONN, F2/2 → SONAR
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'F2' || e.key === '2') { e.preventDefault(); _switchStation('sonar'); }
+    if (e.key === 'F1' || e.key === '1') { e.preventDefault(); _switchStation('conn'); }
+    // ESC odznacza wybrany kontakt
+    if (e.key === 'Escape' && _ssActive) {
+      _ssSelContact = null;
+      if (window._sonar) window._sonar.selectedId = null;
+    }
+  });
+
+  // ── SONAR STATION rendering ─────────────────────────────
+  let _ssActive     = false;
+  let _ssSweep      = 0;          // radians, bearing wheel sweep angle
+  let _ssLastTick   = -1;         // last sonar tick for waterfall update
+  let _ssSelContact = null;       // selected contact id
+  let _ssWheelW     = 0;          // cached canvas size to detect resize
+  let _ssWfInit     = false;      // waterfall canvas initialised
+
+  // ── Canvas click → select nearest sonar contact ───────
+  document.getElementById('ss-wheel')?.addEventListener('click', function (e) {
+    const cv   = this;
+    const rect = cv.getBoundingClientRect();
+    const sx   = cv.width  / rect.width;
+    const sy   = cv.height / rect.height;
+    const mx   = (e.clientX - rect.left) * sx;
+    const my   = (e.clientY - rect.top)  * sy;
+    const W = cv.width, H = cv.height;
+    const cx = W / 2, cy = H / 2;
+    const R  = Math.min(W, H) * 0.42;
+    const dx = mx - cx, dy = my - cy;
+    const clickDist = Math.sqrt(dx * dx + dy * dy);
+    if (clickDist > R * 1.15) return;
+
+    // Canvas angle → compass bearing (same inverse of brgAng)
+    const clickBrg  = ((Math.atan2(dy, dx) + Math.PI / 2) * 180 / Math.PI + 360) % 360;
+    const clickFrac = clickDist / R;
+
+    const sn = window._sonar || {};
+    let best = null, bestScore = Infinity;
+    for (const c of (sn.contacts || [])) {
+      let angDiff = Math.abs(clickBrg - c.bearing);
+      if (angDiff > 180) angDiff = 360 - angDiff;
+      const score = angDiff + Math.abs(clickFrac - c.distFrac) * 55;
+      if (score < bestScore && score < 28) { best = c; bestScore = score; }
+    }
+    _ssSelContact = best ? (best.id === _ssSelContact ? null : best.id) : null;
+    if (window._sonar) window._sonar.selectedId = _ssSelContact;
+  });
+
+  // _ssDrawWheel_DELETED: removed — see _ssDrawWheelFull below
+
+  function _ssUpdateWaterfall() {
+    const sn = window._sonar || {};
+    if (!sn.contacts || sn.tick === _ssLastTick) return;
+    _ssLastTick = sn.tick;
+
+    const cv = document.getElementById('ss-waterfall');
+    if (!cv) return;
+
+    // Init size from container on first use
+    if (!_ssWfInit) {
+      const wrap = document.getElementById('ss-wf-inner');
+      if (wrap && wrap.clientHeight > 10) {
+        cv.height = wrap.clientHeight;
+        _ssWfInit = true;
+      }
+    }
+
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+
+    // Scroll left by 1px
+    const img = ctx.getImageData(1, 0, W - 1, H);
+    ctx.putImageData(img, 0, 0);
+
+    // Clear right column
+    ctx.fillStyle = '#02080b';
+    ctx.fillRect(W - 1, 0, 1, H);
+
+    // Paint contact blobs
+    for (const c of sn.contacts) {
+      const y    = (c.bearing / 360) * H;
+      const intensity = Math.min(1, c.sig * 1.6);
+      const col  = c.threat ? [232, 65, 58] : c.cls === 'WARSHIP' ? [255, 179, 71] : [66, 184, 212];
+      for (let dy = -4; dy <= 4; dy++) {
+        const yy   = ((y + dy + H) % H);
+        const fall = Math.exp(-(dy * dy) / 3.5);
+        const al   = intensity * fall * 0.92;
+        if (al < 0.02) continue;
+        ctx.globalAlpha = al;
+        ctx.fillStyle   = `rgb(${col[0]},${col[1]},${col[2]})`;
+        ctx.fillRect(W - 1, yy, 1, 1);
+      }
+    }
+
+    // Background noise
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = '#e8413a';
+      ctx.globalAlpha = Math.random() * 0.035;
+      ctx.fillRect(W - 1, Math.random() * H, 1, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function _ssUpdateContactList() {
+    const sn  = window._sonar || {};
+    const cts = sn.contacts || [];
+
+    const countEl = document.getElementById('ss-contact-count');
+    if (countEl) countEl.textContent = cts.length + ' ŚLEDZ.';
+
+    const listenEl = document.getElementById('ss-listen-badge');
+    if (listenEl) listenEl.classList.toggle('active', !!sn.listenMode);
+
+    const listEl = document.getElementById('ss-contact-list');
+    if (!listEl) return;
+
+    if (cts.length === 0) {
+      listEl.innerHTML = '<div class="ss-empty">BRAK KONTAKTÓW SONAROWYCH</div>';
+      return;
+    }
+
+    listEl.innerHTML = cts.map(c => {
+      const sel  = c.id === _ssSelContact;
+      const col  = c.threat ? 'var(--accent)' : c.cls === 'WARSHIP' ? 'var(--amber)' : 'var(--blue)';
+      const bars = [0, 1, 2, 3, 4].map(b =>
+        `<div class="ss-bar" style="background:${b / 5 < c.sig ? col : 'rgba(243,237,224,0.08)'}"></div>`
+      ).join('');
+      const clsLabel = c.cls === 'WARSHIP' ? 'OKRĘT WOJENNY'
+                     : c.cls === 'SURFACE' ? 'NAWODNY'
+                     : 'NIEZNANY';
+      const tCol = c.approach === 'ZBLIŻA' ? 'var(--accent)'
+                 : c.approach === 'ODDALA' ? 'var(--blue)'
+                 : 'var(--ink-dim)';
+      const rngNm = (c.distFrac * 10).toFixed(1);
+      return `<div class="ss-contact${sel ? ' sel' : ''}" data-cid="${c.id}"
+                style="border-left-color:${sel ? col : 'transparent'}">
+        <span class="ss-cid" style="color:${col}">${c.id}</span>
+        <span class="ss-cls" style="color:${c.cls !== 'UNK' ? 'var(--ink)' : 'var(--ink-dim)'}">${clsLabel}</span>
+        <span class="ss-brg">${String(Math.round(c.bearing)).padStart(3, '0')}°</span>
+        <span class="ss-rng">${rngNm}nm</span>
+        <span class="ss-trend" style="color:${tCol}">${c.approach || '—'}</span>
+        <div class="ss-bars">${bars}</div>
+      </div>`;
+    }).join('');
+
+    listEl.querySelectorAll('.ss-contact').forEach(row => {
+      row.addEventListener('click', () => {
+        _ssSelContact = row.dataset.cid === _ssSelContact ? null : row.dataset.cid;
+        if (window._sonar) window._sonar.selectedId = _ssSelContact;
+      });
+    });
+  }
+
+  // ── DEMON copy from side panel canvas ──────────────────
+  function _ssCopyDemon() {
+    const src = document.getElementById('demon-display');
+    const dst = document.getElementById('ss-demon');
+    if (!src || !dst) return;
+    const wrap = document.getElementById('ss-demon-inner');
+    if (!wrap) return;
+    const w = wrap.clientWidth || 232;
+    const h = wrap.clientHeight || 64;
+    if (dst.width !== w || dst.height !== h) { dst.width = w; dst.height = h; }
+    const ctx = dst.getContext('2d');
+    ctx.drawImage(src, 0, 0, dst.width, dst.height);
+  }
+
+  function _ssUpdateDemonMode() {
+    const sn = window._sonar || {};
+    const el = document.getElementById('ss-demon-mode');
+    if (!el) return;
+    if (sn.listenMode) {
+      el.textContent = 'NASŁUCH'; el.style.color = 'var(--blue)';
+    } else if (sn.activeSonar) {
+      el.textContent = 'AKTYWNY'; el.style.color = 'var(--accent)';
+    } else {
+      el.textContent = 'PAS.'; el.style.color = 'var(--blue)';
+    }
+  }
+
+  // ── Extended bearing wheel — all game objects ──────────
+  function _ssDrawWheelFull() {
+    const cv = document.getElementById('ss-wheel');
+    if (!cv) return;
+
+    const wrap = document.getElementById('ss-wheel-wrap');
+    const ww = wrap ? wrap.clientWidth  : 480;
+    const wh = wrap ? wrap.clientHeight : 560;
+    const sz = Math.min(ww, wh, 580);
+    if (sz < 10) return;
+    if (cv.width !== sz || cv.height !== sz) { cv.width = sz; cv.height = sz; }
+
+    const ctx = cv.getContext('2d');
+    const W = sz, H = sz;
+    const cx = W / 2, cy = H / 2;
+    const R  = sz * 0.42;
+    const acc  = '#e8413a';
+    const ink  = '#f3ede0';
+    const dim  = 'rgba(243,237,224,0.45)';
+    const blue = '#42b8d4';
+    const amb  = '#ffb347';
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Radial background glow
+    const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    bg.addColorStop(0, 'rgba(232,65,58,0.05)');
+    bg.addColorStop(0.8, 'transparent');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    // Rings
+    [0.33, 0.66, 1.0].forEach((f, i) => {
+      ctx.strokeStyle = acc; ctx.lineWidth = i === 2 ? 0.9 : 0.5;
+      ctx.globalAlpha = i === 2 ? 0.55 : 0.22;
+      ctx.beginPath(); ctx.arc(cx, cy, R * f, 0, Math.PI * 2); ctx.stroke();
+    });
+
+    // Radial lines every 45°
+    ctx.lineWidth = 0.5; ctx.strokeStyle = acc; ctx.globalAlpha = 0.12;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * R * 0.12, cy + Math.sin(a) * R * 0.12);
+      ctx.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Bearing ticks (0° = North = top)
+    for (let i = 0; i < 72; i++) {
+      const ang = (i * 5 / 360) * Math.PI * 2 - Math.PI / 2;
+      const major = i % 6 === 0;
+      ctx.strokeStyle = acc; ctx.globalAlpha = major ? 0.85 : 0.32;
+      ctx.lineWidth   = major ? 0.9 : 0.4;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang) * (major ? R * 0.89 : R * 0.94), cy + Math.sin(ang) * (major ? R * 0.89 : R * 0.94));
+      ctx.lineTo(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Bearing labels every 30°
+    const lblSz = Math.round(R * 0.082);
+    ctx.font = `${lblSz}px "JetBrains Mono",monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = acc; ctx.globalAlpha = 0.8;
+    for (let i = 0; i < 12; i++) {
+      const deg = i * 30;
+      const ang = (deg / 360) * Math.PI * 2 - Math.PI / 2;
+      ctx.fillText(String(deg).padStart(3,'0'), cx + Math.cos(ang) * R * 0.79, cy + Math.sin(ang) * R * 0.79);
+    }
+    ctx.globalAlpha = 1;
+
+    // ── Sweep ─────────────────────────────────────────────
+    _ssSweep = (_ssSweep + 0.009) % (Math.PI * 2);
+    for (let i = 20; i >= 1; i--) {
+      const ta = _ssSweep - (i / 20) * 0.65;
+      ctx.lineWidth = 0.8; ctx.strokeStyle = acc; ctx.globalAlpha = (1 - i / 20) * 0.17;
+      ctx.beginPath(); ctx.arc(cx, cy, R - 1, ta - 0.04, ta); ctx.stroke();
+    }
+    ctx.fillStyle = acc; ctx.globalAlpha = 0.08;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R, _ssSweep - 0.55, _ssSweep); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = acc; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.72;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(_ssSweep) * R, cy + Math.sin(_ssSweep) * R);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    const sn = window._sonar || {};
+    const brgAng = (deg) => (deg / 360) * Math.PI * 2 - Math.PI / 2;
+
+    // ── Aktywne pingi — rozszerzające się pierścienie ─────
+    for (const p of (sn.pings || [])) {
+      const pr = p.rFrac * R;
+      ctx.strokeStyle = blue; ctx.lineWidth = 1.5;
+      ctx.globalAlpha = p.alpha * 0.6;
+      ctx.beginPath(); ctx.arc(cx, cy, Math.min(pr, R - 1), 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // Echa pingu — białe błyski
+      for (const e of (p.echoes || [])) {
+        const fade = 1 - e.age / 1.8;
+        if (fade <= 0) continue;
+        const ang = brgAng(e.bearing);
+        const er  = e.distFrac * R;
+        ctx.fillStyle = '#ffffff'; ctx.globalAlpha = fade * 0.88;
+        ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * er, cy + Math.sin(ang) * er, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = blue; ctx.lineWidth = 1; ctx.globalAlpha = fade * 0.65;
+        ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * er, cy + Math.sin(ang) * er, 7 + (1 - fade) * 5, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // ── Triangulowane pozycje — żółty krzyż ──────────────
+    for (const tri of (sn.triangulated || [])) {
+      const fade = 1 - tri.age / 28;
+      const ang  = brgAng(tri.bearing);
+      const tr   = tri.distFrac * R;
+      const tx   = cx + Math.cos(ang) * tr;
+      const ty   = cy + Math.sin(ang) * tr;
+      const err  = (tri.accurate ? 5 : 11) * fade + 2;
+      ctx.strokeStyle = '#ffcc44'; ctx.lineWidth = 1; ctx.globalAlpha = fade * 0.65;
+      ctx.beginPath(); ctx.arc(tx, ty, err, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = 1.2; ctx.globalAlpha = fade * 0.8;
+      ctx.beginPath();
+      ctx.moveTo(tx - 8, ty); ctx.lineTo(tx + 8, ty);
+      ctx.moveTo(tx, ty - 8); ctx.lineTo(tx, ty + 8);
+      ctx.stroke();
+      ctx.fillStyle = '#ffcc44'; ctx.globalAlpha = fade * 0.45;
+      ctx.beginPath(); ctx.arc(tx, ty, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // ── Wabie akustyczne — bursztynowe kółka ──────────────
+    for (const nm of (sn.noisemakers || [])) {
+      const ang  = brgAng(nm.bearing);
+      const nr   = Math.max(R * 0.08, nm.distFrac * R);
+      const life = nm.lifetime > 0 ? 1 - nm.age / nm.lifetime : 0;
+      const pulse = 0.55 + 0.35 * Math.sin(Date.now() * 0.006);
+      ctx.fillStyle = amb; ctx.globalAlpha = life * pulse * 0.8;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * nr, cy + Math.sin(ang) * nr, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = amb; ctx.lineWidth = 1; ctx.globalAlpha = life * pulse * 0.45;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * nr, cy + Math.sin(ang) * nr, 8, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // ── Torpedy gracza — cyjanowe trójkąty ───────────────
+    for (const t of (sn.torpedoes || [])) {
+      const ang = brgAng(t.bearing);
+      const tr  = Math.max(R * 0.05, t.distFrac * R);
+      const tx  = cx + Math.cos(ang) * tr;
+      const ty2 = cy + Math.sin(ang) * tr;
+      const col = t.seekerLocked ? blue : '#88ffee';
+      ctx.fillStyle = col; ctx.globalAlpha = t.seekerLocked ? 0.95 : 0.75;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty2 - 5); ctx.lineTo(tx - 3.5, ty2 + 3); ctx.lineTo(tx + 3.5, ty2 + 3);
+      ctx.closePath(); ctx.fill();
+      if (t.seekerLocked) {
+        ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+        ctx.beginPath(); ctx.arc(tx, ty2, 7, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ── ASROC wrogów — migające czerwone romby ────────────
+    const blink = Math.sin(Date.now() * 0.022) > 0;
+    for (const ht of (sn.asroc || [])) {
+      if (!blink && !ht.locked) continue;
+      const ang = brgAng(ht.bearing);
+      const ar  = Math.max(R * 0.05, ht.distFrac * R);
+      const ax  = cx + Math.cos(ang) * ar;
+      const ay  = cy + Math.sin(ang) * ar;
+      const col = ht.locked ? acc : '#ff7700';
+      ctx.fillStyle = col; ctx.globalAlpha = ht.locked ? 0.95 : 0.75;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay - 6); ctx.lineTo(ax + 4.5, ay);
+      ctx.lineTo(ax, ay + 6); ctx.lineTo(ax - 4.5, ay);
+      ctx.closePath(); ctx.fill();
+      if (ht.locked) {
+        ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.65;
+        ctx.beginPath(); ctx.arc(ax, ay, 9, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ── Kontakty sonarowe ─────────────────────────────────
+    for (const c of (sn.contacts || [])) {
+      const ang = brgAng(c.bearing);
+      const col = c.threat ? acc : c.cls === 'WARSHIP' ? amb : blue;
+      const sel = c.id === _ssSelContact;
+
+      // Przerywana linia namiarowa
+      ctx.setLineDash([3, 4]);
+      ctx.strokeStyle = col; ctx.lineWidth = sel ? 0.8 : 0.4;
+      ctx.globalAlpha = sel ? 0.55 : 0.28;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(ang) * R * 0.93, cy + Math.sin(ang) * R * 0.93);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Łuk na pierścieniu zewnętrznym
+      const arcW = 0.05 + c.sig * 0.12;
+      ctx.lineWidth = 2.5 + c.sig * 3.5; ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.4 + c.sig * 0.55;
+      ctx.beginPath(); ctx.arc(cx, cy, R - 3, ang - arcW, ang + arcW); ctx.stroke();
+
+      // Dot (odległość ≈ signal: silniejszy = bliżej)
+      const dotR2 = R * (0.25 + (1 - c.sig) * 0.62);
+      const dx2   = cx + Math.cos(ang) * dotR2;
+      const dy2   = cy + Math.sin(ang) * dotR2;
+      const dotSz = 2.5 + c.sig * 2.5;
+      ctx.fillStyle = col; ctx.globalAlpha = 0.45 + c.sig * 0.5;
+      ctx.beginPath(); ctx.arc(dx2, dy2, dotSz, 0, Math.PI * 2); ctx.fill();
+      if (sel) {
+        ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.75;
+        ctx.beginPath(); ctx.arc(dx2, dy2, dotSz + 5, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      // Alert HUNT — pulsujące kółko na krawędzi
+      if (c.threat) {
+        const pulse2 = 0.55 + 0.45 * Math.sin(Date.now() * 0.011);
+        const ex = cx + Math.cos(ang) * (R - 7);
+        const ey = cy + Math.sin(ang) * (R - 7);
+        ctx.fillStyle = acc; ctx.globalAlpha = pulse2 * 0.9;
+        ctx.beginPath(); ctx.arc(ex, ey, 5 + pulse2 * 2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#ff6600'; ctx.lineWidth = 1; ctx.globalAlpha = pulse2 * 0.7;
+        ctx.beginPath(); ctx.arc(ex, ey, 8 + pulse2 * 4, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      // Etykieta ID
+      ctx.font = `${Math.round(R * 0.062)}px "JetBrains Mono",monospace`;
+      ctx.fillStyle = col; ctx.globalAlpha = 0.88;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(c.id, dx2 + dotSz + 3, dy2);
+      ctx.globalAlpha = 1;
+    }
+
+    // ── Wskaźnik kursu ────────────────────────────────────
+    const hdg  = sn.heading || 0;
+    const hAng = (hdg / 360) * Math.PI * 2 - Math.PI / 2;
+    ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.65;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(hAng) * R, cy + Math.sin(hAng) * R); ctx.stroke();
+    ctx.fillStyle = ink; ctx.globalAlpha = 0.85;
+    const tipX = cx + Math.cos(hAng) * R, tipY = cy + Math.sin(hAng) * R;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX + Math.cos(hAng + 2.5) * R * 0.07, tipY + Math.sin(hAng + 2.5) * R * 0.07);
+    ctx.lineTo(tipX + Math.cos(hAng - 2.5) * R * 0.07, tipY + Math.sin(hAng - 2.5) * R * 0.07);
+    ctx.fill();
+
+    // Pierścień nasłuchu (niebieski gdy aktywny)
+    if (sn.listenMode) {
+      const pulse3 = 0.3 + 0.2 * Math.sin(Date.now() * 0.004);
+      ctx.strokeStyle = blue; ctx.lineWidth = 2; ctx.globalAlpha = pulse3;
+      ctx.beginPath(); ctx.arc(cx, cy, R + 4, 0, Math.PI * 2); ctx.stroke();
+    }
+    // Pierścień ciszy (przyciemniony)
+    if (sn.silentRunning) {
+      ctx.strokeStyle = '#5fcf7a'; ctx.lineWidth = 1; ctx.globalAlpha = 0.3;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.arc(cx, cy, R + 9, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.globalAlpha = 1;
+
+    // Własna pozycja — trójkąt + OWN
+    ctx.fillStyle = ink; ctx.globalAlpha = 0.95;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 6); ctx.lineTo(cx - 3.5, cy + 3); ctx.lineTo(cx + 3.5, cy + 3);
+    ctx.closePath(); ctx.fill();
+    const owSz = Math.round(R * 0.065);
+    ctx.font = `${owSz}px "JetBrains Mono",monospace`;
+    ctx.fillStyle = dim; ctx.globalAlpha = 0.65;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('OWN', cx, cy + 8);
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Badge nasłuchu + sync selectedId ─────────────────
+  function _ssUpdateBadges() {
+    const sn = window._sonar || {};
+    const listenEl = document.getElementById('ss-listen-badge');
+    if (listenEl) listenEl.classList.toggle('active', !!sn.listenMode);
+    const countEl = document.getElementById('ss-contact-count');
+    if (countEl) countEl.textContent = (sn.contacts || []).length + ' ŚLEDZ.';
+    // Synchronizuj wybrany kontakt z oknem gry
+    if (sn) sn.selectedId = _ssSelContact;
+  }
+
+  // Dedicated RAF loop for sonar station
+  function sonarLoop() {
+    if (_ssActive) {
+      _ssDrawWheelFull();
+      _ssUpdateWaterfall();
+      _ssUpdateContactList();
+      _ssUpdateBadges();
+      _ssCopyDemon();
+      _ssUpdateDemonMode();
+    }
+    requestAnimationFrame(sonarLoop);
+  }
+  requestAnimationFrame(sonarLoop);
+})();
+</script>
 </body>
 </html>
