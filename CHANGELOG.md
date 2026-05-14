@@ -1,0 +1,797 @@
+# Changelog — Operacja Październik
+
+Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.0.0/).
+
+---
+
+## [0.10.18] — 2026-05-14
+
+### Zaimplementowano — Pełna integracja stacji SONAR z resztą gry
+
+**index.html — stacja SONAR:**
+- **Klikalny canvas koła namiarów** — kliknięcie w pobliżu kontaktu na kole wybiera go (`_ssSelContact`); podwójne kliknięcie tego samego = odznaczenie
+- **Synchronizacja wybranego kontaktu do `window._sonar.selectedId`** — zapis w każdym ticku RAFu (`_ssUpdateBadges`) i po kliknięciu (canvas + lista)
+- **Zasięg w liście kontaktów** — dodana kolumna `ss-rng` (np. `3.2nm`) obliczana z `distFrac × 10`
+- **Klawisze F1/F2** — pełna obsługa obok istniejących `1`/`2`; ESC odznacza kontakt gdy stacja SONAR aktywna
+- **Usunięto martwą funkcję `_ssDrawWheel_DELETED`** — ~180 linii dead code wyciętych
+- CSS: `cursor: crosshair` na kole namiarów; nowe kolumny grid listy kontaktów (6 kolumn)
+
+**src/GameScene.js — `_exportSonarState`:**
+- **Heading** — eksport na podstawie `sub.vx`: prawo = 090°, lewo = 270°; wskaźnik kursu na kole namiarów wskazuje teraz rzeczywisty kierunek
+- **Sync wyboru do systemu celowania** — gdy gracz kliknie K-2 w stacji SONAR, `this._selectedEnemy` aktualizuje się automatycznie → lewy panel NAMIERZANIE pokazuje dane tego celu
+
+**src/Sonar.js:**
+- **Podświetlenie wybranego kontaktu na mini-PPI** — biały pulsujący pierścień + przerywana linia namiarowa rysowane w pętli update, synchronizowane przez `window._sonar.selectedId`
+
+---
+
+## [0.10.17] — 2026-05-10
+
+### Naprawiono — Pauza samouczka i fix namiarów SONAR
+
+**src/TutorialMission.js:**
+- `_showStepModal()`: dodano `this.scene.scene.pause()` — gra pauzuje przy każdym modalu wyjaśnienia kroku
+- `_dismissStepModal()`: dodano `this.scene.scene.resume()` — gra wznawia po kliknięciu „Kontynuuj"
+- Podczas modalu wrogi, torpedy i mechanika gry stoją; overlay z treścią i przyciski pozostają aktywne
+
+**src/GameScene.js — `_exportSonarState` → `toBD()`:**
+- Poprzedni problem: przy małej głębokości własnej (np. peryskopowej) składnik pionowy `dy` był pomijalnie mały, przez co namiary na wszystkie cele nawodne skupiały się w okolicach 090° — niemożliwe do odróżnienia na kole namiarów
+- Wprowadzono minimalny pionowy próg referencyjny `REF = THERMO_Y − SURFACE_Y` (~200 px ≈ głębokość termokliny)
+- `dyEff = sign(dy) × max(|dy|, REF)` — kontakty rozdzielają się teraz na przestrzeni ~050°–076° (prawo) i ~284°–310° (lewo) zamiast ≈090°
+
+---
+
+## [0.10.16] — 2026-05-10
+
+### Ulepszono — Pełna integracja stacji SONAR z mechanikami gry
+
+**src/GameScene.js — `_exportSonarState`:**
+- Eksport torpedy gracza (bearing, distFrac, seekerLocked)
+- Eksport torped ASROC wrogów (bearing, distFrac, locked)
+- Eksport wabii akustycznych (bearing, distFrac, age/lifetime dla zanikania)
+- Eksport aktywnych pingów (rFrac, alpha) + echa pingów z pozycjami
+- Eksport triangulowanych pozycji (bearing, distFrac, age, accurate)
+- Eksport trybu ciszy (silentRunning) i głębokości
+
+**index.html — stacja SONAR:**
+- Przeniesiono `#sonar-station` do wnętrza `#game-container` (z-index 12)
+- Podniesiono z-index overlayów gry (alert, event-log, bot, tutorial-tip) do 55 — widoczne ponad stacją SONAR
+- **Koło namiarów — nowe elementy:**
+  - Aktywny ping: rozszerzający się pierścień + białe błyski ech
+  - Triangulowane pozycje: żółty krzyż z kółkiem (zanika przez 28s)
+  - Wabie: pulsujące bursztynowe kółka (zanikają wraz z cyklem życia)
+  - Torpedy gracza: cyjanowe trójkąty, większe gdy seeker zablokowany
+  - ASROC wrogów: migające czerwone romby, kółko gdy naprowadzone
+  - Kontakty HUNT: pulsujące kółko na krawędzi pierścienia
+  - Tryb nasłuchu: niebieski pierścień zewnętrzny
+  - Tryb ciszy: zielony przerywany pierścień
+- **DEMON waterfall:** kopiowany z panelu bocznego (`#demon-display`) do `#ss-demon` przez drawImage
+- **Skróty klawiszowe:** `2` → stacja SONAR, `1` → CONN
+
+---
+
+## [0.10.15] — 2026-05-10
+
+### Dodano — Stacja SONAR (HTML overlay)
+
+**index.html + src/GameScene.js:**
+- Zakładka SONAR w top-barze jest teraz klikalna — otwiera pełny overlay stacji
+- **Koło namiarów** (canvas, animowany sweep): pierścienie, podziałka 0–360°, wskaźnik kursu, linie namiarów kontaktów, marker własnej pozycji (OWN), pulsujący pierścień nasłuchu
+- **Wodospad BTR** (bearing-time recorder, canvas): oś Y = namiar 0–360°, czas scrolluje w lewo, gauss blob dla każdego kontaktu, kolor wg klasyfikacji (czerwony=zagrożenie, żółty=okręt wojenny, niebieski=nawodny)
+- **Lista kontaktów**: ID, klasyfikacja (OKRĘT WOJENNY/NAWODNY/NIEZNANY), namiar, trend (ZBLIŻA/ODDALA), paski siły sygnału
+- Dane eksportowane z GameScene.js przez `window._sonar` (bearing kompasowy, sig, approach, cls, threat)
+- Dedykowana pętla RAF (`sonarLoop`) nie koliduje z istniejącym `mirror` loopem
+
+---
+
+## [0.10.14] — 2026-05-10
+
+### Przeprojektowano — Nowe UI gry (design Czerwony Październik)
+
+**index.html:**
+- Nowa paleta kolorów: `#e8413a` (czerwony akcent), `#02080b` (tło), `#f3ede0` (tekst)
+- Czcionki: Bebas Neue (wyświetlacz), JetBrains Mono (mono) — ładowane z Google Fonts
+- Siatka CSS `52px 640px 76px`: top-bar + main-area + bottom-bar
+- **Top bar:** pulsujący punkt statusu, nazwa okrętu (ORP ORZEŁ), zakładki stacji (CONN/SONAR/PERYSKOP/BROŃ/NAWIGACJA/AWARIE), zegar UTC
+- **Left panel (200px):** info o celu, panel misji, zarządzanie rurami torpedowymi
+- **Game container (1024px):** canvas Phaser + nakładki HUD
+- **Side panel:** dziennik okrętowy + canvas DEMON
+- **Bottom bar:** główne wartości HUD (głębokość/prędkość/kurs/balast/hałas/kadłub) w czcionce Bebas Neue, liczniki torped, przyciski trybu
+- Ukryty `#hud` zachowuje oryginalne ID dla kompatybilności z GameScene.js
+- Skrypt RAF synchronizujący wartości z ukrytego HUD do widocznego bottom-bar
+- Efekty CRT: scanlines + winietowanie przez `::before`/`::after` na `#game-shell`
+- Narożne uchwyty przez technikę CSS gradient (8 gradientów = 4 kształty L)
+
+---
+
+## [0.10.13] — 2026-05-10
+
+### Zmieniono — Samouczek zamyka etap tylko po wykonaniu zadania
+
+**src/TutorialMission.js:**
+- Usunięto auto-timer (7s) z ekranu wyjaśnienia — gracz zamyka go ręcznie klikając "WYKONAJ ZADANIE" lub [Enter]
+- Usunięto pasek odliczający i etykietę "auto za Xs"
+- Karta zadania nadal zamyka się wyłącznie po spełnieniu warunku fazy (jak wcześniej)
+- Uproszczono `_showStepModal`, `_dismissStepModal`, `_hideStepModal` — usunięto `clearTimeout`/`clearInterval`
+
+## [0.10.12] — 2026-05-10
+
+### Przeprojektowano — Samouczek krok-po-kroku z wyjaśnieniami
+
+**src/TutorialMission.js — pełny redesign architektury:**
+- Każda z 7 faz ma teraz dwa etapy: (1) ekran wyjaśnienia mechaniki → (2) zadanie do wykonania
+- Nowy element `#tut-step` — modal 530px wycentrowany na canvas z opisem 2-3 zdania + klawisze + cel
+- Modal auto-znika po 7 sekundach z animowanym paskiem odliczającym i licznikiem "auto za Xs"
+- Przycisk "▸ WYKONAJ ZADANIE [Enter]" skraca oczekiwanie — gracz może przejść dalej od razu
+- Po zamknięciu modalu pojawia się karta zadania (340px, lewy dolny róg) z instrukcją i paskiem postępu
+- Faza 6 (torpeda): intro wyjaśnia celownik i lead indicator; po wejściu cel zatrzymuje się automatycznie
+- Usunięto stary `_renderPhase()` — zastąpiony przez `_startPhase(i)` → `_showStepModal()` → `_dismissStepModal()` → `_showCard()`
+- Naprawiono bug z `setInterval` counter czyszczonym przez `clearInterval` przy pominięciu
+
+## [0.10.11] — 2026-05-10
+
+### Naprawiono — Samouczek blokował kursor i torpedy
+
+**src/TutorialMission.js — bugfix krytyczny:**
+- `#tut-intro` (overlay pełnoekranowy z `pointer-events: all; inset: 0`) nigdy nie był usuwany z DOM — `this._introEl = null` następowało przed timeoutem, więc `this._introEl?.remove()` znajdowało null i nie robiło nic; element pozostawał niewidoczny ale blokował wszystkie kliknięcia na canvas
+- Naprawiono przez zapis referencji do zmiennej lokalnej `const el = this._introEl` przed wyzerowaniem pola klasy, a następnie `el.remove()` w timeoucie
+- Dodano `el.style.pointerEvents = 'none'` natychmiast po wywołaniu hide — odblokowanie kliknięć bez czekania na usuniecie DOM (550ms fade)
+- Ten sam wzorzec naprawiony w `_triggerMission()` dla `#tut-complete`
+
+## [0.10.10] — 2026-05-10
+
+### Naprawiono i przeprojektowano — Samouczek i czarne tło
+
+**src/TutorialMission.js — pełny redesign UX:**
+- Karta samouczka przeniesiona do lewego dolnego rogu (340px × ~130px) — nie zasłania łodzi, sonaru, DEMON waterfalla ani celu
+- Cel treningowy przybliżony z x=1800 do x=900, prędkość z 8 do 1 px/s — zawsze widoczny na ekranie gracza
+- W fazie 6 (TORPEDA) cel zatrzymuje się automatycznie (`speed=0`) przez `onEnter` callback — gracz może spokojnie celować
+- Dodano pole `hint` — krótkie wyjaśnienie "dlaczego" pod instrukcją (szary tekst)
+- Dodano `update()` callback na fazę — faza 6 wykrywa wystrzelenie torpedy bez polegania tylko na `check()`
+- Nagłówek: 7 kropek postępu + numer kroku + przycisk ESC
+- Kropki aktywna/ukończona/oczekująca z kolorowymi stanami
+
+**src/GameScene.js — bugfix:**
+- Dodano `?.` (optional chaining) przy `this.mission.update()`, `this.mission.onMerchantDestroyed()` — `this.mission` jest null podczas samouczka, co powodowało TypeError i czarne tło canvasa
+
+## [0.10.9] — 2026-05-10
+
+### Dodano — Profesjonalny samouczek jako pierwsza misja
+
+**src/TutorialMission.js — nowy plik:**
+- 7-fazowy samouczek prowadzący gracza "za rączkę" przez wszystkie kluczowe mechaniki
+- Faza 1: ZANURZENIE — zejść poniżej 60m (pasek postępu głębokości)
+- Faza 2: NAPĘD — uruchomić silnik elektryczny, utrzymać prędkość 3s (pasek prędkości)
+- Faza 3: NASŁUCH — wyłączyć silnik, wejść w tryb nasłuchu 4s (pasek aktywności)
+- Faza 4: AKTYWNY SONAR — wysłać ping [Q] (wykrycie faktu naciśnięcia)
+- Faza 5: KLASYFIKACJA — poczekać na SURFACE na DEMON waterfalle (pasek classifyTimer)
+- Faza 6: TORPEDA — wystrzelić torpedę LPM w zidentyfikowany cel
+- Faza 7: TRAFIENIE — czekać na zniszczenie lub timeout 35s
+- Ekran intro z opisem szkolenia, przycisk "Pomiń samouczek"
+- Panel tutorial: 112px przy dolnej krawędzi canvas z ikoną, tytułem, instrukcją, klawiaturą, paskiem warunku
+- Zielony flash + wpis w logu pokładowym po każdej fazie
+- Ekran zakończenia "SZKOLENIE ZAKOŃCZONE" z przyciskiem do misji bojowej
+
+**src/GameScene.js:**
+- `_startTutorial()`: 1 cel treningowy (CEL TRENINGOWY, x=1800, dir=-1, speed=8px/s)
+- `_startMission1Combat()`: po tutorialu → usuwa cel treningowy, spawniuje konwój 4 statków + wrogów
+- Stary `_updateTutorial()` i pola `_tutorialHints` usunięte
+- Wrogowie nie spawnią się podczas tutorialu (`_enemiesSpawned=true`)
+- Wczytanie zapisu pomija tutorial (gracze, którzy już grali)
+
+---
+
+## [0.10.8] — 2026-05-10
+
+### Dodano — System zapisu (localStorage)
+
+**src/SaveSystem.js — nowy plik:**
+- `save(scene)` — serializuje pełny stan gry do `localStorage` (klucz `op_pazdziernik_v1`)
+- `load()` — odczytuje i parsuje zapis, zwraca null jeśli brak/błąd
+- `hasSave()` / `clear()` — sprawdzenie i usunięcie zapisu
+- `getSaveInfo()` — czytelne info dla menu (data, fala, kadłub%, zatopione)
+
+**Co jest zapisywane:**
+- Okręt: x/y, vx/vy, hull, battery, oxygen, ballast, missileCount, noisemakerCount, 4 rury torpedowe (loaded + reloadTimer)
+- Fala: `_wave` + `_waveTimer`
+- Konwój: pozycja, kierunek, kadłub, destroyed, classifyTimer każdego statku
+- Misja: postęp celów (detect done, destroy count)
+
+**src/GameScene.js:**
+- Auto-zapis co 30s (`time.addEvent`) z wpisem "AUTO-ZAPIS OK" w logu
+- `_restoreFromSave(save)` — przywraca cały stan bez resetu (pozycja, zasoby, fala, konwój, misja)
+- NOWY PATROL czyści stary zapis przed startem
+
+**src/Menu.js:**
+- KONTYNUUJ odblokowane gdy `SaveSystem.hasSave()` → true
+- Sekcja BRIEFING pokazuje datę zapisu, falę, kadłub%, zatopione statki
+- Nawigacja klawiaturą pomija zablokowane pozycje
+- F2 uruchamia KONTYNUUJ (gdy dostępne)
+
+**src/main.js:**
+- Przekazuje `{ fromSave: true/false }` z menu do SaveSystem przed startem Phaser
+
+---
+
+## [0.10.7] — 2026-05-10
+
+### Dodano — Menu główne z ekranem startowym
+
+**src/Menu.js — nowy plik:**
+- Pełnoekranowe menu startowe z animowanym tłem (sonar PPI, canvas 2D)
+- Obracające się ramię sweepujące z 100° smugą poświaty i gradientem radialnym
+- 3 rozszerzające się pierścienie ping z zanikającą przezroczystością
+- Schemat techniczny okrętu podwodnego (SVG, PR. 671RTM · K-244) z opisami
+- Panel menu: NOWY PATROL / KONTYNUUJ / ARCHIWUM / FLOTYLLA / USTAWIENIA / WYNURZ
+- Nawigacja klawiaturą (↑↓ + Enter + F1) i myszą
+- Pasek telemetrii: głębokość/prędkość/kurs/reaktor — animowane fluktuacje co 600ms
+- Zegar UTC odświeżany co 1s
+- Tytuł "CZERWONY / PAŹDZIERNIK" czcionką Bebas Neue (Google Fonts CDN)
+- Efekt winietowania, scanlines CRT, szum proceduralny
+- Menu znika z animacją fade-out (0.4s) po wyborze NOWY PATROL
+- Pełne sprzątanie: cancelAnimationFrame, clearInterval, removeEventListener
+
+**src/main.js:**
+- Phaser.Game startuje dopiero po zamknięciu menu (promise chain)
+- Gra nie startuje w tle podczas menu
+
+**Inne:**
+- KONTYNUUJ / ARCHIWUM / FLOTYLLA / USTAWIENIA / WYNURZ — widoczne, zablokowane (stub)
+
+---
+
+## [0.10.6] — 2026-05-10
+
+### Dodano — System misji + Misja 1: Operacja Szlak Handlowy
+
+**src/Merchant.js — nowy plik:**
+- Statek cargo: kadłub 75%, prędkość 12–17 px/s, konwój 4 jednostek
+- Interfejs sonaru identyczny z Enemy (getContactInfo, getVelocity, revealTimer, classifyTimer)
+- Tonal 11–19 Hz (niższe od niszczyciela — odróżnienie na DEMON)
+- Klasyfikacja: UNK → SURFACE (zablokowany na SURFACE, nigdy WARSHIP)
+- Reaguje na aktywny ping — echo na PPI, ujawnienie pozycji na 5s
+- Rysowanie: proc. sprite statku handlowego (ładownie, mostekówka, komin)
+- Bursztynowe linie namiarowe w widoku głównym (odróżnienie od niszczycieli)
+
+**src/MissionSystem.js — nowy plik:**
+- MissionSystem zarządza aktywnymi misjami i aktualizuje panel UI
+- Misja 1 "OP. SZLAK HANDLOWY":
+  - Cel 1: Namierz konwój — sklasyfikuj dowolny statek do poziomu SURFACE
+  - Cel 2: Zatop 3 z 4 statków handlowych
+- Wpisy do dziennika pokładowego na każdym etapie misji
+- Ekran sukcesu po zatopeniu 3 statków (2.5s opóźnienie po ostatnim wpisie)
+
+**src/GameScene.js:**
+- Import Merchant i MissionSystem
+- 4 merchanty: LENSKY/KALININ/TBLISI/NOVOROSSIYSK na pozycjach 2200–8400px
+- Torpedy i rakiety celują w merchantów (wykrywanie trafień)
+- Merchanty widoczne na PPI, mapie taktycznej (bursztynowe romby)
+- Ping [Q] echuje od merchantów i ujawnia ich pozycję
+- Panel namierzania (NAMIERZANIE) wyświetla merchantów jako cel
+
+**index.html:**
+- Panel MISJA w lewym panelu z nazwą i celami
+- Style CSS: pending (szary), done (cyjan), mission-complete (złoty)
+
+---
+
+## [0.10.5] — 2026-05-09
+
+### Zmieniono — Balans rozgrywki
+
+**Enemy.js — trudność:**
+- `BASE_HYDROPHONE` 600 → 480 px (wróg słyszy na krótszą odległość)
+- `ALERT_THRESHOLD` 1.4 → 2.2 s (dłuższy czas do alarmu)
+- `HUNT_THRESHOLD` 5.0 → 7.0 s (dłuższy czas do ataku)
+- `CHARGE_COOLDOWN` 9.0 → 13.0 s (rzadsze szarże)
+- `ASROC_COOLDOWN` 45 → 70 s (rzadszy ASROC)
+- `SEARCH_DURATION` 35 → 50 s (dłuższe poszukiwania przed wycofaniem)
+- Obrażenia: ratio × 0.58 → × 0.44 (słabsze trafienia)
+- Wycofanie: hull < 0.25 → < 0.35 (wróg wycofuje się wcześniej)
+
+**Submarine.js — siła gracza:**
+- Przeładowanie torpedy: 90–120 s → 55–75 s
+- `_salvoCD` między wystrzeleniami: 6.0 → 3.0 s
+- Liczba rakiet: 2 → 3
+- Liczba wabiów (noisemaker): 3 → 5
+
+**Torpedo.js — skuteczność Mk.48:**
+- Zasięg maksymalny: 950 → 1100 px
+- Zasięg sonaru głowicy: 195 → 240 px
+
+---
+
+## [0.10.4] — 2026-05-09
+
+### Dodano — Aktywny sonar [Q]
+
+**src/GameScene.js:**
+- Klawisz `Q` — emituje ping aktywny z pozycji łodzi
+- Cooldown 14s między pingami (wskaźnik HUD `A.Sonar`)
+- `_firePing()`: tworzy obiekt pingu `{ subX, subY, r, maxR, alpha, echoes }`, alertuje wrogów w zasięgu 1100px
+- `_updatePings(dt)`: rozszerza pierścień 680px/s, wykrywa moment gdy front fali mija wroga
+- `_drawPings()`: rozszerzający się cyjanowy pierścień (2px → cieńszy), echo = biały błysk + dwa pierścienie w miejscu kontaktu
+- Przy wykryciu echa: `enemy.revealTimer = 5s` → precyzyjna pozycja na PPI przez 5s
+- Log dziennika: nam. i dyst. kontaktu przy każdym echu
+- HUD `#hud-ping`: "GOTOWY" (cyjan) lub "⟳ Xs" (pomarańczowy/czerwony)
+- `_pingGfx` dodany do `_applyCamera()` (poprawna pozycja przy scrollu kamery)
+
+**src/Enemy.js — `receivePing(subX, subY)`:**
+- PATROL → detectTimer ≥ ALERT_THRESHOLD+0.4 (słyszy kierunek pingu)
+- ALERT/SEARCH → detectTimer ≥ HUNT_THRESHOLD-0.8 (ping potwierdza pozycję, przyspiesza atak)
+- Zawsze aktualizuje `lastKnownSubX/Y` i `lastBearingToSub`
+
+**src/Sonar.js:**
+- `update()` przyjmuje 5. param `playerPings`
+- Pierścień pingu skalowany na PPI (`r / SONAR_WORLD_RANGE * this.r`)
+- Echo blip na PPI: biały punkt + rozszerzający się pierścień przy namierzonym celu
+
+**index.html:**
+- Q dodany do listy sterowania (z adnotacją "14s CD")
+- Nowy element HUD `#hud-ping` (A.Sonar) po Wabia
+
+**Ryzyko taktyczne:**
+- Wszystkie okręty nawodne w zasięgu 1100px słyszą ping i przechodzą co najmniej w ALERT
+- W ALERT + ping → prawie natychmiastowy HUNT → nie używać blisko wrogów
+
+---
+
+## [0.10.3] — 2026-05-09
+
+### Zmieniono — Nowe sprite'y wszystkich jednostek + animacje wybuchów i napędów
+
+**src/Submarine.js — nowy kształt łodzi podwodnej:**
+- Wielokątny kadłub (8-bok): `moveTo(48,0)→lineTo(38,-10)→...` — sylwetka jak prawdziwa łódź
+- Cień hydrodynamiczny pod kadłubem (ciemna elipsa)
+- Podświetlenie pokładu (gradient-stripe wzdłuż grzbietu)
+- Kiosk (sail): trapezoidalny wielokąt z farowodami i antenami peryskopowymi
+- Płetwy boczne przy kiosku (fairwater planes)
+- Płetwy rufowe: pionowe (góra/dół) + poziome steru głębokości
+- Pierścień dyszy + 4-łopatkowe śmigło z animacją prędkości
+- Światła nawigacyjne: czerwone rufowe, zielone dziobowe
+- Wycieki olejowe przy `hull < 0.3` (animowane smugi)
+
+**src/Enemy.js — nowy kształt niszczyciela:**
+- Dziobowy trójkąt (rampa wodna), podwodny cień
+- Prostokąt kadłuba z linią wody
+- Podwyższony dziób (forecastle), wieżyczka armatnia z lufą
+- Wielopoziomowy mostek (bridge) w 3 warstwach
+- Komin z animowanym dymem (4 kłęby z 3 kolorami, niezależne rotacje)
+- Obrotowy radar (animacja ciągła)
+- Wyrzutnia ASROC ze wskaźnikiem gotowości (zielony/żółty/czerwony)
+- Rury torpedowe (2 prostokąty na rufie)
+- Efekt pożaru przy `hull < 0.3` (migające płomienie)
+
+**src/Torpedo.js — Mk.48 realistyczny korpus:**
+- Silnik (elipsa tył), kadłub główny, sekcja głowicy, nos (koło)
+- Pierścień śruby (okrąg kontur) + 3 animowane łopatki przy osi
+- Stery rufowe: górny prostokąt, dolny prostokąt, boczny pionowy
+- Podwójny ślad bąbelkowy (duże półprzejrzyste + małe białe)
+- Wielopierścieniowy wybuch: błysk → kula ognia (2 warstwy) → fala główna → fala zewnętrzna → 6 bąbli powietrza
+
+**src/Missile.js — Harpoon / Exocet styl:**
+- Sekcja silnika (ciemna), kadłub główny, sekcja bojowa, głowica (trójkąt + odblask)
+- Skrzydła delta (trójkąty zamiast prostokątów): góra i dół
+- Stateczniki ogonowe (2 prostokąty)
+- Dysza silnika: pierścień + rdzeń biały + żółty + pomarańczowy
+- Pióropusz ognia: 7 kłębów z wobble-animacją (Math.sin) i decay
+- Rozprysk wody podczas sea-skimmingu przy `y > SURF-14`
+- Spray narzutowy dla wskaźnika lock (zielone kółko przy naprowadzeniu)
+- 3-pierścieniowy wybuch + 8 odłamków na spirali + 3-poziomowa kolumna dymu
+
+**src/EnemyASROC.js (HomingTorpedo) — Mk.44 sylwetka:**
+- Sekcja silnika, kadłub, głowica bojowa, impeler (koło dziobowe)
+- Kolor dynamiczny: czerwony (lock sub), pomarańczowy (lock decoy), żółty (search)
+- Pierścień śruby + 3 łopatki z animacją
+- Stery krzyżowe: górny, dolny, boczny
+- Stożek akustycznego seekera: kolorowanie wg stanu (lock/decoy/search)
+- Wielopierścieniowy wybuch jak Mk.48 + specyficzne bąble podwodne
+
+---
+
+## [0.10.2] — 2026-05-09
+
+### Naprawiono — 3 błędy krytyczne (P1/P2/P3 z RAPORT.md)
+
+**src/GameScene.js — P1: HUD torpedoCD vs. salvoCD:**
+- Panel namierzania `tp-torpcd` teraz poprawnie pokazuje inter-salvo cooldown
+- Nowy stan `SALWA ⟳ Xs` (kolor warning) gdy `_salvoCD > 0`, nawet jeśli rury są załadowane
+- Komunikat kliknięcia LPM: „Cooldown salwy! (Xs)" zamiast „Wszystkie rury ładują się"
+
+**src/EnemyASROC.js — P2: HomingTorpedo po wygaśnięciu wabii:**
+- Dodano walidację: gdy `_decoyTarget.age >= _decoyTarget.lifetime` → `_decoyTarget = null`, `phase = 'search'`, `locked = false`
+- Torpeda Mk.44 poprawnie wraca do spiralnego szukania po wygaśnięciu wabii akustycznej
+
+**src/EnemyASROC.js — P3: Kolizja Mk.44 z terenem dna:**
+- W `HomingTorpedo.update()` dodano sprawdzenie `scene.floorAt(this.x)`
+- Jeśli `this.y >= floorY` → torpeda eksploduje natychmiast (bez obrażeń)
+- Unika sytuacji gdy torpeda „przelatuje przez skały" bez efektu
+
+---
+
+## [0.10.1] — 2026-05-09
+
+### Dodano — Bot taktyczny (pełna symulacja gracza)
+
+**src/TestBot.js — pełny przepis:**
+- 10 stanów AI: `DIVE → PATROL → LISTEN → STALK → FIRE_TORP → FIRE_MISSILE → EVADE → DEPLOY_DECOY → SURFACE_O2 → RECHARGE`
+- Tryb NASŁUCH — zatrzymuje silnik na 8s, loguje kontakty z bearingiem i dystansem
+- Atakuje torpedami z punktem ołowiu (lead shot) uwzględniającym prędkość celu
+- Wynurza się na SHALLOW_Y do rakiet, natychmiast zanurza po strzale
+- Wykrywa przychodzące torpedy (HomingTorpedo z ASROC) i wyrzuca wabię
+- Po wyrzuceniu wabii — sprint prostopadle i przejście do EVADE
+- Zarządzanie baterią: niski próg → RECHARGE (snorchel), krytyczny → natychmiast
+- Zarządzanie tlenem: O₂ < 14% → SURFACE_O2 (priorytet absolutny)
+- Raport końcowy z sesji: torpedy, rakiety, wabie, manewry, nasłuchy
+- `scene.STATE` udostępnione w GameScene dla bota i innych modułów
+
+---
+
+## [0.10.0] — 2026-05-09
+
+### Dodano — Lewy panel UI + wabie akustyczne + wyższy poziom trudności
+
+**index.html — nowy układ paneli:**
+- Nowy `#left-panel` (195px, ciemny terminal, lewa krawędź gry) zawierający:
+  - Panel „Namierzanie" (`#target-panel`) jako sekcja
+  - Separator `.lp-divider`
+  - Panel „Sterowanie" (`#controls-panel`) jako sekcja
+- Panele przeniesione poza `#game-container` (wcześniej nakładały się na grę)
+- Dodany klawisz `T` — wabia akustyczna — do listy sterowania
+- Nowy element HUD `#hud-noisemakers` pokazujący liczbę pozostałych wabii
+- CSS: scanlines i vignette dla `#left-panel`, klasy `.lp-section-title`, `.lp-divider`
+
+**src/Enemy.js — trudniejszy AI:**
+- `BASE_HYDROPHONE`: 420 → 560 (lepsze hydrofony wroga)
+- `ALERT_THRESHOLD`: 2.2 → 1.4 (szybciej przechodzi w ALERT)
+- `HUNT_THRESHOLD`: 8.0 → 5.5 (szybciej przechodzi w HUNT)
+- `SEARCH_DURATION`: 55 → 70s (dłużej szuka po utracie kontaktu)
+- `CHARGE_COOLDOWN`: 14.0 → 9.0s (częstsze zrzuty głębinowe)
+- `CHARGE_BLAST_R`: 88 → 108px (większy promień wybuchu)
+- `ASROC_COOLDOWN`: 90 → 55s (częstsze rakiety ASROC)
+- `SHOCK_BASE`: 5.0 → 3.0s (szybsza reakcja po trafieniu)
+- Próg wycofania: `hull < 0.5` → `hull < 0.25` (walczy dłużej)
+- Próg stanu WITHDRAW: `hull < 0.25` → `hull < 0.10` (walczy do końca)
+- Obrażenia od zarzutów: `ratio * 0.40` → `ratio * 0.58`
+
+**src/Submarine.js — realistyczne czasy reakcji:**
+- Czas przeładowania rur: 55–80s → **90–120s**
+- Nowy cooldown między wystrzeleniami: 6s (inter-salvo)
+- Dodano `noisemakerCount = 3` i `noisemakers = []`
+- Nowa metoda `deployNoisemaker()` — wyrzuca wabię akustyczną
+
+**src/EnemyASROC.js — torpeda naprowadza na wabie:**
+- `HomingTorpedo` sprawdza `scene.sub.noisemakers` przed szukaniem łodzi
+- Jeśli wabia w zasięgu głowicy → torpeda przełącza cel na wabię
+- Kolizja z wabią: niszczy wabię bez obrażeń dla okrętu
+- Nowe pole `_decoyTarget` śledzi aktualny cel (null = okręt)
+
+**src/GameScene.js — integracja:**
+- Dodano klawisz `T` (deploy noisemaker)
+- `scene.noisemakers` jako alias dla `sub.noisemakers` (dla EnemyASROC)
+- `_drawNoisemakers()` — pulsujące pierścienie i pasek czasu życia
+- HUD `hudNoisemakers` — kolor zmienia się: niebieski→żółty→czerwony
+- `#left-panel` aktywowany przy starcie gry (`.classList.add('active')`)
+
+---
+
+## [0.9.1] — 2026-05-09
+
+### Zmieniono — Czytelność UI + realistyczny gradient oceanu
+
+**index.html (CSS):**
+- Ocean wrócił do ciemnej palety (głębiej = ciemniej)
+- Fonty paneli powiększone: ctrl-title 8→9px, ctrl-desc 8→9px, kbd 8→9px
+- Panel namierzania: tp-label 8→9px, tp-value 12→13px, tp-threat 8→9px
+- Dziennik: log-entry 9.5→10px, log-time 8→8.5px
+- Scanlines bocznego panelu: opacity 0.14 → 0.07, co 3px zamiast 2px (mniej zasłania tekst)
+- Winietowanie bocznego panelu: 0.55 → 0.30 (krawędzie mniej przyciemnione)
+- Naprawiono inline-style: hud-torp-reload (#888 → #aaffcc), hud-wave (#aaaaaa → #ccddff), hud-missiles (#ffaa00 → #ffcc44)
+- Etykiety kontaktów na sonarze: 7→9px, kolor #44ffcc → #66ffdd
+
+**src/Ocean.js — gradient głębokości:**
+- Niebo: #002244 → #000c1a (ciemniejszy)
+- Epipelagik: gradient #001e3d → #002a55 (ciemny, realistyczny niebieski)
+- Mezopelelagik: gradient #001830 → #000308 (coraz ciemniej w głąb)
+- Fala: 2.0px #88ffff → 1.8px #55d8ff (mniej krzykliwa)
+- Cząsteczki: mniejsze i mniej liczne
+
+---
+
+## [0.9.0] — 2026-05-09
+
+### Zmieniono — Jaśniejszy wygląd UI i świata
+
+**index.html (CSS):**
+- HUD: etykiety opacity 0.6 → 0.85, kolor `#5aff9a`, mocniejszy text-shadow
+- Paski HUD: ciemniejsze tło i ramka zastąpione jaśniejszymi (`#0d2818`, `#226040`)
+- Paski HUD: domyślny fill jaśniejszy (`#55ffaa`), warn/danger/charging — większy kontrast
+- Panel sterowania: ciemniejsze tło → `rgba(0,14,6,0.82)`, ramka `#1a5535`, kbd jaśniejsze
+- Panel namierzania: tp-label `#46aa70`, tp-value `#55ffaa`, jaśniejsze stany ready/warning/danger
+- Panel boczny: tło `#011408`, lewa ramka `#008a35`, nagłówek `#001408`
+- Dziennik: log-panel-title `#00ee55`, czas `#22ff77`, vessel `#008a32`
+- Separatory `#006030`, wpisy `#00d855`, czas wpisu `#009040`
+- Typy wpisów: warn `#ffcc44`, danger `#ff5050`, good `#22ffaa`, info `#66ccff`
+- Kursor `#22ff77` z mocniejszym glow
+
+**src/Ocean.js:**
+- Niebo: `#000814` → `#001428`
+- Epipelagik: `#001f3d`→`#003060`, gradient do `#005090` (widoczny błękit)
+- Termoklina: `#0a4060` → `#0a6080` at 0.45 (wyraźniejsza warstwa)
+- Mezopelelagik: gradient `#003060` → `#001025` (ciemniejszy głębiej, ale wyraźny u góry)
+- Teren dna: `#1a0e06` → `#28180a`, tekstura `#3c2810`
+- Skały: igłice `#352015`, ściana `#503a25` — widoczniejsze
+- Linijka głębokości: `#1a4a3a` → `#246655` at 0.70
+- Fala: `1.5px 0x4af0ff` → `1.8px 0x66f8ff at 0.80`
+- Cząsteczki: `0x88ddff` → `0xaaeeff`, alpha ×1.3
+- Poświata termokliny: `0x00aacc` → `0x00ccee`, grubość 1.5px, wyraźniejszy puls
+
+**src/Sonar.js:**
+- Tło sonaru: `0x000d05` → `0x001408` — wyraźniejszy zielony odcień
+- Siatka: `0x0c3a18` at 0.40 → `0x10522a` at 0.55
+- Sweep line: 1.8px → 2.2px, kolor `0x55ffaa`, poświata ogona 0.13→0.20
+- Obramowanie: `0x1a6a3a` → `0x22884a`, wewnętrzna `0x44ff88` at 0.25
+- Etykieta SONAR PAS.: `#1a6a3a` → `#33aa66`
+- DEMON waterfall: tło `#001408`, jasniejszy zielony kanał (80+175), czerwony wcześniej (0.55)
+- DEMON etykiety Hz: `#1a6a2a` → `#22882a`
+
+**src/GameScene.js:**
+- Etykieta TERMOKLINA: `#0a6a5a` → `#0e9a80` at 0.8
+- Linia 300m: `0xff6600` at 0.25 → `0xff8800` at 0.42
+- Linia 400m: `0xff2200` at 0.35 → `0xff3300` at 0.55
+- Etykiety limitów: ciemne → `#cc7700` / `#cc3300` at 0.75–0.85
+- Etykiety głębokości: `#1a4a3a` at 0.55 → `#2a7060` at 0.80
+- Mapa taktyczna: tytuł `#33cc66`, info `#2a9a5a`, etykiety głębokości jaśniejsze
+
+---
+
+## [0.8.0] — 2026-05-09
+
+### Dodano — Mapa taktyczna [M]
+
+**GameScene.js:**
+- Klawisz `M` — toggle live overlay 976×368px rysowany na depth 150
+- Nagrywanie trasy gracza co 2s (do 150 próbek = ~5 minut historii)
+- `_drawTacticalMap()`:
+  - Proceduralny teren dna widoczny na mapie (próbkowanie co 160px)
+  - Strefy głębokości kolorami (epipelagik / mezopelelagik)
+  - Linia termokliny (cyan) i głębokości krytycznej (pomarańczowa)
+  - Siatka: pionowe co 2000px (~2.4km), poziome co 100m głębokości
+  - Zielona trasa z zanikaniem historii + kropki co 6 próbek
+  - Linie namiarowe (bearing lines z sonaru) gdy brak triangulacji
+  - Diamentowe ikony kontaktów przy triangulowanych pozycjach
+  - Strzałki trendu: ↗ ZBLIŻA SIĘ (czerwona), ↙ ODDALA SIĘ (niebieska)
+  - Pulsujący krąg przy kontaktach w STATE.HUNT
+  - Kręgi zasięgu: sonar (820px, niebieski) i torpeda (950px, żółty)
+  - Etykiety km na siatce, głębokości, skala 2km, liczniki aktywne/namierzone/poziom
+- 7 obiektów tekstowych + pool etykiet km
+
+**index.html:** M dodany do panelu sterowania
+
+---
+
+## [0.7.0] — 2026-05-09
+
+### Dodano — Tryb piaskownicy, proceduralny teren, świat ×3
+
+**Ocean.js** — kompletne przepisanie:
+- Proceduralny teren dna: 6 oktaw sinusoidalnych (75+48+24+12+5+2px amplitudy), próbkowanie co 8px
+- Teren rysowany jako wielokąt zamiast płaskiego prostokąta
+- Skały i seamounty na wzniesieniach (prog y < SURFACE_Y+415) — iglica + boczna skała + osad
+- `scene.floorAt(x)` — interpolowana głębokość dna w dowolnym punkcie X
+- Optymalizacja: fala i cząsteczki rysowane tylko w widocznym obszarze kamery
+- 90 cząsteczek (było 60) — uwzględniają teren przy resetowaniu pozycji
+
+**Submarine.js:**
+- `_clampToWorld()`: kolizja z proceduralnym terenem przez `scene.floorAt(this.x)`
+- Granica pozioma: wrap → clamp + odbicie od ściany (prędkość ×-0.4)
+
+**GameScene.js:**
+- `WORLD_W`: 4 096 → 12 000px (~14.4km, ×3 większy świat)
+- Czas do pierwszego spawnu wrogów: 30s → 15s
+- System fal zastąpiony trybem piaskownicy:
+  - `_sandboxUpdate(dt)` — utrzymuje 3–9 aktywnych okrętów zależnie od poziomu zagrożenia
+  - `_spawnSandboxEnemy()` — nowy wróg min. 2400px od gracza, losowy korytarz patrolu 950–2550px
+  - Cooldown spawnu: 5s gdy morze puste, 18s gdy żyją już jakieś okręty
+  - Eskalacja: poziom zagrożenia rośnie co 120s (wpis w dzienniku)
+- Etykiety wrogów: `ORP-N` → `BPK-N` (Bolshoy Protivolodochnyy Korabl — historycznie poprawne)
+
+---
+
+## [0.6.0] — 2026-05-09
+
+### Dodano — Zimnowojennie polowanie (DEMON / NASŁUCH / Klasyfikacja)
+
+**Sonar.js** — kompletne przepisanie:
+- DEMON waterfall na HTML canvas — wodospad częstotliwości 8–35 Hz, 22 biny, 42 wiersze, odświeżany co 1.4s; każdy niszczyciel ma losowy tonus charakterystyczny
+- Klasyfikacja pasywna kontaktów: `UNK` → `SURFACE` (po 18s nasłuchu) → `WARSHIP` (po 55s); klasyfikacja przyspieszona 2.2× w trybie NASŁUCH
+- Dual EMA (okno 5s / 18s) do wykrywania trendu zbliżania: `ZBLIŻA SIĘ` / `ODDALA SIĘ`
+- Etykiety kontaktów na PPI: `?K1` (UNK), `·K1` (SURFACE), `◆K1` (WARSHIP), `↙K1` (WITHDRAW)
+- Pierścień nasłuchu — zielona pulsująca poświata wokół PPI gdy tryb NASŁUCH aktywny
+- Eksport `sonar.contacts` do GameScene z polami: `approach`, `contactClass`, `sig`
+
+**Submarine.js:**
+- Getter `listenMode` — true gdy prędkość < 12 px/s i moc silnika < 0.08 i brak kawitacji
+- Getter `sonarBonus` — 1.6× mnożnik zasięgu sonarowego w trybie NASŁUCH
+
+**Enemy.js:**
+- Pole `tonal` — losowa częstotliwość charakterystyczna 8–35 Hz (różna dla każdego okrętu)
+- Pole `contactClass` — aktualna klasyfikacja: `UNK` / `SURFACE` / `WARSHIP`
+- Pole `classifyTimer` — akumulator czasu ekspozycji
+
+**GameScene.js:**
+- HUD: etykieta `Prędkość` → `NASŁUCH ◉` (zielona) gdy tryb nasłuchu aktywny
+- Panel namierzania: wiersze `KLASIF` i `TREND` z danych sonar.contacts
+
+**index.html:**
+- `<canvas id="demon-display">` 232×78px w panelu bocznym między separatorem a dziennikiem
+- Wiersze `KLASIF` i `TREND` w panelu namierzania
+- CSS klasa `.hud-label.listen` dla indikatora NASŁUCH
+
+---
+
+## [0.5.0] — 2026-05-09
+
+### Dodano — System rur torpedowych
+
+**Submarine.js:**
+- 4 niezależne rury torpedowe, każda z losowym czasem przeładowania 55–80s
+- Getter `torpedoCount` — ile rur gotowych (backward compat)
+- Getter `torpedoFireCD` — czas do pierwszej gotowej rury (backward compat)
+- Getter `tubeReadyFraction` — ułamek postępu ładowania najszybszej rury (dla łuku celownika)
+- `fireTorpedo()` zwraca `tube.id` (truthy) lub `false`
+- `recentTubeLoaded` — id rury załadowanej w ostatniej klatce (dla powiadomień)
+
+**GameScene.js:**
+- HUD torpedy: wyświetla `2/4` + `⟳ 47s` (czas do następnej gotowej)
+- Panel namierzania: `GOTOWA (2/4)` lub `⟳ 1m 08s`
+- Powiadomienie o załadowaniu rury + wpis w dzienniku
+- Łuk celownika pokazuje postęp ładowania gdy wszystkie rury ładują się
+
+---
+
+## [0.4.0] — 2026-05-08
+
+### Dodano — Realistyczne zachowanie wroga po trafieniu
+
+**Enemy.js:**
+- Stan `STATE.WITHDRAW = 4` — wycofywanie po poważnym trafieniu
+- Stała `SHOCK_BASE = 4.5s` — czas szoku; prędkość 15%→100% przez SHOCK_BASE sekund
+- Metoda `onHit()` — ustawia timer szoku, redukuje `detectTimer`, wyzwala WITHDRAW gdy kadłub < 50%
+- `evadeTorpedo()` — zdrowy: manewr 3s×1.1×; uszkodzony: 7s×1.8×
+- Ślad olejowy — ciemne elipsy na powierzchni gdy okręt się wycofuje (zanikają po 45s)
+- Animacja szoku — biały migający prostokąt przez czas trwania szoku
+- Dym podczas WITHDRAW — szare kłęby nad okrętem
+- Defensywny ASROC podczas WITHDRAW (gdy kadłub > 10%)
+
+**GameScene.js:**
+- `enemy.onHit()` i `target.onHit()` wywoływane w handlerach trafień
+- Wpis w dzienniku przy przejściu do WITHDRAW ze śladem olejowym
+
+### Naprawiono
+- Spam termokliny i zamrożenie UI przy oscylacji na granicy termokliny:
+  - Submarine.js: histereza ±10px (`THERMO_Y + 10` / `THERMO_Y - 10`)
+  - GameScene.js: cooldown 8s między wpisami o przekroczeniu termokliny
+
+---
+
+## [0.3.0] — 2026-05-08
+
+### Dodano — Panel boczny: dziennik pokładowy (terminal fosforowy)
+
+**index.html:**
+- `#game-wrapper` — flex kontener owijający `#game-container` i `#side-panel`
+- `#side-panel` 252×640px — terminal CRT z efektami:
+  - Scanlines (`repeating-linear-gradient`)
+  - Winietowanie rogów (`radial-gradient`)
+  - Animacja pulsowania kropki statusu
+  - Zegar misji `#ship-log-time`
+  - Wpisy dziennika z kolorami: `warn`, `danger`, `good`, `info`
+  - Migający kursor `▮` na dole
+- `#hud-torp-reload` — nowy span w HUD torpedy
+
+**GameScene.js:**
+- Dziennik aktywowany przez `classList.add('active')` przy starcie gry
+- Wszystkie wpisy `_shipLog()` przepisane na taktyczny styl marynarki wojennej:
+  - Namiery w stopniach (`brg()`), dystanse w metrach (`rng()`)
+  - Skrótowy język meldunków bojowych
+- Pomocniki `_brg(x1,y1,x2,y2)` i `_rng(x1,y1,x2,y2)` dla namiarów morskich
+
+---
+
+## [0.2.0] — 2026-05-08
+
+### Dodano — Sonar PPI, sonar pasywny i triangulacja
+
+**Sonar.js:**
+- PPI (Plan Position Indicator) — obrotowy sweep ~8.4s/obrót
+- Smear (ślady zanikające 10s) z kodowaniem kolorem wg stanu AI
+- Etykiety kontaktów K-1, K-2… na krawędzi tarczy
+- Torpedy ASROC i torpedy gracza widoczne na PPI
+
+**GameScene.js:**
+- Sonar pasywny — linie namiarowe z tick-markami w widoku głównym
+- Triangulacja co 4s z co najmniej 2 próbek namiarów
+- Triangulowane pozycje widoczne jako krzyżyki na PPI i w widoku gry
+- Wpisy triangulacji w dzienniku (dokładna / przybliżona)
+
+---
+
+## [0.1.2] — 2026-05-08
+
+### Dodano — ASROC, bot testowy, sea-skimming rakiety
+
+**EnemyASROC.js** — nowy plik:
+- Rakieta przeciw-okrętowa wystrzelona z niszczyciela
+- Lot balistyczny do punktu uderzenia + nurkowanie
+- Torpeda samonaprowadzająca po nurkowniku
+
+**Missile.js** — nowy plik:
+- Rakieta gracza (`R` / PPM) — sea-skimming (ślizg tuż nad wodą)
+- Wykrywanie trafień w niszczyciele z obrażeniami
+
+**TestBot.js** — nowy plik:
+- Autonomiczny bot testujący sterowanie łodzią (`B` = toggle)
+- Fazy: zanurzanie, sprint, torpedy, uniki
+
+**Enemy.js:**
+- Sprint-and-listen taktyka AI — szybki sprint, potem cisza i nasłuch
+- Praca z ASROC podczas stanu HUNT
+
+---
+
+## [0.1.1] — 2026-05-08
+
+### Dodano — Lepsze AI, system fal
+
+**Enemy.js:**
+- Stan `STATE.SEARCH` — przeszukiwanie obszaru po utracie kontaktu
+- Koordynacja radiowa — niszczyciel w HUNT alarmuje pobliskie okręty
+- `getContactInfo()` — zwraca bearing i odległość dla sonaru
+
+**GameScene.js:**
+- System fal — po zniszczeniu wszystkich wrogów za 20s pojawia się kolejna fala (szybsza)
+- Wskaźnik fali w HUD
+
+---
+
+## [0.1.0] — 2026-05-08
+
+### Dodano — Przepisanie broni i AI
+
+**Torpedo.js** — nowy plik (wydzielony z Submarine):
+- Torpeda Mk.48 z szukaczem akustycznym
+- Zdalna detonacja (`E`)
+- Sprawdzanie trafień + obrażenia
+
+**Enemy.js** — przepisanie:
+- Maszyna stanów: `PATROL(0)`, `ALERT(1)`, `HUNT(2)`
+- Hydrofony z zasięgiem i kawitacją wpływającą na detekcję
+- Zarzuty głębinowe z eksplozjami i obrażeniami
+- `evadeTorpedo()` — manewr unikania
+
+**Submarine.js:**
+- Rakieta przeciw-okrętowa (wydzielona do Missile.js)
+- `noiseEffective` — hałas z uwzględnieniem termokliny
+
+---
+
+## [0.0.1] — 2026-05-08 — Prototyp
+
+### Dodano — Bazowy silnik gry
+
+- **Phaser 3 + Vite 4.5** — setup projektu
+- **Ocean.js** — tło oceanu, animowane fale na powierzchni
+- **Submarine.js** — fizyka łodzi:
+  - Balast i wypornność (tryb nurk/wynurz)
+  - Pitch (kąt dzioba), tarcie hydrodynamiczne
+  - Kawitacja przy > 60% mocy
+  - Termoklina (y=280) — redukcja hałasu akustycznego o 42%
+  - Śnorchel — ładowanie baterii przy < 5m głębokości
+  - Hotel load — zużycie baterii przez systemy okrętowe
+  - Tlen — zużycie pod wodą, ładowanie na powierzchni
+  - Detekcja kolizji z dnem i powierzchnią
+- **Enemy.js** — 3 niszczyciele z hydrofonami, zarzuty głębinowe
+- **GameScene.js** — ręczna kamera (lerp), sterowanie klawiaturą/myszą
+- **HUD** — głębokość, prędkość, balast, hałas, kadłub, bateria, tlen
+- **Efekty CRT** — scanlines, winietowanie, screen shake przy eksplozjach
