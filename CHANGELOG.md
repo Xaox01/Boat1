@@ -4,6 +4,24 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.27] — 2026-05-14
+
+### Dodano — Integracja peryskopowa: selekcja, hałas, badge, FOV w CONN
+
+**src/GameScene.js — `_exportSonarState`:**
+- Selekcja V-* kontaktów: kliknięcie wizualnego kontaktu (V-N) w stacji PERYSKOP poprawnie ustawia `_selectedEnemy` — pełna integracja z panelem namierzania i systemem ogniowym
+- Hałas peryskopowy: gdy peryskop aktywny + głębokość <12m → `noiseSurge = max(surge, 0.08)` — maszt powyżej wody podnosi sygnaturę akustyczną
+- Dziennik pokładowy: wpis `PERYSKOP: PODNIESIONY / OPUSZCZONY` przy każdej zmianie stanu
+
+**src/GameScene.js — `_drawBearingLines`:**
+- Wskaźnik FOV peryskopowy: gdy stacja aktywna, na ekranie CONN rysowany zielony stożek (~200px) w kierunku obserwacji — półprzezroczyste wypełnienie + krawędzie + kółko osi celowania
+
+**index.html:**
+- Badge `PERYSK` w dolnym pasku HUD: pokazuje aktualny namiar obserwacji i zmienia kolor na zielony gdy stacja aktywna; klik otwiera stację
+- Sync kursu przy otwarciu: F3/3 lub kliknięcie zakładki PERYSKOP ustawia `_pBearing` na aktualny kurs łodzi (`window._sonar.heading`)
+
+---
+
 ## [0.10.26] — 2026-05-14
 
 ### Dodano — Pełna integracja peryskopowej stacji z rozgrywką

@@ -695,13 +695,16 @@ export class GameScene extends Phaser.Scene {
     window._sonar.depth         = sub.depthMetres;
     window._sonar.tick++;
 
-    // Synchronizuj wybór z stacji SONAR do systemu celowania
+    // Synchronizuj wybór z stacji SONAR/PERYSKOP do systemu celowania
     const selId = window._sonar.selectedId;
     if (selId && selId !== this._prevSonarSelId) {
       this._prevSonarSelId = selId;
-      const idx = parseInt(selId.replace('K-', '')) - 1;
-      const ct  = this.sonar.contacts?.[idx];
-      if (ct) this._selectedEnemy = ct.enemy;
+      if (selId.startsWith('K-')) {
+        const idx = parseInt(selId.replace('K-', '')) - 1;
+        const ct  = this.sonar.contacts?.[idx];
+        if (ct) this._selectedEnemy = ct.enemy;
+      }
+      // V-* obsługiwane poniżej, po zbudowaniu allUnits
     } else if (!selId && this._prevSonarSelId) {
       this._prevSonarSelId = null;
     }
@@ -770,6 +773,12 @@ export class GameScene extends Phaser.Scene {
       })
       .filter(Boolean);
 
+    // V-* selection sync — kontakty wizualne spoza zasięgu sonaru
+    if (selId && selId.startsWith('V-') && selId === this._prevSonarSelId) {
+      const vIdx = parseInt(selId.replace('V-', '')) - 1;
+      if (allUnits[vIdx]) this._selectedEnemy = allUnits[vIdx];
+    }
+
     // Klasyfikacja wizualna: kontakty w polu widzenia peryskopowego → natychmiastowa identyfikacja
     const pActive = window._sonar.periscopeActive;
     const pBrg    = window._sonar.periscopeBearing ?? 0;
@@ -784,6 +793,14 @@ export class GameScene extends Phaser.Scene {
           e.classifyTimer = 60;
         }
       }
+      // Hałas peryskopowy — maszt powyżej wody niszczy ciszę akustyczną
+      sub.noiseSurge = Math.max(sub.noiseSurge || 0, 0.08);
+    }
+
+    // Dziennik: peryskop podniesiony/opuszczony
+    if (pActive !== (this._prevPActive ?? false)) {
+      this._prevPActive = pActive;
+      this._log(pActive ? 'PERYSKOP: PODNIESIONY' : 'PERYSKOP: OPUSZCZONY');
     }
   }
 
@@ -1143,7 +1160,7 @@ export class GameScene extends Phaser.Scene {
       ));
 
       // Triangulowana pozycja w widoku gry
-      const tri = this._triangulated.get(enemy);
+      const tri = this._triangulated?.get(enemy);
       if (tri && tri.age < 28) {
         const fade = 1 - tri.age / 28;
         const err  = tri.accurate ? 10 : 22;
@@ -1153,6 +1170,39 @@ export class GameScene extends Phaser.Scene {
         g.strokeLineShape(new Phaser.Geom.Line(tri.x - 14, tri.y, tri.x + 14, tri.y));
         g.strokeLineShape(new Phaser.Geom.Line(tri.x, tri.y - 14, tri.x, tri.y + 14));
       }
+    }
+
+    // ── Wskaźnik FOV peryskopowego w widoku CONN ─────────────────────────────
+    const periActive = window._sonar?.periscopeActive;
+    const periBrg    = window._sonar?.periscopeBearing;
+    const periFov    = window._sonar?.periscopeFov ?? 40;
+    if (periActive && periBrg != null) {
+      const pAng    = (periBrg - 90) * Math.PI / 180;
+      const halfFov = (periFov / 2) * Math.PI / 180;
+      const coneLen = 200;
+      g.fillStyle(0x5fffb0, 0.07);
+      g.beginPath();
+      g.moveTo(sx, sy);
+      g.arc(sx, sy, coneLen, pAng - halfFov, pAng + halfFov, false);
+      g.closePath();
+      g.fillPath();
+      g.lineStyle(0.8, 0x5fffb0, 0.40);
+      g.strokeLineShape(new Phaser.Geom.Line(
+        sx, sy,
+        sx + Math.cos(pAng - halfFov) * coneLen,
+        sy + Math.sin(pAng - halfFov) * coneLen
+      ));
+      g.strokeLineShape(new Phaser.Geom.Line(
+        sx, sy,
+        sx + Math.cos(pAng + halfFov) * coneLen,
+        sy + Math.sin(pAng + halfFov) * coneLen
+      ));
+      g.lineStyle(1.2, 0x5fffb0, 0.55);
+      g.strokeCircle(
+        sx + Math.cos(pAng) * 16,
+        sy + Math.sin(pAng) * 16,
+        4
+      );
     }
   }
 

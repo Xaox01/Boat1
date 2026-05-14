@@ -74,6 +74,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | 🟡 | Sonar boczny — holowany hydrofor TASS (wyższy zasięg, brak zwrotu) |
 | ✅ | Stacja PERYSKOP — widok optyczny, sylwetki, skala kątowa, stadimetria, zoom ×1.5/×3 (F3) |
 | ✅ | Peryskop: natychmiastowa klasyfikacja wizualna WARSHIP/MERCHANT (<1925px, głęb. <12m) |
+| ✅ | Peryskop: selekcja V-* → cel, hałas masztu, badge HUD, FOV cone w CONN, sync kursu |
 | 🟢 | Peryskop: ESM — lista emisji radarowych wrogich okrętów |
 | 🟢 | Grawimetria — wykrywanie okrętów podwodnych po anomaliach pola grawitacyjnego |
 
@@ -229,4 +230,4 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 
 ---
 
-*Ostatnia aktualizacja: 2026-05-14 — stacja PERYSKOP, klasyfikacja 4-poziomowa, declutter sonar, integracja rozgrywkowa*
+*Ostatnia aktualizacja: 2026-05-14 — peryskop pełna integracja: selekcja V-*, hałas masztu, badge HUD, FOV cone CONN, sync kursu*

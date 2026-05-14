@@ -1028,6 +1028,9 @@
       <div class="hud-toggle" id="bb-wave-badge">
         FALA<br><span style="font-size:14px;font-family:var(--fd)" id="bb-wave">1</span>
       </div>
+      <div class="hud-toggle" id="bb-periscope" style="cursor:pointer" onclick="_switchStation('periscope')">
+        PERYSK<br><span style="font-size:8px" id="bb-peri-lbl">PASYWNY</span>
+      </div>
     </div>
 
   </div><!-- #bottom-bar -->
@@ -1122,6 +1125,8 @@
     } else if (id === 'periscope') {
       periscopeStation && periscopeStation.classList.add('active');
       _pActive = true;
+      // Ustaw kurs peryskopowy na aktualny kurs łodzi przy otwarciu stacji
+      if (window._sonar?.heading != null) _pBearing = window._sonar.heading;
     }
   }
 
@@ -1974,6 +1979,22 @@
     } else {
       if (window._sonar) window._sonar.periscopeActive = false;
     }
+
+    // Aktualizuj badge PERYSK w dolnym pasku
+    const bbPeri    = document.getElementById('bb-periscope');
+    const bbPeriLbl = document.getElementById('bb-peri-lbl');
+    if (bbPeri && bbPeriLbl) {
+      if (_pActive) {
+        bbPeri.style.color    = 'var(--green)';
+        bbPeriLbl.textContent = `${String(Math.round(_pBearing)).padStart(3, '0')}°`;
+        bbPeriLbl.style.color = 'var(--green)';
+      } else {
+        bbPeri.style.color    = '';
+        bbPeriLbl.textContent = 'PASYWNY';
+        bbPeriLbl.style.color = 'var(--ink-dim)';
+      }
+    }
+
     requestAnimationFrame(periscopeLoop);
   }
   requestAnimationFrame(periscopeLoop);
