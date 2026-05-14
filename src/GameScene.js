@@ -535,8 +535,15 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Remove destroyed enemies
-    for (const e of this.enemies.filter(e => e.destroyed)) e.gfx.destroy();
+    // Remove destroyed enemies — wyczyść też zaznaczenie i triangulację
+    for (const e of this.enemies.filter(e => e.destroyed)) {
+      e.gfx.destroy();
+      this._triangulated?.delete(e);
+      if (this._selectedEnemy === e) {
+        this._selectedEnemy = null;
+        if (window._sonar) { window._sonar.selectedId = null; this._prevSonarSelId = null; }
+      }
+    }
     this.enemies = this.enemies.filter(e => !e.destroyed);
 
     // ── Konwój — aktualizacja i trafienia ────────────────────────────────────
@@ -569,8 +576,15 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Usuń zatopione merchanty (gfx)
-    for (const m of this.merchants.filter(m => m.destroyed)) m.gfx.destroy();
+    // Usuń zatopione merchanty — wyczyść też zaznaczenie i triangulację
+    for (const m of this.merchants.filter(m => m.destroyed)) {
+      m.gfx.destroy();
+      this._triangulated?.delete(m);
+      if (this._selectedEnemy === m) {
+        this._selectedEnemy = null;
+        if (window._sonar) { window._sonar.selectedId = null; this._prevSonarSelId = null; }
+      }
+    }
     this.merchants = this.merchants.filter(m => !m.destroyed);
 
     // Aktualizacja misji
@@ -733,6 +747,43 @@ export class GameScene extends Phaser.Scene {
           ...toBD(tri.x, tri.y), age: tri.age, accurate: tri.accurate,
         });
       });
+    }
+
+    // ── Peryskop — kontakty wizualne + klasyfikacja ───────────────────────────
+    const VISUAL_RANGE = 3500;
+    const sonarIdMap   = new Map((this.sonar.contacts || []).map((c, i) => [c.enemy, `K-${i + 1}`]));
+    const allUnits     = [...this.enemies.filter(e => !e.destroyed), ...this.merchants.filter(m => !m.destroyed)];
+
+    window._sonar.visualContacts = allUnits
+      .map((e, vIdx) => {
+        const { bearing, dist } = toBD(e.x, e.y);
+        if (dist > VISUAL_RANGE) return null;
+        return {
+          vIdx,
+          id:       sonarIdMap.get(e) ?? `V-${vIdx + 1}`,
+          bearing,
+          dist,
+          distFrac: Math.min(1, dist / VISUAL_RANGE),
+          cls:      e.contactClass,
+          shipType: e.shipType,
+        };
+      })
+      .filter(Boolean);
+
+    // Klasyfikacja wizualna: kontakty w polu widzenia peryskopowego → natychmiastowa identyfikacja
+    const pActive = window._sonar.periscopeActive;
+    const pBrg    = window._sonar.periscopeBearing ?? 0;
+    const pFov    = window._sonar.periscopeFov    ?? 40;
+    if (pActive && sub.depthMetres < 12) {
+      for (const e of allUnits) {
+        const { bearing, dist } = toBD(e.x, e.y);
+        if (dist > VISUAL_RANGE * 0.55) continue;
+        const angDiff = Math.abs(((bearing - pBrg + 540) % 360) - 180);
+        if (angDiff < pFov / 2 && (e.contactClass === 'UNK' || e.contactClass === 'SURFACE')) {
+          e.contactClass  = e.shipType || 'WARSHIP';
+          e.classifyTimer = 60;
+        }
+      }
     }
   }
 
@@ -905,10 +956,14 @@ export class GameScene extends Phaser.Scene {
 
       // Klasyfikacja i trend z danych sonarowych
       const cls = nearest.contactClass || 'UNK';
-      this._setText(tpClassif, cls);
+      const clsText = cls === 'WARSHIP'  ? 'OKRĘT WOJ.' :
+                      cls === 'MERCHANT' ? 'JED. CYW.'  :
+                      cls === 'SURFACE'  ? 'NAWODNY'    : 'UNK';
+      this._setText(tpClassif, clsText);
       this._setCls(tpClassif,
-        cls === 'WARSHIP' ? 'tp-value danger' :
-        cls === 'SURFACE' ? 'tp-value warning' : 'tp-value nodata');
+        cls === 'WARSHIP'  ? 'tp-value danger'   :
+        cls === 'MERCHANT' ? 'tp-value ready'    :
+        cls === 'SURFACE'  ? 'tp-value warning'  : 'tp-value nodata');
 
       const sc = this.sonar?.contacts?.find(c => c.enemy === nearest);
       const trend = sc?.approach ?? '';
@@ -1769,8 +1824,9 @@ export class GameScene extends Phaser.Scene {
     const contacts = this.sonar?.contacts ?? [];
     for (const c of contacts) {
       if (this._triangulated?.get(c.enemy)?.age < 28) continue;
-      const col = c.enemy.contactClass === 'WARSHIP' ? 0xff4444
-                : c.enemy.contactClass === 'SURFACE' ? 0xffaa22 : 0x44bb77;
+      const col = c.enemy.contactClass === 'WARSHIP'  ? 0xff4444
+                : c.enemy.contactClass === 'MERCHANT' ? 0x42b8d4
+                : c.enemy.contactClass === 'SURFACE'  ? 0xffaa22 : 0x44bb77;
       const bLen = (2000 / WORLD_W) * MW;
       const bx   = Math.cos(c.bearing) * bLen;
       const by   = Math.sin(c.bearing) * bLen;
@@ -1790,7 +1846,8 @@ export class GameScene extends Phaser.Scene {
       const cls  = c.enemy.contactClass;
       const col  = cls === 'WARSHIP'
         ? (c.enemy.state === 2 ? 0xff2200 : 0xff8800)
-        : cls === 'SURFACE' ? 0xffaa22 : 0x44bb77;
+        : cls === 'MERCHANT' ? 0x42b8d4
+        : cls === 'SURFACE'  ? 0xffaa22 : 0x44bb77;
 
       // Krąg niepewności
       const errR = ((tri.accurate ? 80 : 220) / WORLD_W) * MW;
@@ -1848,7 +1905,7 @@ export class GameScene extends Phaser.Scene {
     // ── Merchanty — bursztynowe romby — widoczne tylko w zasięgu sonaru ──
     const SONAR_RANGE_MAP = 820;
     for (const m of this.merchants) {
-      const mdx = m.x - sub.x, mdy = m.y - sub.y;
+      const mdx = m.x - this.sub.x, mdy = m.y - this.sub.y;
       const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
       if (mdist > SONAR_RANGE_MAP * 2) continue;
       const mAlpha = mdist <= SONAR_RANGE_MAP ? 0.85 : 0.30;

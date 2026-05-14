@@ -100,17 +100,20 @@ export class Sonar {
         // Poza zasięgiem — klasyfikacja zanika (pamięć hydrofonu blaknie)
         if (enemy.classifyTimer > 0) {
           enemy.classifyTimer = Math.max(0, enemy.classifyTimer - dt * 0.4);
-          if (enemy.classifyTimer < 18) enemy.contactClass = 'UNK';
-          else if (enemy.classifyTimer < 55) enemy.contactClass = 'SURFACE';
+          if (enemy.classifyTimer < 12) enemy.contactClass = 'UNK';
+          else if (enemy.classifyTimer < 38) enemy.contactClass = 'SURFACE';
         }
         continue;
       }
 
       // Klasyfikacja pasywna — akumuluj czas ekspozycji
+      // Progi: UNK → SURFACE (12s) → typ końcowy WARSHIP/MERCHANT (38s)
+      // Tryb NASŁUCH przyspiesza 2.2×; silny sygnał też pomaga
       const classifyGain = sub.listenMode ? 2.2 : 1.0;
       enemy.classifyTimer = (enemy.classifyTimer || 0) + dt * classifyGain * (sig * 1.5);
-      if      (enemy.classifyTimer > 55) enemy.contactClass = 'WARSHIP';
-      else if (enemy.classifyTimer > 18) enemy.contactClass = 'SURFACE';
+      const finalCls = enemy.shipType || 'WARSHIP';
+      if      (enemy.classifyTimer > 38) enemy.contactClass = finalCls;
+      else if (enemy.classifyTimer > 12) enemy.contactClass = 'SURFACE';
       else                               enemy.contactClass = 'UNK';
 
       // Trend: CLOSING / OPENING przez dwa EMA (szybkie vs wolne)
@@ -127,7 +130,9 @@ export class Sonar {
       const col = enemy.contactClass === 'WARSHIP'
         ? (enemy.state === STATE.HUNT ? 0xff3300 : enemy.state === STATE.ALERT ? 0xffbb00
           : enemy.state === STATE.WITHDRAW ? 0x886622 : 0xdd9900)
-        : enemy.contactClass === 'SURFACE' ? 0x88ccaa : 0x44aa77;
+        : enemy.contactClass === 'MERCHANT' ? 0x42b8d4   // cyan — potwierdzona jednostka cywilna
+        : enemy.contactClass === 'SURFACE'  ? 0xffaa33   // bursztyn — nawodny, typ nieznany
+        : 0x44aa77;                                       // zielony — UNK
 
       contacts.push({ enemy, info, sig, col, bearing: info.bearing, approach });
     }
@@ -401,12 +406,13 @@ export class Sonar {
         : c.enemy.state === STATE.WITHDRAW ? '↙'
         :                                    '·';
 
-      const colHex = cls === 'UNK'     ? '#33aa77'
-                   : cls === 'SURFACE' ? '#88ccaa'
+      const colHex = cls === 'UNK'      ? '#44aa77'
+                   : cls === 'MERCHANT' ? '#42b8d4'
+                   : cls === 'SURFACE'  ? '#ffaa33'
                    : c.enemy.state === STATE.HUNT    ? '#ff4444'
                    : c.enemy.state === STATE.ALERT   ? '#ffbb00'
                    : c.enemy.state === STATE.WITHDRAW ? '#aa8833'
-                                                      : '#44ffcc';
+                                                      : '#ffcc44';
 
       label.setPosition(lx, ly);
       label.setText(`${stateSymbol}K${i + 1}`);

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { STATE } from './Enemy.js';
 
-const MAX_CLASS_TIMER = 54;   // cap at SURFACE — merchanty nigdy nie stają się WARSHIP
+const MAX_CLASS_TIMER = 90;   // pozwól dojść do MERCHANT (>38s), ale nie WARSHIP
 
 export class Merchant {
   constructor(scene, x, dir, label) {
@@ -17,7 +17,8 @@ export class Merchant {
 
     // Interfejs sonaru (kompatybilny z Enemy)
     this.state          = STATE.PATROL;
-    this.tonal          = 11 + Math.random() * 8;   // 11–19 Hz (niżej niż niszczyciela)
+    this.tonal          = 6 + Math.random() * 6;    // 6–12 Hz — powolny wał cywilny (niżej niż wojenny)
+    this.shipType       = 'MERCHANT';              // Ostateczna klasa po pełnej klasyfikacji
     this.contactClass   = 'UNK';
     this.classifyTimer  = 0;
     this.revealTimer    = 0;

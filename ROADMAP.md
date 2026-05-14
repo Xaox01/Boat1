@@ -59,19 +59,22 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Sonar pasywny — linie namiarowe w widoku głównym |
 | ✅ | Triangulacja pozycji wroga z 2+ pomiarów |
 | ✅ | Tryb NASŁUCH — 1.6× bonus zasięgu przy niskiej prędkości |
-| ✅ | Klasyfikacja kontaktów: UNK → SURFACE → WARSHIP |
+| ✅ | Klasyfikacja kontaktów: UNK → SURFACE → WARSHIP lub MERCHANT (4 klasy, różne progi czasowe i tony DEMON) |
 | ✅ | DEMON waterfall — analiza widmowa 8–35 Hz |
 | ✅ | Dual EMA — trend ZBLIŻA SIĘ / ODDALA SIĘ |
 | ✅ | Ping aktywny [Q] — 14s CD, pierścień 1100px, echo na PPI 5s, wrogowie wykrywają źródło |
 | ✅ | Stacja SONAR w UI — koło namiarów, wodospad BTR, lista kontaktów, kopia DEMON |
 | ✅ | Namiary z minimalnym progiem pionowym — kontakty nawodne rozdzielone na kole, nie skupione w ~090° |
-| ✅ | Declutter kątowy — min. 11° separacja między kontaktami na kole; prawdziwy namiar zachowany dla linii i łuku |
-| ✅ | Mapa taktyczna: merchanty widoczne tylko w zasięgu sonaru (pełna widoczność ≤820px, cień 820–1640px, ukryci dalej) |
+| ✅ | Declutter sonar — fan spread od centroidu klastra (17°/kontakt), schodkowanie radialne, linia łącząca dot z prawdziwym namiarem |
+| ✅ | Mapa taktyczna: merchanty widoczne tylko w zasięgu sonaru (pełna ≤820px, cień 820–1640px, ukryci dalej) |
+| ✅ | Zniszczony okręt natychmiast usuwany z sonaru, mapy taktycznej i systemu śledzenia |
 | 🔴 | Zakłócenia termokliny na sonarze — ślepa strefa poniżej warstwy |
 | 🔴 | Biologics — fałszywe kontakty (ławice ryb, wieloryby) na DEMON |
 | 🟡 | Historia bearing — wąż namiarowy pokazujący ruch kontaktu w czasie |
 | 🟡 | Sonar boczny — holowany hydrofor TASS (wyższy zasięg, brak zwrotu) |
-| 🟡 | Identyfikacja wizualna przez peryskop przy < 10m głębokości |
+| ✅ | Stacja PERYSKOP — widok optyczny, sylwetki, skala kątowa, stadimetria, zoom ×1.5/×3 (F3) |
+| ✅ | Peryskop: natychmiastowa klasyfikacja wizualna WARSHIP/MERCHANT (<1925px, głęb. <12m) |
+| 🟢 | Peryskop: ESM — lista emisji radarowych wrogich okrętów |
 | 🟢 | Grawimetria — wykrywanie okrętów podwodnych po anomaliach pola grawitacyjnego |
 
 ---
@@ -151,6 +154,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 
 | Status | Cel |
 |--------|-----|
+| ✅ | ESC zamyka aktywną stację (sonar, peryskop) i wraca do CONN |
 | ✅ | CRT scanlines i winietowanie rogów (CSS) — jaśniejsza paleta kolorów UI |
 | ✅ | Screen shake przy eksplozjach i kolizjach |
 | ✅ | Animowane fale na powierzchni oceanu |
@@ -225,4 +229,4 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 
 ---
 
-*Ostatnia aktualizacja: 2026-05-10 — profesjonalny samouczek 7-fazowy jako misja wstępna*
+*Ostatnia aktualizacja: 2026-05-14 — stacja PERYSKOP, klasyfikacja 4-poziomowa, declutter sonar, integracja rozgrywkowa*

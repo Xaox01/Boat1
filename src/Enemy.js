@@ -73,7 +73,8 @@ export class Enemy {
     this.destroyed = false;
 
     // Klasyfikacja pasywna — gracz musi nazbierać czasu nasłuchu
-    this.tonal        = 8 + Math.random() * 22;   // Charakterystyczna częstotliwość wału (Hz)
+    this.tonal        = 18 + Math.random() * 17;   // 18–35 Hz — szybki wał napędowy okrętu wojennego
+    this.shipType     = 'WARSHIP';                 // Ostateczna klasa po pełnej klasyfikacji
     this.contactClass = 'UNK';                     // UNK → SURFACE → WARSHIP
     this.classifyTimer = 0;                        // Akumuluje sekundy ekspozycji sonarem
 

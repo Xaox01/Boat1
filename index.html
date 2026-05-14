@@ -222,6 +222,91 @@
       color: var(--ink-faint); padding: 14px 12px;
     }
 
+    /* ══ PERISCOPE STATION ════════════════════════════════ */
+    #periscope-station {
+      display: none;
+      position: absolute; inset: 0; z-index: 12;
+      background: radial-gradient(ellipse at 30% 25%, #071a0e 0%, var(--bg) 70%);
+      grid-template-columns: 1.15fr 1fr;
+      grid-template-rows: 1fr;
+      gap: 14px; padding: 14px;
+    }
+    #periscope-station.active { display: grid; }
+
+    #ps-left {
+      display: flex; flex-direction: column; gap: 8px;
+      min-height: 0; position: relative;
+    }
+    #ps-header-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      flex-shrink: 0;
+    }
+    #ps-optic-wrap {
+      flex: 1; min-height: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #ps-optic { display: block; cursor: crosshair; }
+
+    #ps-right { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+
+    #ps-brg-panel {
+      flex-shrink: 0;
+      border: 1px solid var(--ink-faint);
+      background: var(--bg-panel);
+      padding: 14px 18px;
+      position: relative;
+    }
+    #ps-brg-panel::before {
+      content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
+      background:
+        linear-gradient(var(--accent),var(--accent)) top left  / 10px 1px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) top left  / 1px 10px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) bottom right / 10px 1px no-repeat,
+        linear-gradient(var(--accent),var(--accent)) bottom right / 1px 10px no-repeat;
+      opacity: 0.5;
+    }
+    #ps-brg-num {
+      font-family: var(--fd); font-size: 62px; letter-spacing: 3px;
+      text-align: center; line-height: 1; color: var(--ink);
+    }
+    #ps-brg-sub {
+      font-size: 9px; letter-spacing: 2px; text-align: center;
+      color: var(--ink-dim); margin-top: 5px;
+    }
+    #ps-status-row {
+      display: flex; margin-top: 12px;
+      border-top: 1px solid var(--ink-faint); padding-top: 10px;
+    }
+    .ps-stat { flex: 1; text-align: center; }
+    .ps-stat-lbl { font-size: 8px; letter-spacing: 2px; color: var(--ink-faint); }
+    .ps-stat-val {
+      font-family: var(--fd); font-size: 15px; letter-spacing: 1px;
+      color: var(--ink); margin-top: 3px;
+    }
+    .ps-stat-val.ok   { color: var(--green); }
+    .ps-stat-val.warn { color: var(--amber); }
+    .ps-stat-val.bad  { color: var(--accent); }
+
+    #ps-cv-panel { flex: 1; min-height: 0; }
+    #ps-contact-list { flex: 1; overflow-y: auto; }
+    .ps-row {
+      display: grid;
+      grid-template-columns: 36px 1fr 52px 50px;
+      align-items: center; gap: 6px; padding: 7px 12px;
+      border-left: 3px solid transparent;
+      cursor: pointer; transition: background 80ms;
+    }
+    .ps-row:hover { background: rgba(243,237,224,0.03); }
+    .ps-row.sel { background: rgba(232,65,58,0.07); border-left-color: var(--accent); }
+    .ps-cid { font-family: var(--fm); font-size: 11px; font-weight: 500; }
+    .ps-cls { font-family: var(--fd); font-size: 13px; letter-spacing: 1px; }
+    .ps-off { font-family: var(--fm); font-size: 10px; color: var(--ink-dim);
+              font-variant-numeric: tabular-nums; }
+    .ps-dst { font-family: var(--fm); font-size: 9px; color: var(--ink-faint);
+              font-variant-numeric: tabular-nums; }
+
+    #ps-esm-panel { flex-shrink: 0; }
+
     /* ── LEFT PANEL ────────────────────────────────────── */
     #left-panel {
       width:200px; flex-shrink:0;
@@ -568,7 +653,7 @@
         <span class="stab-lbl">SONAR</span>
         <span class="stab-code">F2</span>
       </div>
-      <div class="stab" data-station="conn">
+      <div class="stab" data-station="periscope">
         <span class="stab-lbl">PERYSKOP</span>
         <span class="stab-code">F3</span>
       </div>
@@ -773,6 +858,70 @@
         </div>
       </div><!-- #sonar-station -->
 
+      <!-- ══ PERISCOPE STATION ══ -->
+      <div id="periscope-station">
+
+        <!-- Lewa kolumna: widok optyczny -->
+        <div id="ps-left">
+          <div id="ps-header-row">
+            <span class="ss-label">OPTYKA · PERYSKOP OBSERWACYJNY MK.18</span>
+            <span id="ps-depth-badge" class="ss-label" style="color:var(--green)">GŁ: ---</span>
+          </div>
+          <div id="ps-optic-wrap">
+            <canvas id="ps-optic"></canvas>
+          </div>
+        </div>
+
+        <!-- Prawa kolumna: dane -->
+        <div id="ps-right">
+
+          <!-- Kurs obserwacji + status -->
+          <div id="ps-brg-panel">
+            <div id="ps-brg-num">000°</div>
+            <div id="ps-brg-sub">KURS OBSERWACJI · SCROLL — OBRÓT</div>
+            <div id="ps-status-row">
+              <div class="ps-stat">
+                <div class="ps-stat-lbl">GŁĘBOKOŚĆ</div>
+                <div id="ps-s-depth" class="ps-stat-val">---</div>
+              </div>
+              <div class="ps-stat">
+                <div class="ps-stat-lbl">STATUS</div>
+                <div id="ps-s-status" class="ps-stat-val">---</div>
+              </div>
+              <div class="ps-stat">
+                <div class="ps-stat-lbl">POWIĘKSZENIE</div>
+                <div id="ps-s-zoom" class="ps-stat-val ok">×1.5</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kontakty w polu widzenia -->
+          <div id="ps-cv-panel" class="ss-panel">
+            <div class="ss-panel-header">
+              <span>KONTAKTY · POLE WIDZENIA</span>
+              <span id="ps-cv-count" style="color:var(--accent)">0 W WIDOKU</span>
+            </div>
+            <div id="ps-contact-list">
+              <div class="ss-empty">BRAK KONTAKTÓW W POLU WIDZENIA</div>
+            </div>
+          </div>
+
+          <!-- ESM -->
+          <div id="ps-esm-panel" class="ss-panel">
+            <div class="ss-panel-header">
+              <span>ESM · EMISJE ELEKTROMAGNETYCZNE</span>
+              <span style="color:var(--ink-faint)">PROTOTYP</span>
+            </div>
+            <div style="padding:8px 12px; font-size:9px; letter-spacing:1.5px; color:var(--ink-faint); line-height:2.1;">
+              SCROLL · ← → &nbsp;—&nbsp; OBRÓT PERYSKOPEM<br>
+              Z &nbsp;—&nbsp; PRZEŁĄCZ POWIĘKSZENIE<br>
+              ESC &nbsp;—&nbsp; POWRÓT DO CONN
+            </div>
+          </div>
+
+        </div>
+      </div><!-- #periscope-station -->
+
     </div><!-- #game-container -->
 
     <!-- ══ PRAWY PANEL — DZIENNIK ══ -->
@@ -953,41 +1102,58 @@
   tickClock();
 
   // ── Station tab switching ───────────────────────────────
-  const stabs = document.querySelectorAll('.stab[data-station]');
-  const sonarStation = document.getElementById('sonar-station');
+  const stabs          = document.querySelectorAll('.stab[data-station]');
+  const sonarStation   = document.getElementById('sonar-station');
+  const periscopeStation = document.getElementById('periscope-station');
 
   function _switchStation(id) {
     stabs.forEach(t => t.classList.remove('active'));
-    const tab = [...stabs].find(t => t.dataset.station === id && t.querySelector('.stab-lbl')?.textContent === (id === 'sonar' ? 'SONAR' : null)) || [...stabs].find(t => t.dataset.station === id);
+    const tab = [...stabs].find(t => t.dataset.station === id);
     if (tab) tab.classList.add('active');
+
+    sonarStation    && sonarStation.classList.remove('active');
+    periscopeStation && periscopeStation.classList.remove('active');
+    _ssActive = false;
+    _pActive  = false;
+
     if (id === 'sonar') {
       sonarStation && sonarStation.classList.add('active');
       _ssActive = true;
-    } else {
-      sonarStation && sonarStation.classList.remove('active');
-      _ssActive = false;
+    } else if (id === 'periscope') {
+      periscopeStation && periscopeStation.classList.add('active');
+      _pActive = true;
     }
   }
 
   stabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      const lbl = tab.querySelector('.stab-lbl')?.textContent;
-      _switchStation(lbl === 'SONAR' ? 'sonar' : 'conn');
+      _switchStation(tab.dataset.station || 'conn');
     });
   });
 
-  // Skróty klawiszowe: F1/1 → CONN, F2/2 → SONAR
+  // Skróty klawiszowe
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;
-    if (e.key === 'F2' || e.key === '2') { e.preventDefault(); _switchStation('sonar'); }
     if (e.key === 'F1' || e.key === '1') { e.preventDefault(); _switchStation('conn'); }
-    // ESC: najpierw odznacz kontakt, kolejny ESC (lub brak zaznaczenia) → powrót do CONN
-    if (e.key === 'Escape' && _ssActive) {
-      if (_ssSelContact) {
-        _ssSelContact = null;
-        if (window._sonar) window._sonar.selectedId = null;
-      } else {
+    if (e.key === 'F2' || e.key === '2') { e.preventDefault(); _switchStation('sonar'); }
+    if (e.key === 'F3' || e.key === '3') { e.preventDefault(); _switchStation('periscope'); }
+    // ESC
+    if (e.key === 'Escape') {
+      if (_ssActive) {
+        if (_ssSelContact) { _ssSelContact = null; if (window._sonar) window._sonar.selectedId = null; }
+        else { _switchStation('conn'); }
+      } else if (_pActive) {
         _switchStation('conn');
+      }
+    }
+    // Peryscop: obrót strzałkami
+    if (_pActive) {
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); _pBearing = (_pBearing - 2 + 360) % 360; }
+      if (e.key === 'ArrowRight') { e.preventDefault(); _pBearing = (_pBearing + 2) % 360; }
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        _pZoom = _pZoom === 1.5 ? 3.0 : 1.5;
+        document.getElementById('ps-s-zoom').textContent = `×${_pZoom.toFixed(1)}`;
       }
     }
   });
@@ -1065,7 +1231,11 @@
     for (const c of sn.contacts) {
       const y    = (c.bearing / 360) * H;
       const intensity = Math.min(1, c.sig * 1.6);
-      const col  = c.threat ? [232, 65, 58] : c.cls === 'WARSHIP' ? [255, 179, 71] : [66, 184, 212];
+      const col  = c.threat      ? [232, 65,  58]
+                 : c.cls === 'WARSHIP'  ? [255, 179, 71]
+                 : c.cls === 'MERCHANT' ? [66,  184, 212]
+                 : c.cls === 'SURFACE'  ? [255, 204, 85]
+                 : [68, 170, 119];
       for (let dy = -4; dy <= 4; dy++) {
         const yy   = ((y + dy + H) % H);
         const fall = Math.exp(-(dy * dy) / 3.5);
@@ -1106,12 +1276,17 @@
 
     listEl.innerHTML = cts.map(c => {
       const sel  = c.id === _ssSelContact;
-      const col  = c.threat ? 'var(--accent)' : c.cls === 'WARSHIP' ? 'var(--amber)' : 'var(--blue)';
+      const col  = c.threat ? 'var(--accent)'
+                 : c.cls === 'WARSHIP'  ? 'var(--amber)'
+                 : c.cls === 'MERCHANT' ? 'var(--blue)'
+                 : c.cls === 'SURFACE'  ? '#ffcc55'
+                 : 'var(--ink-dim)';
       const bars = [0, 1, 2, 3, 4].map(b =>
         `<div class="ss-bar" style="background:${b / 5 < c.sig ? col : 'rgba(243,237,224,0.08)'}"></div>`
       ).join('');
-      const clsLabel = c.cls === 'WARSHIP' ? 'OKRĘT WOJENNY'
-                     : c.cls === 'SURFACE' ? 'NAWODNY'
+      const clsLabel = c.cls === 'WARSHIP'  ? 'OKRĘT WOJENNY'
+                     : c.cls === 'MERCHANT' ? 'JEDNOSTKA CYW.'
+                     : c.cls === 'SURFACE'  ? 'NAWODNY'
                      : 'NIEZNANY';
       const tCol = c.approach === 'ZBLIŻA' ? 'var(--accent)'
                  : c.approach === 'ODDALA' ? 'var(--blue)'
@@ -1384,7 +1559,11 @@
       const trueAng = brgAng(c.bearing);
       const disp    = dispBrg[c.id] ?? c.bearing;
       const dispAng = brgAng(disp);
-      const col     = c.threat ? acc : c.cls === 'WARSHIP' ? amb : blue;
+      const col     = c.threat     ? acc
+                    : c.cls === 'WARSHIP'  ? amb
+                    : c.cls === 'MERCHANT' ? blue
+                    : c.cls === 'SURFACE'  ? '#ffcc55'
+                    : '#44aa77';
       const sel     = c.id === _ssSelContact;
       const shifted = Math.abs(((disp - c.bearing + 540) % 360) - 180) > 1.5;
 
@@ -1514,6 +1693,290 @@
     requestAnimationFrame(sonarLoop);
   }
   requestAnimationFrame(sonarLoop);
+
+  // ══════════════════════════════════════════════════════
+  // ── PERISCOPE STATION ─────────────────────────────────
+  // ══════════════════════════════════════════════════════
+  let _pActive   = false;
+  let _pBearing  = 0;     // 0–360, kurs obserwacji
+  let _pZoom     = 1.5;   // ×1.5 obs | ×3.0 zoom
+  let _pClassifyFlash = {}; // id → timestamp ostatniej klasyfikacji
+
+  const _psOptic      = document.getElementById('ps-optic');
+  const _psCtx        = _psOptic.getContext('2d');
+  const _psBrgNum     = document.getElementById('ps-brg-num');
+  const _psSDepth     = document.getElementById('ps-s-depth');
+  const _psSStatus    = document.getElementById('ps-s-status');
+  const _psSSzoom     = document.getElementById('ps-s-zoom');
+  const _psDepthBadge = document.getElementById('ps-depth-badge');
+  const _psCvCount    = document.getElementById('ps-cv-count');
+  const _psCvList     = document.getElementById('ps-contact-list');
+
+  // Obrót kółkiem myszy
+  _psOptic.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    _pBearing = (_pBearing + (e.deltaY > 0 ? 1.8 : -1.8) + 360) % 360;
+  }, { passive: false });
+
+  // ── Główna funkcja rysowania optyki ───────────────────
+  function _psDrawOptic(depth, contactsInView, FOV) {
+    const wrap = _psOptic.parentElement;
+    const size = Math.min(wrap.clientWidth, wrap.clientHeight) - 4;
+    if (_psOptic.width !== size || _psOptic.height !== size)
+      _psOptic.width = _psOptic.height = size;
+
+    const ctx = _psCtx;
+    const W = size, H = size, cx = W / 2, cy = H / 2, R = W / 2 - 2;
+    const t   = Date.now() * 0.0004;
+    const tooDeep = depth > 12;
+    const noData  = depth == null || isNaN(depth);
+
+    ctx.clearRect(0, 0, W, H);
+
+    // ── Kołowe obcięcie ──────────────────────────────────
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+
+    // ── Niebo ────────────────────────────────────────────
+    const skyG = ctx.createLinearGradient(0, 0, 0, cy);
+    skyG.addColorStop(0, '#0a1a24'); skyG.addColorStop(1, '#13293a');
+    ctx.fillStyle = skyG; ctx.fillRect(0, 0, W, cy);
+
+    // ── Morze ────────────────────────────────────────────
+    const seaG = ctx.createLinearGradient(0, cy, 0, H);
+    seaG.addColorStop(0, '#0d2230'); seaG.addColorStop(1, '#020c14');
+    ctx.fillStyle = seaG; ctx.fillRect(0, cy, W, H);
+
+    // ── Fala horyzontu ───────────────────────────────────
+    ctx.beginPath(); ctx.moveTo(0, cy);
+    for (let x = 0; x <= W; x += 3) {
+      const w = Math.sin(x * 0.016 + t) * 2.2 + Math.sin(x * 0.029 - t * 1.4) * 1.4;
+      ctx.lineTo(x, cy + w);
+    }
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+    ctx.fillStyle = '#0d2230'; ctx.fill();
+    ctx.strokeStyle = 'rgba(66,184,212,0.18)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Odblaski fal
+    for (let i = 0; i < 6; i++) {
+      const wx = (cx * 0.3 + i * cx * 0.28 + Math.sin(t * 0.7 + i) * 18) % W;
+      const wy = cy + 4 + Math.sin(t + i * 1.3) * 3;
+      ctx.fillStyle = 'rgba(66,184,212,0.10)';
+      ctx.fillRect(wx, wy, 14 + Math.sin(t + i) * 6, 1);
+    }
+
+    // ── Stadimetria (linie odległości) ───────────────────
+    const stadia = [{ lbl:'1km', f:0.10 }, { lbl:'2km', f:0.20 }, { lbl:'3.5km', f:0.38 }];
+    for (const s of stadia) {
+      const ry = cy + s.f * (H - cy);
+      ctx.setLineDash([4, 8]);
+      ctx.strokeStyle = 'rgba(243,237,224,0.07)'; ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(cx * 0.18, ry); ctx.lineTo(W - cx * 0.18, ry); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(243,237,224,0.22)';
+      ctx.font = '8px "JetBrains Mono"'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+      ctx.fillText(s.lbl, cx * 0.20, ry - 2);
+    }
+
+    // ── Sylwetki statków ─────────────────────────────────
+    if (!tooDeep && !noData) {
+      const waveY = cy + (Math.sin(cx * 0.016 + t) * 2.2 + Math.sin(cx * 0.029 - t * 1.4) * 1.4);
+      for (const c of contactsInView) {
+        const angDiff = ((c.bearing - _pBearing + 540) % 360) - 180;
+        const px   = cx + (angDiff / (FOV / 2)) * R * 0.88;
+        const py   = waveY;
+        const prox = Math.max(0, 1 - c.distFrac / 0.62);  // skaluje się od wizualRange
+
+        const shipCol = c.cls === 'WARSHIP'  ? '#c88830'
+                      : c.cls === 'MERCHANT' ? '#2e8899'
+                      : c.cls === 'SURFACE'  ? '#8a8a30' : '#407755';
+
+        const sh = Math.max(6, 42 * prox);
+        ctx.globalAlpha = 0.65 + prox * 0.32;
+
+        if (c.cls === 'WARSHIP') {
+          // Okręt wojenny: smukły kadłub, wysoka nadbudówka, antena radarowa
+          const sw = sh * 4.0;
+          ctx.fillStyle = shipCol;
+          ctx.fillRect(px - sw / 2, py - sh * 0.3, sw, sh * 0.3);        // kadłub
+          ctx.fillRect(px - sw * 0.20, py - sh * 1.05, sw * 0.40, sh * 0.75); // nadbudówka
+          ctx.fillRect(px - sw * 0.06, py - sh * 1.5,  sw * 0.12, sh * 0.50); // komin
+          ctx.fillRect(px - 1.2, py - sh * 1.85, 2.4, sh * 0.4);          // maszt
+          // Antena radarowa
+          ctx.strokeStyle = shipCol; ctx.lineWidth = 1; ctx.globalAlpha *= 0.7;
+          ctx.beginPath(); ctx.moveTo(px - 5, py - sh * 1.9); ctx.lineTo(px + 5, py - sh * 1.9); ctx.stroke();
+        } else {
+          // Merchant: szeroki kadłub, niska sylwetka, dźwigi
+          const sw = sh * 6.5;
+          ctx.fillStyle = shipCol;
+          ctx.fillRect(px - sw / 2, py - sh * 0.35, sw, sh * 0.35);      // kadłub
+          ctx.fillRect(px - sw * 0.05, py - sh * 0.9, sw * 0.14, sh * 0.55); // mostka
+          ctx.fillRect(px - 1.5, py - sh * 1.2, 3, sh * 0.35);            // maszt/komin
+          // Dźwigi ładunkowe
+          for (const gx of [-0.3, 0.28]) {
+            ctx.strokeStyle = shipCol; ctx.lineWidth = 1.2;
+            ctx.beginPath(); ctx.moveTo(px + gx * sw, py - sh * 0.35);
+            ctx.lineTo(px + gx * sw, py - sh * 0.9); ctx.stroke();
+          }
+        }
+
+        ctx.globalAlpha = 1;
+
+        // Etykieta + flash klasyfikacji
+        const flashAge = Date.now() - (_pClassifyFlash[c.id] || 0);
+        const flashing = flashAge < 1800;
+        ctx.fillStyle = flashing ? '#5fffb0' : shipCol;
+        ctx.globalAlpha = flashing ? (0.7 + 0.3 * Math.sin(flashAge * 0.012)) : 0.88;
+        ctx.font = `bold ${Math.round(7 + prox * 6)}px "JetBrains Mono"`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.fillText(c.id + (flashing ? ' ✓' : ''), px, py - sh * 2.05);
+        if (flashing) {
+          ctx.fillStyle = '#5fffb0'; ctx.globalAlpha = 0.55;
+          ctx.font = `${Math.round(6 + prox * 4)}px "JetBrains Mono"`;
+          const lbl = c.cls === 'WARSHIP' ? 'OKRĘT WOJ.' : c.cls === 'MERCHANT' ? 'JED. CYW.' : c.cls;
+          ctx.fillText(lbl, px, py - sh * 2.05 - (8 + prox * 6));
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // ── Skala kątowa ─────────────────────────────────────
+    for (let dBrg = -FOV / 2; dBrg <= FOV / 2; dBrg += (FOV <= 20 ? 2 : 5)) {
+      const absB = ((_pBearing + dBrg) + 360) % 360;
+      const frac = dBrg / (FOV / 2);
+      const ax   = cx + frac * R * 0.90;
+      const maj  = Math.round(absB) % (FOV <= 20 ? 10 : 30) === 0;
+      ctx.strokeStyle = maj ? 'rgba(243,237,224,0.60)' : 'rgba(243,237,224,0.20)';
+      ctx.lineWidth   = maj ? 1.2 : 0.7;
+      const ty = cy * 0.06;
+      ctx.beginPath(); ctx.moveTo(ax, ty); ctx.lineTo(ax, ty + (maj ? 18 : 9)); ctx.stroke();
+      if (maj) {
+        ctx.fillStyle = 'rgba(243,237,224,0.70)';
+        ctx.font = '9px "JetBrains Mono"'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText(String(Math.round(absB)).padStart(3, '0'), ax, ty + 20);
+      }
+    }
+
+    // ── Celownik ─────────────────────────────────────────
+    ctx.strokeStyle = 'rgba(243,237,224,0.45)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(cx - R * 0.94, cy); ctx.lineTo(cx - 22, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 22, cy); ctx.lineTo(cx + R * 0.94, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy * 0.14); ctx.lineTo(cx, cy - 22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy + 22); ctx.lineTo(cx, H - cy * 0.14); ctx.stroke();
+    for (const off of [-0.5, -0.25, 0.25, 0.5]) {
+      const mx = cx + off * R;
+      ctx.beginPath(); ctx.moveTo(mx, cy - 7); ctx.lineTo(mx, cy + 7); ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(243,237,224,0.95)'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(cx - 14, cy); ctx.lineTo(cx + 14, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy - 14); ctx.lineTo(cx, cy + 14); ctx.stroke();
+
+    // ── Overlay "zbyt głęboko" ────────────────────────────
+    if (tooDeep || noData) {
+      const blur = Math.min(1, (depth - 12) / 6);
+      ctx.fillStyle = `rgba(0,0,0,${0.55 + blur * 0.3})`; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = tooDeep ? '#e8413a' : '#886644';
+      ctx.font = `bold ${Math.round(R * 0.088)}px "Bebas Neue","Oswald"`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(tooDeep ? 'ZBYT GŁĘBOKO' : 'BRAK SYGNAŁU', cx, cy);
+      ctx.fillStyle = 'rgba(243,237,224,0.35)';
+      ctx.font = `${Math.round(R * 0.052)}px "JetBrains Mono"`;
+      ctx.fillText(tooDeep ? 'WYNURZYĆ DO ≤12m' : 'PERYSKOP NIEAKTYWNY', cx, cy + R * 0.13);
+    }
+
+    ctx.restore();
+
+    // ── Ramka kołowa ─────────────────────────────────────
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(243,237,224,0.14)'; ctx.lineWidth = 2; ctx.stroke();
+    // Czarna maska zewnętrzna
+    ctx.beginPath();
+    ctx.arc(cx, cy, W / 2, 0, Math.PI * 2);
+    ctx.arc(cx, cy, R, 0, Math.PI * 2, true);
+    ctx.fillStyle = '#02080b'; ctx.fill();
+  }
+
+  // ── Lista kontaktów w widoku ──────────────────────────
+  function _psUpdateContactList(inView) {
+    _psCvCount.textContent = `${inView.length} W WIDOKU`;
+    if (inView.length === 0) {
+      _psCvList.innerHTML = '<div class="ss-empty">BRAK KONTAKTÓW W POLU WIDZENIA</div>';
+      return;
+    }
+    const colMap = { WARSHIP:'var(--amber)', MERCHANT:'var(--blue)', SURFACE:'#ffcc55', UNK:'var(--ink-dim)' };
+    const lblMap = { WARSHIP:'OKRĘT WOJ.', MERCHANT:'JED. CYW.', SURFACE:'NAWODNY', UNK:'NIEZNANY' };
+    _psCvList.innerHTML = inView.map(c => {
+      const angDiff = Math.round(((c.bearing - _pBearing + 540) % 360) - 180);
+      const sign = angDiff >= 0 ? '+' : '';
+      const col  = colMap[c.cls] || 'var(--ink-dim)';
+      const lbl  = lblMap[c.cls] || 'NIEZNANY';
+      const rng  = (c.distFrac * 3.5).toFixed(1);  // dystans w km (VISUAL_RANGE=3500px)
+      const flash = (Date.now() - (_pClassifyFlash[c.id] || 0)) < 1800;
+      return `<div class="ps-row${flash ? ' sel' : ''}" data-cid="${c.id}">
+        <span class="ps-cid" style="color:${col}">${c.id}</span>
+        <span class="ps-cls" style="color:${col}">${lbl}${flash ? ' ✓' : ''}</span>
+        <span class="ps-off">${sign}${angDiff}°</span>
+        <span class="ps-dst">${rng}km</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Klik na kontakt w liście → wybierz jako cel
+  _psCvList.addEventListener('click', e => {
+    const row = e.target.closest('.ps-row[data-cid]');
+    if (!row) return;
+    const cid = row.dataset.cid;
+    if (window._sonar) window._sonar.selectedId = (window._sonar.selectedId === cid) ? null : cid;
+  });
+
+  // ── RAF loop peryskopowy ──────────────────────────────
+  function periscopeLoop() {
+    if (_pActive) {
+      const sn      = window._sonar;
+      const depth   = sn?.depth ?? NaN;
+      const tooDeep = depth > 12;
+      const FOV     = _pZoom === 1.5 ? 40 : 20;
+
+      // Eksportuj stan peryskopowy do bridge'a (GameScene odczytuje)
+      if (!window._sonar) window._sonar = {};
+      window._sonar.periscopeActive  = true;
+      window._sonar.periscopeBearing = _pBearing;
+      window._sonar.periscopeFov     = FOV;
+
+      // Kontakty wizualne (większy zasięg niż sonar)
+      const visualContacts = sn?.visualContacts || [];
+      const inView = tooDeep ? [] : visualContacts.filter(c => {
+        const diff = Math.abs(((c.bearing - _pBearing + 540) % 360) - 180);
+        return diff <= FOV / 2 && c.distFrac < 0.62;
+      });
+
+      // Wykryj nowo zidentyfikowane kontakty (UNK/SURFACE → WARSHIP/MERCHANT)
+      for (const c of inView) {
+        if (c.cls === c.shipType && !_pClassifyFlash[c.id]) {
+          _pClassifyFlash[c.id] = Date.now();
+        }
+      }
+
+      // Canvas + UI
+      _psDrawOptic(depth, inView, FOV);
+
+      const brgTxt  = `${String(Math.round(_pBearing)).padStart(3, '0')}°`;
+      _psBrgNum.textContent = brgTxt;
+      const dTxt = isNaN(depth) ? '---' : `${Math.round(depth)}m`;
+      _psSDepth.textContent = dTxt;
+      _psSDepth.className   = 'ps-stat-val ' + (tooDeep ? 'bad' : depth > 8 ? 'warn' : 'ok');
+      _psSStatus.textContent = tooDeep ? 'ZANURZONY' : 'AKTYWNY';
+      _psSStatus.className   = 'ps-stat-val ' + (tooDeep ? 'bad' : 'ok');
+      _psDepthBadge.textContent = `GŁ: ${dTxt}`;
+      _psDepthBadge.style.color = tooDeep ? 'var(--accent)' : 'var(--green)';
+
+      _psUpdateContactList(inView);
+    } else {
+      if (window._sonar) window._sonar.periscopeActive = false;
+    }
+    requestAnimationFrame(periscopeLoop);
+  }
+  requestAnimationFrame(periscopeLoop);
 })();
 </script>
 </body>

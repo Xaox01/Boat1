@@ -4,6 +4,87 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.26] — 2026-05-14
+
+### Dodano — Pełna integracja peryskopowej stacji z rozgrywką
+
+**src/GameScene.js — `_exportSonarState`:**
+- `window._sonar.visualContacts` — wszystkie wrogie/handlowe jednostki w promieniu 3500px z bearing, distFrac względem zasięgu wzrokowego, klasą i shipType; K-N ID gdy pokrywa się z kontaktem sonarowym
+- Klasyfikacja wizualna: gdy peryskop aktywny + głębokość <12m + kontakt w polu widzenia i dystansie <1925px → `contactClass = shipType`, `classifyTimer = 60` — natychmiastowa identyfikacja bez czekania 38s
+
+**index.html — periscope JS:**
+- Sylwetki statków przepisane: WARSHIP = smukły kadłub, wysoka nadbudówka, antena radarowa; MERCHANT = szeroki kadłub, dźwigi ładunkowe — wizualnie odróżnialne
+- Fala morza ze smugami odblasków (6 animowanych linii)
+- Flash klasyfikacji: nowo zidentyfikowany kontakt przez 1.8s świeci zielono z etykietą klasy i ✓; lista kontaktów podświetla rząd
+- Zasięg wizualny poprawiony: `distFrac` liczony od 3500px (nie sonar 820px), widoczność do 62% zasięgu (~2.2km)
+- Stadimetria zaktualizowana: 1km/2km/3.5km (odpowiada skali 3500px)
+- Klik na kontakt w liście → `window._sonar.selectedId` (synchronizacja z targeting)
+- Export stanu: `periscopeActive`, `periscopeBearing`, `periscopeFov` do `window._sonar` co klatkę
+- Gdy stacja nieaktywna: `periscopeActive = false` → GameScene nie klasyfikuje
+
+---
+
+## [0.10.25] — 2026-05-14
+
+### Dodano — Stacja PERYSKOP (prototyp, F3)
+
+**index.html:**
+- Nowa stacja `#periscope-station` w tym samym design systemie co SONAR
+- **Widok optyczny** — canvas z kołowym obiektywem: niebo/morze, fala horyzontu, linie stadimetryczne (500m/1km/2km), skala kątowa wzdłuż górnego łuku, celownik krzyżykowy z punktami dystansu
+- **Sylwetki statków** — kadłub + nadbudówka + maszt; rozmiar proporcjonalny do odległości; kolor wg klasyfikacji (bursztyn=WARSHIP, cyan=MERCHANT); etykieta ID nad mastem
+- **Overlay głębokości** — „ZBYT GŁĘBOKO" gdy peryskop pod wodą (>12m), blokuje widok
+- **Panel kursu obserwacji** — duży wyświetlacz `000°`, status głębokości, powiększenie ×1.5/×3.0
+- **Lista kontaktów w polu widzenia** — ID, klasyfikacja, kąt odchylenia od osi, dystans
+- **Panel ESM** — placeholder; klucze sterowania
+- Sterowanie: SCROLL — obrót, ← → — korekta 2°/klawisz, Z — przełącz zoom, F3/3 — wejście, ESC — powrót do CONN
+- Refaktor `_switchStation` — obsługuje 'conn'/'sonar'/'periscope'; `_pActive` zamiast rozgałęziania; kliki tabów automatyczne przez `tab.dataset.station`
+
+---
+
+## [0.10.24] — 2026-05-14
+
+### Poprawiono — Zniszczony okręt znika z sonaru i systemu śledzenia
+
+**src/GameScene.js:**
+- Po zniszczeniu wroga/merchanty: czyszczone są `_selectedEnemy`, `window._sonar.selectedId`, `_prevSonarSelId` — zaznaczenie w stacji SONAR znika natychmiast
+- Triangulacja (`_triangulated`) usuwana dla zniszczonego celu — ikona pozycji na mapie taktycznej znika razem z okrętem
+- Dotyczy zarówno okrętów wojennych (`this.enemies`) jak i jednostek cywilnych (`this.merchants`)
+
+---
+
+## [0.10.23] — 2026-05-14
+
+### Dodano — Realistyczny 4-poziomowy system klasyfikacji sonarowej
+
+**Nowe klasy kontaktów:** `UNK` → `SURFACE` → `WARSHIP` lub `MERCHANT`
+
+**src/Enemy.js:**
+- `shipType = 'WARSHIP'` — docelowa klasa po pełnej klasyfikacji
+- Tonal okrętu wojennego przesunięty do 18–35 Hz (szybki wał napędowy)
+
+**src/Merchant.js:**
+- `shipType = 'MERCHANT'` — docelowa klasa po pełnej klasyfikacji
+- Tonal cywilny: 6–12 Hz (wolny wał cargo, wyraźnie odróżnialny na DEMON)
+- `MAX_CLASS_TIMER` zmieniony z 54 na 90 — pozwala osiągnąć klasę MERCHANT
+
+**src/Sonar.js:**
+- Nowe progi: UNK (0–12s) → SURFACE (12–38s) → typ końcowy wg `shipType` (38s+)
+- Tryb NASŁUCH 2.2× szybsza klasyfikacja; silny sygnał dodatkowo przyspiesza
+- Zanik przy utracie kontaktu: `>38s`→SURFACE przy `classifyTimer<38`, SURFACE→UNK przy `<12`
+- Kolory: WARSHIP=pomarańcz, MERCHANT=cyan, SURFACE=bursztyn, UNK=zielony
+
+**src/GameScene.js:**
+- `tp-classif`: wyświetla `OKRĘT WOJ.` / `JED. CYW.` / `NAWODNY` / `UNK`
+- `JED. CYW.` kolorowana jako `tp-value ready` (zielony) — nie jest celem
+- Linie namiarowe i triangulacja: cyan dla MERCHANT, bursztyn dla SURFACE
+
+**index.html:**
+- Lista kontaktów: `JEDNOSTKA CYW.` jako nowa etykieta klasy
+- Koło namiarów: 4 kolory (czerwony/bursztyn/żółty/zielony/cyan) wg klasyfikacji
+- Wodospad BTR: kolory kontaktów wg klasy (SURFACE=żółty, MERCHANT=cyan)
+
+---
+
 ## [0.10.22] — 2026-05-14
 
 ### Dodano — ESC zamyka aktywną podsekcję i wraca do CONN
