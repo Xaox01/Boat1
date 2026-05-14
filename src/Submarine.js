@@ -393,13 +393,15 @@ export class Submarine {
     this.battery = Phaser.Math.Clamp(this.battery, 0, 1);
 
     // ── Oxygen ────────────────────────────────────────────────────────────
-    if (depth < 8) {
-      this.oxygen = Math.min(1, this.oxygen + 0.12 * dt);
+    // Przy głębokości snorchla (<18m) powietrze z zewnątrz — tlen rośnie
+    if (depth < SNORKEL_DEPTH_M) {
+      this.oxygen = Math.min(1, this.oxygen + 0.055 * dt);
     } else {
-      this.oxygen -= (0.004 + depth * 0.000005) * dt;
+      // 0.00055/s bazowo → ~30 min na płytkim; głębiej trochę szybciej
+      this.oxygen -= (0.00055 + depth * 0.0000018) * dt;
     }
     this.oxygen = Phaser.Math.Clamp(this.oxygen, 0, 1);
-    if (this.oxygen <= 0) this.hull -= 0.022 * dt;
+    if (this.oxygen <= 0) this.hull -= 0.007 * dt;
 
     // ── Crush depth ───────────────────────────────────────────────────────
     if (depth > CRUSH_DEPTH) {

@@ -981,10 +981,14 @@
     if (e.target.tagName === 'INPUT') return;
     if (e.key === 'F2' || e.key === '2') { e.preventDefault(); _switchStation('sonar'); }
     if (e.key === 'F1' || e.key === '1') { e.preventDefault(); _switchStation('conn'); }
-    // ESC odznacza wybrany kontakt
+    // ESC: najpierw odznacz kontakt, kolejny ESC (lub brak zaznaczenia) → powrót do CONN
     if (e.key === 'Escape' && _ssActive) {
-      _ssSelContact = null;
-      if (window._sonar) window._sonar.selectedId = null;
+      if (_ssSelContact) {
+        _ssSelContact = null;
+        if (window._sonar) window._sonar.selectedId = null;
+      } else {
+        _switchStation('conn');
+      }
     }
   });
 
@@ -1347,32 +1351,77 @@
     }
 
     // ── Kontakty sonarowe ─────────────────────────────────
-    for (const c of (sn.contacts || [])) {
-      const ang = brgAng(c.bearing);
-      const col = c.threat ? acc : c.cls === 'WARSHIP' ? amb : blue;
-      const sel = c.id === _ssSelContact;
+    // Declutter: fan spread od centroidu klastra + schodkowanie radialne
+    const FAN_SEP      = 17;   // stopnie między kontaktami w klastrze
+    const CLUSTER_WIN  = 24;   // okno grupowania (stopnie)
 
-      // Przerywana linia namiarowa
+    // 1) Sortuj wg namiaru i wykryj klastry
+    const ctSorted = [...(sn.contacts || [])].sort((a, b) => a.bearing - b.bearing);
+    const clusters = [];
+    for (const c of ctSorted) {
+      const last = clusters[clusters.length - 1];
+      const lastBrg = last ? last[last.length - 1].bearing : -9999;
+      const diff = ((c.bearing - lastBrg + 540) % 360) - 180;
+      if (last && Math.abs(diff) <= CLUSTER_WIN) { last.push(c); }
+      else { clusters.push([c]); }
+    }
+
+    // 2) Przypisz wyświetlane namirary — fan wokół centroidu klastra
+    const dispBrg  = {};  // id → wyświetlany namiar
+    const clsIdx   = {};  // id → indeks w klastrze (do schodkowania)
+    for (const cl of clusters) {
+      cl.forEach((c, i) => { clsIdx[c.id] = i; });
+      if (cl.length === 1) { dispBrg[cl[0].id] = cl[0].bearing; continue; }
+      // Kołowa średnia namiarów klastra
+      let sx = 0, sy = 0;
+      for (const c of cl) { const r = c.bearing * Math.PI / 180; sx += Math.cos(r); sy += Math.sin(r); }
+      const centroid = (Math.atan2(sy, sx) * 180 / Math.PI + 360) % 360;
+      const span     = (cl.length - 1) * FAN_SEP;
+      cl.forEach((c, i) => { dispBrg[c.id] = (centroid - span / 2 + i * FAN_SEP + 360) % 360; });
+    }
+
+    for (const c of (sn.contacts || [])) {
+      const trueAng = brgAng(c.bearing);
+      const disp    = dispBrg[c.id] ?? c.bearing;
+      const dispAng = brgAng(disp);
+      const col     = c.threat ? acc : c.cls === 'WARSHIP' ? amb : blue;
+      const sel     = c.id === _ssSelContact;
+      const shifted = Math.abs(((disp - c.bearing + 540) % 360) - 180) > 1.5;
+
+      // Przerywana linia namiarowa (prawdziwy namiar)
       ctx.setLineDash([3, 4]);
-      ctx.strokeStyle = col; ctx.lineWidth = sel ? 0.8 : 0.4;
-      ctx.globalAlpha = sel ? 0.55 : 0.28;
+      ctx.strokeStyle = col; ctx.lineWidth = sel ? 0.9 : 0.45;
+      ctx.globalAlpha = sel ? 0.6 : 0.3;
       ctx.beginPath();
       ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(ang) * R * 0.93, cy + Math.sin(ang) * R * 0.93);
+      ctx.lineTo(cx + Math.cos(trueAng) * R * 0.93, cy + Math.sin(trueAng) * R * 0.93);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Łuk na pierścieniu zewnętrznym
+      // Łuk na pierścieniu zewnętrznym (prawdziwy namiar)
       const arcW = 0.05 + c.sig * 0.12;
       ctx.lineWidth = 2.5 + c.sig * 3.5; ctx.strokeStyle = col;
       ctx.globalAlpha = 0.4 + c.sig * 0.55;
-      ctx.beginPath(); ctx.arc(cx, cy, R - 3, ang - arcW, ang + arcW); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, R - 3, trueAng - arcW, trueAng + arcW); ctx.stroke();
 
-      // Dot (odległość ≈ signal: silniejszy = bliżej)
-      const dotR2 = R * (0.25 + (1 - c.sig) * 0.62);
-      const dx2   = cx + Math.cos(ang) * dotR2;
-      const dy2   = cy + Math.sin(ang) * dotR2;
-      const dotSz = 2.5 + c.sig * 2.5;
+      // Schodkowanie radialne: parzyste indeksy bliżej, nieparzyste dalej
+      const stagger  = shifted ? ((clsIdx[c.id] % 2 === 0) ? -0.07 : 0.07) : 0;
+      const dotR2    = R * (0.28 + (1 - c.sig) * 0.55 + stagger);
+      const dx2      = cx + Math.cos(dispAng) * dotR2;
+      const dy2      = cy + Math.sin(dispAng) * dotR2;
+      const dotSz    = 2.5 + c.sig * 2.5;
+
+      // Cienka linia łącząca dot z prawdziwym namiarem na pierścieniu
+      if (shifted) {
+        const arcPtX = cx + Math.cos(trueAng) * (R - 5);
+        const arcPtY = cy + Math.sin(trueAng) * (R - 5);
+        ctx.setLineDash([2, 6]);
+        ctx.strokeStyle = col; ctx.lineWidth = 0.7; ctx.globalAlpha = 0.28;
+        ctx.beginPath(); ctx.moveTo(dx2, dy2); ctx.lineTo(arcPtX, arcPtY); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Dot
       ctx.fillStyle = col; ctx.globalAlpha = 0.45 + c.sig * 0.5;
       ctx.beginPath(); ctx.arc(dx2, dy2, dotSz, 0, Math.PI * 2); ctx.fill();
       if (sel) {
@@ -1380,11 +1429,11 @@
         ctx.beginPath(); ctx.arc(dx2, dy2, dotSz + 5, 0, Math.PI * 2); ctx.stroke();
       }
 
-      // Alert HUNT — pulsujące kółko na krawędzi
+      // Alert HUNT — pulsujące kółko na krawędzi (prawdziwy namiar)
       if (c.threat) {
         const pulse2 = 0.55 + 0.45 * Math.sin(Date.now() * 0.011);
-        const ex = cx + Math.cos(ang) * (R - 7);
-        const ey = cy + Math.sin(ang) * (R - 7);
+        const ex = cx + Math.cos(trueAng) * (R - 7);
+        const ey = cy + Math.sin(trueAng) * (R - 7);
         ctx.fillStyle = acc; ctx.globalAlpha = pulse2 * 0.9;
         ctx.beginPath(); ctx.arc(ex, ey, 5 + pulse2 * 2, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = '#ff6600'; ctx.lineWidth = 1; ctx.globalAlpha = pulse2 * 0.7;

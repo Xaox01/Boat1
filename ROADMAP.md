@@ -16,7 +16,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Histereza termokliny ±10px (bez spamu UI) |
 | ✅ | Śnorchel — ładowanie baterii przy powierzchni |
 | ✅ | Hotel load — pasywne zużycie baterii |
-| ✅ | System tlenowy — wyczerpanie pod wodą |
+| ✅ | System tlenowy — wyczerpanie pod wodą (~15 min na 270m, regeneracja przez snorchel) |
 | ✅ | Proceduralny teren dna — 6 oktaw sinusoidalnych, iglice skalne |
 | ✅ | Kolizja z terenem — łódź uderza w zmienne dno, nie płaski prostokąt |
 | ✅ | Świat 12 000px (~14.4km) zamiast 4 096px |
@@ -65,6 +65,8 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Ping aktywny [Q] — 14s CD, pierścień 1100px, echo na PPI 5s, wrogowie wykrywają źródło |
 | ✅ | Stacja SONAR w UI — koło namiarów, wodospad BTR, lista kontaktów, kopia DEMON |
 | ✅ | Namiary z minimalnym progiem pionowym — kontakty nawodne rozdzielone na kole, nie skupione w ~090° |
+| ✅ | Declutter kątowy — min. 11° separacja między kontaktami na kole; prawdziwy namiar zachowany dla linii i łuku |
+| ✅ | Mapa taktyczna: merchanty widoczne tylko w zasięgu sonaru (pełna widoczność ≤820px, cień 820–1640px, ukryci dalej) |
 | 🔴 | Zakłócenia termokliny na sonarze — ślepa strefa poniżej warstwy |
 | 🔴 | Biologics — fałszywe kontakty (ławice ryb, wieloryby) na DEMON |
 | 🟡 | Historia bearing — wąż namiarowy pokazujący ruch kontaktu w czasie |

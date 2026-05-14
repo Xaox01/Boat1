@@ -4,6 +4,56 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.22] — 2026-05-14
+
+### Dodano — ESC zamyka aktywną podsekcję i wraca do CONN
+
+**index.html — obsługa `keydown`:**
+- ESC gdy aktywna jest dowolna stacja i jest zaznaczony kontakt → odznacza kontakt (dotychczasowe zachowanie)
+- ESC gdy stacja aktywna, brak zaznaczenia → `_switchStation('conn')`, powrót do widoku głównego
+- Wzorzec działa dla wszystkich przyszłych podsekcji korzystających z `_ssActive` / `_switchStation`
+
+---
+
+## [0.10.21] — 2026-05-14
+
+### Poprawiono — Zaawansowany declutter kontaktów sonarowych
+
+**index.html — `_ssDrawWheelFull`:**
+- **Klaster-based fan spread**: kontakty w oknie 24° grupowane w klaster; wyświetlane namirary rozłożone symetrycznie od centroidu kołowego klastra co 17°
+- **Schodkowanie radialne**: w klastrze parzyste indeksy bliżej centrum, nieparzyste dalej — podwójna separacja (kątowa + radialna) eliminuje nachodzenie nawet przy 4 kontaktach w 5° oknie
+- **Linia łącząca**: gdy dot jest przesunięty od prawdziwego namiaru, rysowana cienka przerywana linia (2-6px, alpha 0.28) z dota do rzeczywistego punktu na pierścieniu namiarowym
+- Prawdziwe namirary zachowane bez zmian na: linii przerywanej ze środka, łuku na pierścieniu, alertcie HUNT
+
+---
+
+## [0.10.20] — 2026-05-14
+
+### Poprawiono — Realistyczna gospodarka tlenowa
+
+**src/Submarine.js — `_updateSystems`:**
+- **Wolniejsze zużycie tlenu**: bazowe 0.004→0.00055/s; czas do wyczerpania: płytko ~30 min, 270m ~15 min, 400m ~12 min (poprzednio 3-4 minuty)
+- **Snorchel ładuje tlen**: regeneracja aktywna przy `depth < SNORKEL_DEPTH_M (18m)` — wcześniej tlen uciekał nawet przy podniesionym snorchlu; wskaźnik głębokości powierzchni 8m → 18m
+- **Łagodniejsze obrażenia od niedotlenienia**: 0.022→0.007/s po wyczerpaniu — daje czas na reakcję zamiast błyskawicznej śmierci
+- Skalowanie głębokościowe: 0.000005→0.0000018 (głębokość ma znaczenie, ale nie dominuje)
+
+---
+
+## [0.10.19] — 2026-05-14
+
+### Poprawiono — Mapa taktyczna + declutter kontaktów na kole sonarowym
+
+**src/GameScene.js — `_drawTacticalMap`:**
+- **Mapa taktyczna: filtry zasięgu dla merchantów** — handlowcy ukryci poza `2×SONAR_RANGE` (1640px); w strefie 820–1640px widoczni z alpha 0.30 (ledwo zarysowani); w zasięgu sonaru pełna widoczność 0.85
+- Wcześniej merchanty były rysowane bezwarunkowo niezależnie od wykrycia — teraz mapa taktyczna odzwierciedla faktyczną wiedzę sonaru
+
+**index.html — `_ssDrawWheelFull`:**
+- **Declutter kątowy na kole namiarów** — sortowanie kontaktów wg namiaru, wymuszanie min. 11° separacji między wyświetlanymi pozycjami (dot + etykieta)
+- Prawdziwy namiar zachowany dla: przerywanej linii namiarowej, łuku na pierścieniu zewnętrznym, pulsującego alertu HUNT
+- Tylko pozycja kropki i etykiety ID przesuwa się by uniknąć nakładania
+
+---
+
 ## [0.10.18] — 2026-05-14
 
 ### Zaimplementowano — Pełna integracja stacji SONAR z resztą gry

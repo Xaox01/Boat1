@@ -79,7 +79,7 @@ export class GameScene extends Phaser.Scene {
     document.getElementById('left-panel').classList.add('active');
 
     this.ocean = new Ocean(this);
-    this.sub   = new Submarine(this, CAM_W / 2, SURFACE_Y + 55);
+    this.sub   = new Submarine(this, CAM_W / 2, SURFACE_Y + 225); // ~270m — poniżej termokliny (test sonaru)
     // Alias dla EnemyASROC — torpedy sprawdzają ten array
     Object.defineProperty(this, 'noisemakers', { get: () => this.sub.noisemakers });
 
@@ -1523,13 +1523,16 @@ export class GameScene extends Phaser.Scene {
   // ── Tutorial ──────────────────────────────────────────────────────────────
 
   _spawnTestEnemies() {
-    // Tryb testowy: kilka wrogów od razu, bez samouczka
+    // Tryb testowy: wrogie jednostki daleko poza zasięgiem sonaru (>820px)
+    // i hydrofonu wroga (<240px przy termoklinie). Gracz musi je NAJPIERW namierzyć.
     this._enemiesSpawned = true;
-    for (let i = 0; i < 3; i++) {
-      const x = 400 + i * 500 + Phaser.Math.Between(-100, 100);
-      this.enemies.push(new Enemy(this, x, 80));
+    const subX = CAM_W / 2;
+    const offsets = [1800, 2800, 4000]; // dalej niż sonar range 820px
+    for (const off of offsets) {
+      this.enemies.push(new Enemy(this, subX + off + Phaser.Math.Between(-150, 150), 80));
     }
-    this.merchants.push(new Merchant(this, 1800, 1, 'KONWÓJ'));
+    // Konwój jeszcze dalej — cel do ewentualnego ataku
+    this.merchants.push(new Merchant(this, subX + 5500, 1, 'KONWÓJ TESTOWY'));
   }
 
   _startTutorial() {
@@ -1842,16 +1845,21 @@ export class GameScene extends Phaser.Scene {
     g.lineStyle(0.7, 0x44ff88, 0.32);
     g.strokeLineShape(new Phaser.Geom.Line(spx, wy(SURF), spx, spy));
 
-    // ── Merchanty — bursztynowe romby na powierzchni ──────────────────────
+    // ── Merchanty — bursztynowe romby — widoczne tylko w zasięgu sonaru ──
+    const SONAR_RANGE_MAP = 820;
     for (const m of this.merchants) {
+      const mdx = m.x - sub.x, mdy = m.y - sub.y;
+      const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+      if (mdist > SONAR_RANGE_MAP * 2) continue;
+      const mAlpha = mdist <= SONAR_RANGE_MAP ? 0.85 : 0.30;
       const mx2 = wx(m.x), my2 = wy(SURF);
       const ms = 5;
-      g.lineStyle(1.5, 0xddaa44, 0.85);
+      g.lineStyle(1.5, 0xddaa44, mAlpha);
       g.strokeLineShape(new Phaser.Geom.Line(mx2,      my2 - ms, mx2 + ms, my2));
       g.strokeLineShape(new Phaser.Geom.Line(mx2 + ms, my2,      mx2,      my2 + ms));
       g.strokeLineShape(new Phaser.Geom.Line(mx2,      my2 + ms, mx2 - ms, my2));
       g.strokeLineShape(new Phaser.Geom.Line(mx2 - ms, my2,      mx2,      my2 - ms));
-      g.fillStyle(0xddaa44, 0.45);
+      g.fillStyle(0xddaa44, mAlpha * 0.5);
       g.fillCircle(mx2, my2, 2);
     }
 
