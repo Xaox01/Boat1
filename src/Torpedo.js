@@ -191,33 +191,61 @@ export class Torpedo {
       return;
     }
 
-    // ── Ślad bąbelkowy ────────────────────────────────────────────────────────
-    // Cienka oś śladu (przerywana)
-    if (this.trail.length > 1) {
-      g.lineStyle(0.6, 0xc8d8e0, 0.18);
-      g.beginPath();
-      for (let i = 0; i < this.trail.length; i++) {
-        const p = this.trail[i];
-        i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y);
-      }
-      g.strokePath();
+    // ── Ślad torpedy (wstęga piany + bąble) ──────────────────────────────────
+    const WAKE_LIFE = 2.8;
+    const n = this.trail.length;
+    if (n < 2) return;
+
+    // ① Zewnętrzna poświata (najszersza, najbledza)
+    for (let i = 1; i < n; i++) {
+      const p0 = this.trail[i - 1], p1 = this.trail[i];
+      const f  = Math.max(0, 1 - p1.age / WAKE_LIFE);
+      if (f <= 0) continue;
+      g.lineStyle(5 + f * 3, 0x99ccee, f * 0.10);
+      g.strokeLineShape(new Phaser.Geom.Line(p0.x, p0.y, p1.x, p1.y));
     }
-    // Bąble — rosnące koła, unoszą się lekko w górę, zanikają
-    const BUBBLE_LIFE = 2.4;
-    for (let i = 0; i < this.trail.length; i++) {
-      const p    = this.trail[i];
-      const frac = Math.max(0, 1 - p.age / BUBBLE_LIFE);
-      if (frac <= 0) continue;
-      const drift = p.age * 5;               // unoszenie w górę
-      const r     = 3 + p.age * 4 + (i % 4);
-      const jx    = ((i * 37) % 4) - 2;
-      // zewnętrzny kontur bąbla
-      g.lineStyle(0.9, 0xc8d8e0, frac * 0.52);
+
+    // ② Środkowa wstęga piany
+    for (let i = 1; i < n; i++) {
+      const p0 = this.trail[i - 1], p1 = this.trail[i];
+      const f  = Math.max(0, 1 - p1.age / WAKE_LIFE);
+      if (f <= 0) continue;
+      g.lineStyle(1.8 + f * 2.2, 0xddeeff, f * 0.45);
+      g.strokeLineShape(new Phaser.Geom.Line(p0.x, p0.y, p1.x, p1.y));
+    }
+
+    // ③ Jądro (cienka, jasna linia tuż za torpedą)
+    for (let i = 1; i < n; i++) {
+      const p0 = this.trail[i - 1], p1 = this.trail[i];
+      const f  = Math.max(0, 1 - p1.age / (WAKE_LIFE * 0.35));
+      if (f <= 0) continue;
+      g.lineStyle(1.0, 0xffffff, f * 0.70);
+      g.strokeLineShape(new Phaser.Geom.Line(p0.x, p0.y, p1.x, p1.y));
+    }
+
+    // ④ Bąble — małe, unoszą się w górę, zanikają
+    for (let i = 0; i < n; i += 2) {
+      const p  = this.trail[i];
+      const f  = Math.max(0, 1 - p.age / WAKE_LIFE);
+      if (f <= 0) continue;
+
+      const drift = p.age * 7;                          // dryfuje ku górze
+      const jx    = Math.sin(i * 2.31 + 0.9) * 4;     // poziomy jitter
+      const r     = 1.2 + p.age * 1.8;                 // rośnie powoli
+
+      // Wypełniony bąbel
+      g.fillStyle(0xddeeff, f * 0.32);
+      g.fillCircle(p.x + jx, p.y - drift, r);
+
+      // Kontur bąbla
+      g.lineStyle(0.6, 0xffffff, f * 0.28);
       g.strokeCircle(p.x + jx, p.y - drift, r);
-      // co trzeci — mniejszy satel
-      if (i % 3 === 0) {
-        g.lineStyle(0.7, 0xc8d8e0, frac * 0.38);
-        g.strokeCircle(p.x + 4, p.y - drift - 4, r * 0.55);
+
+      // Co 4 punkt — większy bąbel satellite
+      if (i % 4 === 0) {
+        const r2 = r * 0.55;
+        g.fillStyle(0xbbddff, f * 0.18);
+        g.fillCircle(p.x + jx + 3, p.y - drift - r - 1, r2);
       }
     }
 
