@@ -80,13 +80,19 @@ export class DevConsole {
   // ── Klawiatura ────────────────────────────────────────────────────────────
 
   _bindKeys() {
+    // Tilde toggleuje konsolę — tylko ten event na document
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Backquote') {     // ~ / `
+      if (e.code === 'Backquote') {
         e.preventDefault();
         this._toggle();
-        return;
       }
-      if (!this._open) return;
+    });
+
+    // Wszystkie klawisze wewnątrz inputu obsługujemy tutaj —
+    // stopPropagation blokuje propagację do document, więc Enter
+    // musi być obsłużony bezpośrednio na elemencie input
+    this._input.addEventListener('keydown', (e) => {
+      e.stopPropagation();   // Phaser nie dostaje klawiszy
 
       if (e.key === 'Escape') { this._toggle(); return; }
 
@@ -122,9 +128,6 @@ export class DevConsole {
         return;
       }
     });
-
-    // Zatrzymaj propagację do Phasera gdy konsola otwarta
-    this._input.addEventListener('keydown', (e) => e.stopPropagation());
   }
 
   // ── Otwieranie / zamykanie ────────────────────────────────────────────────
