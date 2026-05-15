@@ -47,11 +47,13 @@ export class Enemy {
     this.gfx   = scene.add.graphics().setDepth(3);
 
     // Sprite tekstury okrętu (jeśli załadowana)
+    // scrollFactor(0) = screen space, bo gra używa ręcznej kamery (gfx.x = -camX)
     if (scene.textures.exists('warship')) {
-      this._sprite = scene.add.image(x, scene.SURFACE_Y, 'warship')
+      this._sprite = scene.add.image(0, 0, 'warship')
         .setDepth(3)
-        .setOrigin(0.5, 0.82)   // 0.82 = linia wodna w teksturze
-        .setScale(0.128);       // 1018px → ~130px
+        .setScrollFactor(0)
+        .setOrigin(0.5, 0.80)   // linia wodna na ~80% wysokości tekstury
+        .setScale(0.128, 0.24); // X: 1018→130px, Y: 215→52px (proporcje gry)
     } else {
       this._sprite = null;
     }
@@ -945,11 +947,12 @@ export class Enemy {
     // Alpha stopniowo zanika w ostatniej sekundzie
     const shipAlpha = Math.min(1, this.revealTimer);
 
-    // ── Sprite tekstury ───────────────────────────────────────────────────
+    // ── Sprite tekstury (screen-space: odejmij camX jak wszystkie gfx) ─────
     if (this._sprite) {
+      const screenX = this.x - this.scene.camX;
       this._sprite.setVisible(true);
-      this._sprite.setPosition(this.x, SURF);
-      this._sprite.setFlipX(this.dir < 0);   // tekstura płynie w prawo; flip gdy dir=-1
+      this._sprite.setPosition(screenX, SURF);
+      this._sprite.setFlipX(this.dir < 0);
       this._sprite.setAlpha(shipAlpha);
     }
 
