@@ -4,6 +4,26 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.33] — 2026-05-15
+
+### Dodano — konsola deweloperska (klawisz ~)
+
+**src/DevConsole.js** (nowy plik):
+- Otwieranie / zamykanie klawiszem `~` (backtick) lub `Escape`
+- DOM overlay przyklejony do dołu ekranu, zIndex 99999, pełna szerokość
+- Historia komend: strzałki ↑↓ przewijają poprzednie wpisy
+- Wejście klawiatury odcinane od Phasera gdy konsola otwarta (`keyboard.enabled = false`)
+- Komendy: `time`, `hull`, `depth`, `tp`, `spawn`, `kill`, `wave`, `ammo`, `god`, `speed`, `clear`, `help`
+- `god` mode: `update()` co klatkę zeruje obrażenia (hull = 1.0)
+- `time` obsługuje liczby 0–1 oraz nazwy: dawn / noon / dusk / midnight / night / sunset / sunrise / evening
+- `spawn [n]` używa `_spawnReinforcement()` — wróg od razu wchodzi w tryb ALERT
+
+**src/GameScene.js:**
+- Import `DevConsole`, inicjalizacja jako `this._devConsole` w `create()`
+- `this._devConsole.update()` wywoływane każdą klatką
+
+---
+
 ## [0.10.32] — 2026-05-15
 
 ### Dodano — cykl dnia i nocy (8-minutowy, proceduralny)

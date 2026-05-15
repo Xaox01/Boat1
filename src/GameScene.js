@@ -8,6 +8,7 @@ import { Merchant } from './Merchant.js';
 import { MissionSystem } from './MissionSystem.js';
 import { SaveSystem } from './SaveSystem.js';
 import { TutorialMission } from './TutorialMission.js';
+import { DevConsole } from './DevConsole.js';
 
 const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
@@ -107,7 +108,8 @@ export class GameScene extends Phaser.Scene {
       q:     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
     };
 
-    this._bot = new TestBot(this);
+    this._bot        = new TestBot(this);
+    this._devConsole = new DevConsole(this);
 
     // Sonar pasywny — triangulacja
     this._bearingSamples = new Map();   // enemy → [{subX, subY, bearing}]
@@ -632,6 +634,7 @@ export class GameScene extends Phaser.Scene {
     this._applyCamera();
     this._dayTime = (this._dayTime + dt / 480) % 1;   // pełny cykl co 8 minut
     this.ocean.update(delta, this.camX, this._dayTime);
+    this._devConsole.update();
     this._updatePings(dt);
     this.sonar.update(delta, this.sub, [...this.enemies, ...this.merchants], this.sub.torpedoes, this._activePings);
     this._exportSonarState();
