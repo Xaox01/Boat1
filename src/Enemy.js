@@ -46,6 +46,16 @@ export class Enemy {
     this.scene = scene;
     this.gfx   = scene.add.graphics().setDepth(3);
 
+    // Sprite tekstury okrętu (jeśli załadowana)
+    if (scene.textures.exists('warship')) {
+      this._sprite = scene.add.image(x, scene.SURFACE_Y, 'warship')
+        .setDepth(3)
+        .setOrigin(0.5, 0.82)   // 0.82 = linia wodna w teksturze
+        .setScale(0.128);       // 1018px → ~130px
+    } else {
+      this._sprite = null;
+    }
+
     this.x = x;
     this.y = scene.SURFACE_Y;
     this.label = label || '';
@@ -630,6 +640,9 @@ export class Enemy {
     const SURF  = this.scene.SURFACE_Y;
     const FLOOR = this.scene.OCEAN_FLOOR_Y;
 
+    // Ukryj sprite podczas tonięcia (animacja rysowana przez _drawSinking)
+    if (this._sprite) this._sprite.setVisible(false);
+
     this._sinkTimer = Math.max(0, this._sinkTimer - dt);
     const prog = 1 - this._sinkTimer / this._sinkDur;
 
@@ -924,10 +937,21 @@ export class Enemy {
     }
 
     // ── Okręt — widoczny tylko po trafieniu echem sonaru ──────────────────
-    if (this.revealTimer <= 0) return;
+    if (this.revealTimer <= 0) {
+      if (this._sprite) this._sprite.setVisible(false);
+      return;
+    }
 
     // Alpha stopniowo zanika w ostatniej sekundzie
     const shipAlpha = Math.min(1, this.revealTimer);
+
+    // ── Sprite tekstury ───────────────────────────────────────────────────
+    if (this._sprite) {
+      this._sprite.setVisible(true);
+      this._sprite.setPosition(this.x, SURF);
+      this._sprite.setFlipX(this.dir < 0);   // tekstura płynie w prawo; flip gdy dir=-1
+      this._sprite.setAlpha(shipAlpha);
+    }
 
     // Smuga ataku biegowego
     if (this.state === STATE.HUNT) {
@@ -998,8 +1022,10 @@ export class Enemy {
 
     // ════════════════════════════════════════════════════════════════════════
     // NISZCZYCIEL — szczegółowy model proceduralny
-    // oś lokalna: (0,0) = środek okrętu na linii wody; d=+1 → dziób w prawo
+    // Pominięty gdy aktywny sprite tekstury
     // ════════════════════════════════════════════════════════════════════════
+    const _useSprite = !!this._sprite;
+    if (!_useSprite) {
 
     const supCol  = 0x3a4855;
     const gunCol  = 0x2e3c48;
@@ -1251,6 +1277,8 @@ export class Enemy {
     g.fillStyle(0xff2222, 0.92 * a); g.fillCircle(-d * 46, -5, 1.5);   // rufowa
     g.fillStyle(0x22dd22, 0.92 * a); g.fillCircle( d * 48, -2, 1.5);   // dziobowa
     g.fillStyle(0xffffff, 0.72 * a); g.fillCircle( d * 8, -55, 1.5);   // wierzchołkowa
+
+    } // koniec if (!_useSprite)
 
     // ── Pęknięcia / dym / ogień przy uszkodzeniach ───────────────────────────
     if (this.hull < 0.75) {

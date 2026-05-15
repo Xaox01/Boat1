@@ -69,7 +69,9 @@ export class GameScene extends Phaser.Scene {
     this.OCEAN_FLOOR_Y = OCEAN_FLOOR_Y;
   }
 
-  preload() {}
+  preload() {
+    this.load.image('warship', 'assets/warship.png');
+  }
 
   create() {
     this.camX = 0;
@@ -563,6 +565,7 @@ export class GameScene extends Phaser.Scene {
     // Remove destroyed enemies — wyczyść też zaznaczenie i triangulację
     for (const e of this.enemies.filter(e => e.destroyed)) {
       e.gfx.destroy();
+      e._sprite?.destroy();
       this._triangulated?.delete(e);
       if (this._selectedEnemy === e) {
         this._selectedEnemy = null;
