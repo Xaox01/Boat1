@@ -14,7 +14,7 @@ const TORP_DESCENT_Y  = 400;   // px Y — głębokość zanurz jesli nie wykryt
 export class ASROC {
   constructor(scene, fromX, targetX, targetY) {
     this.scene   = scene;
-    this.gfx     = scene.add.graphics();
+    this.gfx     = scene.add.graphics().setDepth(3);
 
     this.fromX   = fromX;
     this.fromY   = scene.SURFACE_Y - 8;
@@ -135,7 +135,7 @@ const SEARCH_TURN_RATE = 0.9;   // rad/s — agresywność skrętów
 export class HomingTorpedo {
   constructor(scene, x, y) {
     this.scene = scene;
-    this.gfx   = scene.add.graphics();
+    this.gfx   = scene.add.graphics().setDepth(3);
 
     this.x = x;
     this.y = y;

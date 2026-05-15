@@ -16,7 +16,7 @@ const SNORKEL_DEPTH_M   = 18;
 export class Submarine {
   constructor(scene, x, y) {
     this.scene    = scene;
-    this.graphics = scene.add.graphics();
+    this.graphics = scene.add.graphics().setDepth(3);
     this.x = x;
     this.y = y;
     this.vx = 0;

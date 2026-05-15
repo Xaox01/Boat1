@@ -17,7 +17,7 @@ export class Ocean {
 
     this.bg          = scene.add.graphics().setDepth(0);
     this.skyOverlay  = scene.add.graphics().setDepth(1);   // dynamiczne niebo
-    this.waveGfx     = scene.add.graphics().setDepth(2);
+    this.waveGfx     = scene.add.graphics().setDepth(4);
     this.darkOverlay = scene.add.graphics().setDepth(9);   // nocne przyciemnienie
     this.particles   = this._initParticles();
     this._stars      = this._buildStars();

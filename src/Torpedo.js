@@ -13,7 +13,7 @@ const SEEKER_HALF    = Math.PI / 12;    // 15° — kąt stożka (w jedną stron
 export class Torpedo {
   constructor(scene, x, y, targetX, targetY) {
     this.scene = scene;
-    this.gfx   = scene.add.graphics();
+    this.gfx   = scene.add.graphics().setDepth(3);
 
     this.x = x;
     this.y = y;

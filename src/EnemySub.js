@@ -24,7 +24,7 @@ const EVADE_SPEED      = 55;    // additional vertical px/s when evading
 export class EnemySub {
   constructor(scene, x, patrolLeft, patrolRight, label) {
     this.scene = scene;
-    this.gfx   = scene.add.graphics();
+    this.gfx   = scene.add.graphics().setDepth(3);
 
     this.x = x;
     this.y = scene.SURFACE_Y + PATROL_DEPTH_MIN +

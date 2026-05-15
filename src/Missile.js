@@ -12,7 +12,7 @@ const SEEKER_RANGE = 650;   // px — zasięg radaru aktywnego
 export class Missile {
   constructor(scene, x, y, targetX) {
     this.scene   = scene;
-    this.gfx     = scene.add.graphics();
+    this.gfx     = scene.add.graphics().setDepth(3);
 
     this.x       = x;
     this.y       = y;

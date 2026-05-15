@@ -6,7 +6,7 @@ const MAX_CLASS_TIMER = 90;   // pozwól dojść do MERCHANT (>38s), ale nie WAR
 export class Merchant {
   constructor(scene, x, dir, label) {
     this.scene = scene;
-    this.gfx   = scene.add.graphics().setDepth(9);
+    this.gfx   = scene.add.graphics().setDepth(3);
 
     this.x     = x;
     this.y     = scene.SURFACE_Y;
