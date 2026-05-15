@@ -150,17 +150,18 @@ export class DevConsole {
   // ── Klawiatura ────────────────────────────────────────────────────────────
 
   _bindKeys() {
+    // ~ i Escape działają zawsze na poziomie document — niezależnie od focusa
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Backquote') { e.preventDefault(); this._toggle(); }
+      if (e.code === 'Backquote') { e.preventDefault(); this._toggle(); return; }
+      if (e.key === 'Escape' && this._open) { e.preventDefault(); this._toggle(); return; }
     });
 
+    // Input: stopPropagation gdy użytkownik pisze, żeby klawisze nie szły do gry
     this._input.addEventListener('keydown', (e) => {
       e.stopPropagation();
-
-      if (e.key === 'Escape')     { this._toggle(); return; }
-      if (e.key === 'Enter')      { this._submit(); return; }
-      if (e.key === 'ArrowUp')    { e.preventDefault(); this._histNav(1);  return; }
-      if (e.key === 'ArrowDown')  { e.preventDefault(); this._histNav(-1); return; }
+      if (e.key === 'Enter')     { this._submit();             return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); this._histNav(1);  return; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); this._histNav(-1); return; }
     });
   }
 
@@ -168,11 +169,10 @@ export class DevConsole {
     this._open = !this._open;
     this._hud.style.display = this._open ? 'flex' : 'none';
     if (this._open) {
-      this.scene.input.keyboard.enabled = false;
-      this._input.focus();
-      this._print('▸ DEV HUD aktywny — "help" = lista komend', DIM_CLR);
+      // NIE blokujemy keyboard.enabled — gra działa normalnie z otwartą konsolą.
+      // Klawisze idą do gry, chyba że input ma focus (wtedy stopPropagation na inpucie).
+      this._print('▸ DEV HUD aktywny — kliknij pole poniżej by wpisać komendę', DIM_CLR);
     } else {
-      this.scene.input.keyboard.enabled = true;
       this._input.blur();
     }
   }
