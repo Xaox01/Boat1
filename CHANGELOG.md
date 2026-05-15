@@ -4,6 +4,25 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.42] — 2026-05-15
+
+### Dodano — Komendy AWARIE w DevConsole
+
+Pięć nowych komend w panelu deweloperskim (`~`):
+
+- `sys` — wyświetla status wszystkich 8 systemów z paskiem█ i % zdrowia
+- `attack <asroc|dc|floor|crush|tlen> [%]` — wywołuje `applyDamage()` z odpowiednim źródłem (domyślnie 25%)
+- `dmg <system> [0-1]` — ustawia zdrowie konkretnego systemu (np. `dmg naped 0.3`)
+- `repair [system|all]` — przywraca zdrowie systemu lub wszystkich do 100%
+- `sim <scenariusz>` — pięć gotowych scenariuszy testowych:
+  - `asroc` — 3 trafienia torpedą ASROC co 1.5s
+  - `depth` — 8 zarzutów głębinowych co 0.6s
+  - `barrage` — mieszany: 6 DC + 2 ASROC przez ~8s (naprzemienne typy)
+  - `stress` — wszystkie systemy spadają do 20–40%, kadłub −35%
+  - `critical` — losowy system zniszczony do 0%, trafienie ASROC
+
+---
+
 ## [0.10.41] — 2026-05-16
 
 ### Naprawiono — 100% pokrycia źródeł obrażeń w sekcji AWARIE

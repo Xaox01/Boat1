@@ -438,6 +438,12 @@ export class DevConsole {
           this._print('  god           — nieśmiertelność toggle');
           this._print('  speed <n>     — mnożnik czasu (0.1–5)');
           this._print('  clear         — wyczyść log');
+          this._print('── AWARIE ───────────────────────────────────────────────', DIM_CLR);
+          this._print('  sys                          — status wszystkich systemów');
+          this._print('  attack <asroc|dc|floor|crush|tlen> [%] — symuluj trafienie');
+          this._print('  dmg <system> [0-1]           — ustaw zdrowie systemu');
+          this._print('  repair [system|all]          — napraw system(y)');
+          this._print('  sim <asroc|barrage|depth|stress|critical> — scenariusz ataku');
           break;
 
         case 'time': {
@@ -567,6 +573,162 @@ export class DevConsole {
         case 'clear':
           this._logEl.innerHTML = '';
           break;
+
+        // ── AWARIE ──────────────────────────────────────────────────────────
+
+        case 'sys': {
+          const SYS_LABELS = {
+            naped: 'Napęd     ', sonarP: 'Sonar-P   ', sonarA: 'Sonar-A   ',
+            torpedy: 'Torpedy   ', rakiety: 'Rakiety   ', balast: 'Balast    ',
+            tlen: 'Tlen      ', zasilanie: 'Zasilanie ',
+          };
+          this._print('─── Status systemów ────────────────────────────────────', DIM_CLR);
+          for (const [key, sys] of Object.entries(sub.systems)) {
+            const h   = sys.health ?? 1;
+            const pct = (h * 100).toFixed(0).padStart(3);
+            const filled = Math.round(h * 12);
+            const bar = '█'.repeat(filled) + '░'.repeat(12 - filled);
+            const clr = h > 0.65 ? '#00ff88' : h > 0.30 ? WARN_CLR : DANGER_CLR;
+            this._print(`  ${SYS_LABELS[key] ?? key.padEnd(10)} [${bar}] ${pct}%`, clr);
+          }
+          break;
+        }
+
+        case 'attack': {
+          const SRC_MAP = {
+            asroc:  'TORPEDA ASROC',
+            dc:     'ZARZUT GŁĘBINOWY',
+            floor:  'KOLIZJA Z DNEM',
+            crush:  'PRZECIĄŻENIE CIŚNIENIOWE',
+            tlen:   'BRAK TLENU',
+          };
+          const type = (args[0] ?? '').toLowerCase();
+          const src  = SRC_MAP[type];
+          if (!src) {
+            this._print('Błąd: attack <asroc|dc|floor|crush|tlen> [%]', DANGER_CLR);
+            break;
+          }
+          const pct = parseFloat(args[1]);
+          const dmg = isNaN(pct) ? 0.25 : Math.max(0.01, Math.min(1, pct / 100));
+          sub.applyDamage(dmg, src);
+          this._print(`Atak: ${src}  obrażenia=${(dmg * 100).toFixed(0)}%  kadłub→${(sub.hull * 100).toFixed(1)}%`, WARN_CLR);
+          break;
+        }
+
+        case 'dmg': {
+          const KEY_ALIASES = {
+            naped: 'naped', napęd: 'naped',
+            sonarp: 'sonarP', 'sonar-p': 'sonarP', sonarp: 'sonarP',
+            sonara: 'sonarA', 'sonar-a': 'sonarA',
+            torpedy: 'torpedy', rakiety: 'rakiety',
+            balast: 'balast', tlen: 'tlen',
+            zasilanie: 'zasilanie', power: 'zasilanie',
+          };
+          const raw = (args[0] ?? '').toLowerCase();
+          const key = KEY_ALIASES[raw];
+          if (!key || !sub.systems[key]) {
+            this._print('Błąd: dmg <naped|sonarp|sonara|torpedy|rakiety|balast|tlen|zasilanie> [0-1]', DANGER_CLR);
+            break;
+          }
+          const v = parseFloat(args[1]);
+          const h = isNaN(v) ? 0 : Math.max(0, Math.min(1, v));
+          sub.systems[key].health = h;
+          const clr = h > 0.65 ? '#00ff88' : h > 0.30 ? WARN_CLR : DANGER_CLR;
+          this._print(`${key} zdrowie → ${(h * 100).toFixed(0)}%`, clr);
+          break;
+        }
+
+        case 'repair': {
+          const raw = (args[0] ?? 'all').toLowerCase();
+          if (raw === 'all') {
+            for (const sys of Object.values(sub.systems)) sys.health = 1.0;
+            this._print('Wszystkie systemy naprawione (100%)', '#00ff88');
+          } else {
+            const KEY_ALIASES = {
+              naped: 'naped', napęd: 'naped',
+              sonarp: 'sonarP', 'sonar-p': 'sonarP',
+              sonara: 'sonarA', 'sonar-a': 'sonarA',
+              torpedy: 'torpedy', rakiety: 'rakiety',
+              balast: 'balast', tlen: 'tlen',
+              zasilanie: 'zasilanie', power: 'zasilanie',
+            };
+            const key = KEY_ALIASES[raw];
+            if (!key || !sub.systems[key]) {
+              this._print('Błąd: repair [system|all]', DANGER_CLR); break;
+            }
+            sub.systems[key].health = 1.0;
+            this._print(`${key} naprawiony`, '#00ff88');
+          }
+          break;
+        }
+
+        case 'sim': {
+          const scenario = (args[0] ?? '').toLowerCase();
+          const delay = (ms, fn) => new Promise(r => setTimeout(() => { fn(); r(); }, ms));
+
+          if (scenario === 'asroc') {
+            this._print('▶ Scenariusz: 3 trafienia ASROC (4.5s)', WARN_CLR);
+            (async () => {
+              for (let i = 0; i < 3; i++) {
+                await delay(1500, () => {
+                  sub.applyDamage(0.22, 'TORPEDA ASROC');
+                  this._print(`  [${i + 1}/3] ASROC → kadłub ${(sub.hull * 100).toFixed(1)}%`, DANGER_CLR);
+                });
+              }
+              this._print('▶ ASROC zakończony', DIM_CLR);
+            })();
+          } else if (scenario === 'barrage') {
+            this._print('▶ Scenariusz: barrage — 6 DC + 2 ASROC (8s)', WARN_CLR);
+            (async () => {
+              const seq = [
+                [700,  'ZARZUT GŁĘBINOWY', 0.14],
+                [800,  'ZARZUT GŁĘBINOWY', 0.18],
+                [1000, 'ZARZUT GŁĘBINOWY', 0.12],
+                [1000, 'TORPEDA ASROC',    0.25],
+                [700,  'ZARZUT GŁĘBINOWY', 0.10],
+                [900,  'ZARZUT GŁĘBINOWY', 0.16],
+                [1100, 'TORPEDA ASROC',    0.20],
+                [1300, 'ZARZUT GŁĘBINOWY', 0.13],
+              ];
+              for (const [ms, src, dmg] of seq) {
+                await delay(ms, () => {
+                  sub.applyDamage(dmg, src);
+                  this._print(`  ${src} → kadłub ${(sub.hull * 100).toFixed(1)}%`, DANGER_CLR);
+                });
+              }
+              this._print('▶ Barrage zakończony', DIM_CLR);
+            })();
+          } else if (scenario === 'depth') {
+            this._print('▶ Scenariusz: 8 zarzutów głębinowych (4.8s)', WARN_CLR);
+            (async () => {
+              for (let i = 0; i < 8; i++) {
+                await delay(600, () => {
+                  sub.applyDamage(0.13, 'ZARZUT GŁĘBINOWY');
+                  this._print(`  [${i + 1}/8] DC → kadłub ${(sub.hull * 100).toFixed(1)}%`, DANGER_CLR);
+                });
+              }
+              this._print('▶ Depth zakończony', DIM_CLR);
+            })();
+          } else if (scenario === 'stress') {
+            this._print('▶ Scenariusz: stress — wszystkie systemy 20–40%', WARN_CLR);
+            for (const [key, sys] of Object.entries(sub.systems)) {
+              sys.health = 0.20 + Math.random() * 0.20;
+              this._print(`  ${key} → ${(sys.health * 100).toFixed(0)}%`, WARN_CLR);
+            }
+            sub.hull = Math.max(0.15, sub.hull - 0.35);
+            this._print(`  kadłub → ${(sub.hull * 100).toFixed(1)}%`, DANGER_CLR);
+          } else if (scenario === 'critical') {
+            this._print('▶ Scenariusz: critical — losowy system zniszczony', WARN_CLR);
+            const keys = Object.keys(sub.systems);
+            const key  = keys[Math.floor(Math.random() * keys.length)];
+            sub.systems[key].health = 0;
+            sub.applyDamage(0.18, 'TORPEDA ASROC');
+            this._print(`  ZNISZCZONO: ${key}  kadłub → ${(sub.hull * 100).toFixed(1)}%`, DANGER_CLR);
+          } else {
+            this._print('Błąd: sim <asroc|barrage|depth|stress|critical>', DANGER_CLR);
+          }
+          break;
+        }
 
         default:
           this._print(`Nieznana komenda: "${cmd}"  —  "help" = lista`, DANGER_CLR);
