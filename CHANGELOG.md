@@ -4,6 +4,26 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.34] — 2026-05-15
+
+### Dodano — animacja wystrzelenia torpedy (TorpedoLaunchFX)
+
+**src/TorpedoLaunchFX.js** (nowy plik):
+- **Celownik (reticle)**: krzyż + koło + narożniki nad wrogiem pod kursorem; animowany pasek progresu 0→LOCK w 1.2s; etykieta `○ ARM %` → `● LOCK` (żółty→czerwony)
+- **Linia namiaru (firing solution)**: przerywana linia z dzioba do celu z etykietą DYST/NAM; znaczniki co 1/4 dystansu; zanika po strzale
+- **Burst sprężonego powietrza**: rozszerzające się pierścienie + 12 bąbli na obwodzie + czerwony błysk wewnętrzny w pierwszej fazie; 0.7s animacja
+- **Drzwi wyrzutni**: `doorOpenFraction` getter (0→1→0) czytany przez Submarine.js
+
+**src/Submarine.js:**
+- Widoczne kanały torpedowe na dziobie (4 szczeliny ciemne, zielona kontrolka aktywnej rury)
+- Animowane klapki wyrzutni: górna obraca się w górę, dolna w dół przy odpaleniu (kolor czerwony)
+
+**src/Torpedo.js:**
+- Ślad bąbelkowy przeprojektowany: puste koła rosnące z wiekiem (3→23px), unoszą się 5px/s w górę, zanikają przez 2.4s; co trzeci bąbel ma satelitę; cienka przerywana oś śladu
+- Bufor śladu zwiększony z 28 do 56 próbek
+
+---
+
 ## [0.10.33] — 2026-05-15
 
 ### Dodano — konsola deweloperska (klawisz ~)

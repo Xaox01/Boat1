@@ -75,7 +75,7 @@ export class Torpedo {
     if (this.y < SURF || this.y >= FLOOR) this._expire();
 
     this.trail.push({ x: this.x, y: this.y, age: 0 });
-    if (this.trail.length > 28) this.trail.shift();
+    if (this.trail.length > 56) this.trail.shift();
     for (const p of this.trail) p.age += dt;
 
     if (this.distTraveled >= MAX_RANGE) this._expire();
@@ -192,13 +192,33 @@ export class Torpedo {
     }
 
     // ── Ślad bąbelkowy ────────────────────────────────────────────────────────
-    for (const p of this.trail) {
-      const frac = Math.max(0, 1 - p.age / 1.4);
-      // Podwójny ślad — większe bąble na środku, małe na bokach
-      g.fillStyle(0xbbddff, frac * 0.30);
-      g.fillCircle(p.x, p.y, 2.2 + frac * 3.0);
-      g.fillStyle(0xffffff, frac * 0.12);
-      g.fillCircle(p.x, p.y, 0.9 + frac * 1.2);
+    // Cienka oś śladu (przerywana)
+    if (this.trail.length > 1) {
+      g.lineStyle(0.6, 0xc8d8e0, 0.18);
+      g.beginPath();
+      for (let i = 0; i < this.trail.length; i++) {
+        const p = this.trail[i];
+        i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y);
+      }
+      g.strokePath();
+    }
+    // Bąble — rosnące koła, unoszą się lekko w górę, zanikają
+    const BUBBLE_LIFE = 2.4;
+    for (let i = 0; i < this.trail.length; i++) {
+      const p    = this.trail[i];
+      const frac = Math.max(0, 1 - p.age / BUBBLE_LIFE);
+      if (frac <= 0) continue;
+      const drift = p.age * 5;               // unoszenie w górę
+      const r     = 3 + p.age * 4 + (i % 4);
+      const jx    = ((i * 37) % 4) - 2;
+      // zewnętrzny kontur bąbla
+      g.lineStyle(0.9, 0xc8d8e0, frac * 0.52);
+      g.strokeCircle(p.x + jx, p.y - drift, r);
+      // co trzeci — mniejszy satel
+      if (i % 3 === 0) {
+        g.lineStyle(0.7, 0xc8d8e0, frac * 0.38);
+        g.strokeCircle(p.x + 4, p.y - drift - 4, r * 0.55);
+      }
     }
 
     g.save();

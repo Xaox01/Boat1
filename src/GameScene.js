@@ -9,6 +9,7 @@ import { MissionSystem } from './MissionSystem.js';
 import { SaveSystem } from './SaveSystem.js';
 import { TutorialMission } from './TutorialMission.js';
 import { DevConsole } from './DevConsole.js';
+import { TorpedoLaunchFX } from './TorpedoLaunchFX.js';
 
 const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
@@ -110,6 +111,7 @@ export class GameScene extends Phaser.Scene {
 
     this._bot        = new TestBot(this);
     this._devConsole = new DevConsole(this);
+    this._launchFX   = new TorpedoLaunchFX(this);
 
     // Sonar pasywny — triangulacja
     this._bearingSamples = new Map();   // enemy → [{subX, subY, bearing}]
@@ -128,6 +130,7 @@ export class GameScene extends Phaser.Scene {
       if (pointer.leftButtonDown()) {
         const tubeId = this.sub.fireTorpedo(worldX, worldY);
         if (tubeId) {
+          this._launchFX.onFire(this.sub.x + 48, this.sub.y);
           this._logEvent('Torpeda odpalona!');
           const tb = this._brg(this.sub.x, this.sub.y, worldX, worldY);
           this._shipLog(`Odpalono: Mk.48 z rury nr ${tubeId}. Nam. ${tb}°, gł. ${this.sub.depthMetres}m. Rury gotowe: ${this.sub.torpedoCount}/4.`, 'info');
@@ -635,6 +638,7 @@ export class GameScene extends Phaser.Scene {
     this._dayTime = (this._dayTime + dt / 480) % 1;   // pełny cykl co 8 minut
     this.ocean.update(delta, this.camX, this._dayTime);
     this._devConsole.update(dt);
+    this._launchFX.update(dt, this.camX);
     this._updatePings(dt);
     this.sonar.update(delta, this.sub, [...this.enemies.filter(e => !e._sinking), ...this.merchants], this.sub.torpedoes, this._activePings);
     this._exportSonarState();

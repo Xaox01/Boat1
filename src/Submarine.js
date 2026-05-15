@@ -571,6 +571,38 @@ export class Submarine {
       g.strokeLineShape(new Phaser.Geom.Line(-48, 0, -48 + Math.cos(a) * 7, Math.sin(a) * 7));
     }
 
+    // ── Wyrzutnie torpedowe (dziób, x≈38..48) ────────────────────────────────
+    const doorFrac = this.scene._launchFX?.doorOpenFraction ?? 0;
+    // 4 kanały torpedowe — widoczne jako szczeliny na dziobie
+    for (let i = 0; i < 4; i++) {
+      const ty = -6 + i * 4;
+      g.fillStyle(0x060e18, 0.85);
+      g.fillRect(34, ty, 14, 3);
+    }
+    // Kanał №1 podświetlony (gotowy)
+    const tubeReady = this.tubes.some(t => t.loaded);
+    g.fillStyle(tubeReady ? 0x00cc44 : 0x885500, 0.75);
+    g.fillCircle(35, -5, 1.5);
+    // Drzwi wyrzutni (animowane)
+    if (doorFrac > 0) {
+      const dAngle = doorFrac * 0.9;   // max ~52°
+      g.save();
+      g.translateCanvas(48, -4);
+      // górna klapka — obraca się w górę
+      g.save();
+      g.rotateCanvas(-dAngle);
+      g.fillStyle(0xe8413a, 0.92);
+      g.fillRect(0, -2, 10, 2);
+      g.restore();
+      // dolna klapka — obraca się w dół
+      g.save();
+      g.rotateCanvas(dAngle);
+      g.fillStyle(0xe8413a, 0.92);
+      g.fillRect(0, 1, 10, 2);
+      g.restore();
+      g.restore();
+    }
+
     // ── Światła nawigacyjne ───────────────────────────────────────────────────
     g.fillStyle(0xff2222, 1); g.fillCircle(-40, 0, 2.0);   // rufowe czerwone
     g.fillStyle(0x22dd22, 1); g.fillCircle( 46, 0, 2.0);   // dziobowe zielone
