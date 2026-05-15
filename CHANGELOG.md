@@ -4,6 +4,48 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.37] — 2026-05-15
+
+### Zmieniono — proceduralny model niszczyciela (Enemy.js)
+
+Całkowita przebudowa grafiki okrętu z uproszczonych prostokątów na szczegółowy model:
+
+**Kadłub:**
+- Kształt wielokątowy (beginPath polygon): ostry dziób, schodkowy pokład, spłaszczona rufa
+- Kopuła sonaru dziobowego (bulbous bow) pod linią wody
+- Antyfouling (ciemny pas przy linii wodnej) + jasna linia wodnicowa
+- Deski pokładowe forecastle i pokładu głównego z liniami planking
+
+**Uzbrojenie i nadbudówki:**
+- Wieżyczka dziobowa 127mm Mk.45 — barbeta + kadłub + podwójna lufa
+- Wieżyczka rufowa 76mm — mniejsza, osobna sylwetka
+- Mostek trójpoziomowy: podstawa nadbudówki, piętro, wieża DCT/CIC, okna
+- Dwa kominy z żółtym paskiem identyfikacyjnym, osobny dym z każdego
+- Wyrzutnie torpedowe poczwórne (4 rury z konturem)
+- VLS ASROC ośmiokomórkowy z podświetlonym wskaźnikiem gotowości
+- CIWS (działko Phalanx/AK-630) na śródo kręciu
+
+**Maszty i wyposażenie:**
+- Maszt trójnogowy z platformą obserwacyjną, obrotową anteną radarową i reją IFF
+- Maszt rufowy z reją i reflektorem
+- Zrzutniki głębinowe na rufie (4 tuby)
+- Kotwica dziobowa z łańcuchem
+- Relingi wzdłuż forecastle i rufy ze słupkami
+- Windą kotwiczną (capstan)
+- Lampki nawigacyjne: rufowa (czerwona), dziobowa (zielona), wierzchołkowa (biała)
+
+**Efekty uszkodzeń (Enemy.js + Merchant.js):**
+- hull < 0.75: czarna kolumna dymu bojowego (world space, animowany sin)
+- hull < 0.50: płomień dziobowy 3-warstwowy + flicker
+- hull < 0.35: drugi ogień rufowy
+- hull < 0.20: ogień na mostku + iskry lecące + pomarańczowy poświat
+
+**Merchant.js:**
+- Analogiczne 4-fazowe efekty ognia/dymu (ładownia + dziób + iskry)
+- Dym bojowy animowany (zastąpił losowy Math.random)
+
+---
+
 ## [0.10.35] — 2026-05-15
 
 ### Dodano — animacja wybuchu przy trafieniu torpedą (ImpactFX)

@@ -176,6 +176,8 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Smear (ślady) na PPI sonarowym |
 | ✅ | Pulsujący pierścień NASŁUCH wokół PPI |
 | ✅ | Sprite'y okrętów — proceduralne wielokąty z detalami (łódź, niszczyciel, torpedy, rakieta) |
+| ✅ | Szczegółowy model niszczyciela — polygon kadłub, 2 wieżyczki, 2 kominy, maszt trójnogowy, VLS, CIWS, torpedy, zrzutniki, relingi, kotwica |
+| ✅ | Efekty uszkodzeń okrętów — 4-fazowy dym/ogień/iskry zależny od stanu kadłuba (Enemy + Merchant) |
 | ✅ | Animacja wybuchu — flash, kula ognia, fala uderzeniowa, bąble, kolumna dymu |
 | ✅ | Eksplozja na powierzchni przy trafieniu torpedą — słup wody, odłamki, ogień, dym, plama oleju, wybuchy wtórne |
 | ✅ | Podwodna warstwa tła — ciemniejsza z głębokością, gradient |

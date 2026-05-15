@@ -996,89 +996,261 @@ export class Enemy {
     const d = this.dir;   // +1 = płynie w prawo (dziób po prawej)
     const a = shipAlpha;
 
-    // ── Dziób (trójkąt przed kadłubem) ───────────────────────────────────────
-    g.fillStyle(col, 0.95 * a);
-    g.fillTriangle(d * 38, -4, d * 28, -11, d * 28, 1);
+    // ════════════════════════════════════════════════════════════════════════
+    // NISZCZYCIEL — szczegółowy model proceduralny
+    // oś lokalna: (0,0) = środek okrętu na linii wody; d=+1 → dziób w prawo
+    // ════════════════════════════════════════════════════════════════════════
 
-    // ── Cień podwodnej części kadłuba ─────────────────────────────────────────
-    g.fillStyle(0x111820, 0.55 * a);
-    g.fillRect(-28, 0, 56, 6);
+    const supCol  = 0x3a4855;
+    const gunCol  = 0x2e3c48;
+    const deckCol = 0x2a3828;
+    const ft0     = Date.now() * 0.001;
 
-    // ── Główny kadłub (nad i pod linią wody) ──────────────────────────────────
-    g.fillStyle(col, 0.92 * a);
-    g.fillRect(-28, -10, 56, 10);
+    // ── Podwodna część kadłuba ────────────────────────────────────────────────
+    g.fillStyle(0x0c1218, 0.70 * a);
+    g.beginPath();
+    g.moveTo(-d * 44, 1);
+    g.lineTo( d * 44, 1);
+    g.lineTo( d * 46, 5);
+    g.lineTo(-d * 42, 6);
+    g.closePath();
+    g.fillPath();
+
+    // Kopuła sonaru dziobowego (bulbous bow)
+    g.fillStyle(0x0a1016, 0.75 * a);
+    g.fillEllipse(d * 40, 5, 14, 9);
+
+    // ── Kadłub główny — polygon ───────────────────────────────────────────────
+    g.fillStyle(col, 0.94 * a);
+    g.beginPath();
+    g.moveTo( d * 48,  -2);          // czubek dzioba
+    g.lineTo( d * 42, -16);          // górna krawędź dzioba
+    g.lineTo( d * 20, -16);          // koniec forecastle
+    g.lineTo( d * 16, -12);          // schodek do głównego pokładu
+    g.lineTo(-d * 28, -12);          // główny pokład
+    g.lineTo(-d * 36,  -8);          // schodek rufowy
+    g.lineTo(-d * 46,  -5);          // rufa górna
+    g.lineTo(-d * 48,   0);          // czubek rufy
+    g.lineTo(-d * 46,   4);          // dół rufy
+    g.lineTo( d * 46,   4);          // kil
+    g.closePath();
+    g.fillPath();
+
+    // Ciemny pas przy linii wodnej (antyfouling)
+    g.fillStyle(0x14181e, 0.82 * a);
+    g.fillRect(-d * 46, 0, d * 92, 4);
 
     // Jasna linia wodnicowa
-    g.lineStyle(1, 0xffffff, 0.18 * a);
-    g.strokeLineShape(new Phaser.Geom.Line(-28, 0, 28, 0));
+    g.lineStyle(0.8, 0x99aabb, 0.22 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(-d * 46, 0, d * 46, 0));
 
-    // ── Pokład forecastle (dziób podniesiony) ─────────────────────────────────
-    g.fillStyle(col, 0.88 * a);
-    g.fillRect(d * 8, -14, d * 20, 4);
+    // Świetlny odblask burty (highlight)
+    g.lineStyle(0.6, 0xaabbcc, 0.12 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(-d * 28, -12, d * 16, -12));
 
-    // ── Wieża artyleryjna na dziobie ──────────────────────────────────────────
-    g.fillStyle(0x666677, 0.88 * a);
-    g.fillCircle(d * 18, -13, 5);
-    // Lufa działa
-    g.lineStyle(2, 0x888899, 0.90 * a);
-    g.strokeLineShape(new Phaser.Geom.Line(d * 18, -13, d * 30, -14));
+    // ── Pokład forecastle ─────────────────────────────────────────────────────
+    g.fillStyle(deckCol, 0.85 * a);
+    g.fillRect(d * 16, -18, d * 26, 2);
+    // Deski pokładowe
+    g.lineStyle(0.5, 0x1e2a18, 0.30 * a);
+    for (let pi = 0; pi < 5; pi++) {
+      g.strokeLineShape(new Phaser.Geom.Line(d * (18 + pi * 5), -18, d * (18 + pi * 5), -16));
+    }
+    // Winda kotwiczna (capstan)
+    g.fillStyle(0x4a5a6a, 0.90 * a);
+    g.fillCircle(d * 36, -18, 3);
+    g.fillStyle(0x22303a, 0.95 * a);
+    g.fillCircle(d * 36, -18, 1.5);
 
-    // ── Mostek / nadbudówka (centrum okrętu) ──────────────────────────────────
+    // ── Pokład główny ─────────────────────────────────────────────────────────
+    g.fillStyle(deckCol, 0.72 * a);
+    g.fillRect(-d * 28, -14, d * 44, 2);
+
+    // ── Relingi ───────────────────────────────────────────────────────────────
+    g.lineStyle(0.7, 0x6a7a8a, 0.38 * a);
+    // Forecastle
+    g.strokeLineShape(new Phaser.Geom.Line(d * 16, -19, d * 41, -19));
+    for (let ri = 0; ri < 5; ri++) {
+      g.strokeLineShape(new Phaser.Geom.Line(d * (18 + ri * 6), -16, d * (18 + ri * 6), -19));
+    }
+    // Rufa
+    g.strokeLineShape(new Phaser.Geom.Line(-d * 28, -14, -d * 46, -6));
+    for (let ri = 0; ri < 3; ri++) {
+      g.strokeLineShape(new Phaser.Geom.Line(-d * (30 + ri * 6), -12, -d * (30 + ri * 6), -14));
+    }
+
+    // ── Wieża artyleryjna dziobowa (127mm Mk.45) ──────────────────────────────
+    // Barbeta
+    g.fillStyle(gunCol, 0.92 * a);
+    g.fillCircle(d * 28, -17, 6);
+    // Kadłub wieżyczki
+    g.fillStyle(0x2e3c48, 0.96 * a);
+    g.fillEllipse(d * 28, -20, 13, 6);
+    // Lufa (podwójna)
+    g.lineStyle(2.4, 0x1e2a34, 0.96 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(d * 28, -21, d * 44, -22));
+    g.lineStyle(1.4, 0x3a4a5a, 0.55 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(d * 29, -20, d * 43, -21));
+    // Odblask na wieżyczce
+    g.fillStyle(0x4a5a6a, 0.28 * a);
+    g.fillEllipse(d * 26, -22, 5, 2.5);
+
+    // ── Mostek — nadbudówka główna ────────────────────────────────────────────
     // Podstawa nadbudówki
-    g.fillStyle(col, 0.95 * a);
-    g.fillRect(-8, -20, 18, 10);
-    // Piętro mostu
-    g.fillStyle(0x445566, 0.88 * a);
-    g.fillRect(-5, -27, 13, 7);
-    // Okna mostka (3 małe kwadraty)
-    g.fillStyle(0x99bbcc, 0.40 * a);
-    for (let i = 0; i < 3; i++) g.fillRect(-3 + i * 4, -26, 3, 3);
+    g.fillStyle(supCol, 0.96 * a);
+    g.fillRect(-d * 2, -23, d * 18, 11);
+    // Skrzydła mostka
+    g.fillStyle(0x2a3844, 0.78 * a);
+    g.fillRect(-d * 4, -21, d * 2, 8);
+    g.fillRect( d * 16, -21, d * 2, 8);
+    // Piętro
+    g.fillStyle(0x344658, 0.92 * a);
+    g.fillRect(d * 0, -29, d * 14, 6);
+    // Wieża DCT / CIC
+    g.fillStyle(0x243444, 0.96 * a);
+    g.fillRect(d * 3, -34, d * 8, 5);
+    // Okna CIC
+    g.fillStyle(0x7aadcc, 0.45 * a);
+    for (let i = 0; i < 3; i++) g.fillRect(d * (4 + i * 3), -33, d * 2, 3);
+    // Okna mostka (niższe)
+    g.fillStyle(0x88bbcc, 0.38 * a);
+    for (let i = 0; i < 4; i++) g.fillRect(d * (-1 + i * 4), -22, d * 3, 3);
+    // Okna niższe
+    g.fillStyle(0x557080, 0.28 * a);
+    for (let i = 0; i < 5; i++) g.fillRect(d * (-1 + i * 3), -19, d * 2, 2);
 
-    // ── Komin (funnel) ────────────────────────────────────────────────────────
-    g.fillStyle(0x334455, 0.90 * a);
-    g.fillRect(-d * 4, -31, 7, 11);
-    // Nasadka komina
-    g.fillStyle(0x223344, 0.95 * a);
-    g.fillRect(-d * 5, -33, 9, 3);
+    // ── Komin przedni (wyższy) ────────────────────────────────────────────────
+    g.fillStyle(0x1a2430, 0.96 * a);
+    g.fillRect(d * 4, -43, d * 9, 14);
+    g.fillStyle(0x111820, 1.0 * a);
+    g.fillRect(d * 3, -45, d * 11, 3);
+    // Pasek identyfikacyjny (żółty)
+    g.fillStyle(0xccaa22, 0.72 * a);
+    g.fillRect(d * 4, -38, d * 9, 2);
+    // Dym (animowany, proporcjonalny do prędkości)
+    for (let i = 0; i < 6; i++) {
+      const age = (i * 0.167 + ft0 * 0.30) % 1;
+      const sx  = d * (8 + Math.sin(ft0 * 0.7 + i) * 3 * age);
+      const sy  = -(45 + age * 38);
+      const sr  = 3 + age * 11;
+      g.fillStyle(0x7a7a88, (1 - age) * 0.30 * a);
+      g.fillCircle(sx, sy, sr);
+    }
 
-    // Dym z komina (animowany) — tylko gdy silnik pracuje
-    if (this.state !== STATE.PATROL || this._listening === false) {
-      const t = Date.now() * 0.001;
-      for (let i = 0; i < 4; i++) {
-        const age  = (i * 0.25 + t * 0.35) % 1;
-        const sx   = -d * 1 + Math.sin(t * 0.8 + i) * 3 * age;
-        const sy   = -(33 + age * 28);
-        const sr   = 3 + age * 7;
-        g.fillStyle(0x888898, (1 - age) * 0.30 * a);
-        g.fillCircle(sx, sy, sr);
+    // ── Komin tylni (niższy, cieńszy) ────────────────────────────────────────
+    g.fillStyle(0x162030, 0.92 * a);
+    g.fillRect(-d * 6, -37, d * 8, 11);
+    g.fillStyle(0x0e1620, 1.0 * a);
+    g.fillRect(-d * 7, -38, d * 10, 2);
+    g.fillStyle(0xccaa22, 0.55 * a);
+    g.fillRect(-d * 6, -32, d * 8, 1.5);
+    // Dym z tylniego komina
+    for (let i = 0; i < 4; i++) {
+      const age = (i * 0.25 + ft0 * 0.28) % 1;
+      const sx  = -d * (2 - Math.sin(ft0 * 0.9 + i) * 2 * age);
+      const sy  = -(38 + age * 28);
+      g.fillStyle(0x686870, (1 - age) * 0.22 * a);
+      g.fillCircle(sx, sy, 2.5 + age * 8);
+    }
+
+    // ── Nadbudówka rufowa ─────────────────────────────────────────────────────
+    g.fillStyle(supCol, 0.88 * a);
+    g.fillRect(-d * 24, -18, d * 14, 6);
+    g.fillStyle(0x2e3c4a, 0.82 * a);
+    g.fillRect(-d * 22, -22, d * 10, 4);
+    // Okna rufowe
+    g.fillStyle(0x88aacc, 0.30 * a);
+    for (let i = 0; i < 2; i++) g.fillRect(-d * (21 - i * 4), -21, d * 3, 2);
+
+    // ── Wieżyczka artyleryjna rufowa (76mm) ───────────────────────────────────
+    g.fillStyle(gunCol, 0.88 * a);
+    g.fillCircle(-d * 34, -11, 5);
+    g.fillStyle(0x2e3c48, 0.92 * a);
+    g.fillEllipse(-d * 34, -13, 10, 5);
+    g.lineStyle(1.8, 0x1e2c38, 0.90 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(-d * 34, -14, -d * 47, -15));
+
+    // ── Wyrzutnie torpedowe poczwórne (amidships) ─────────────────────────────
+    g.fillStyle(0x3a4855, 0.88 * a);
+    g.fillRect(-d * 16, -15, d * 10, 3);   // platforma
+    for (let ti = 0; ti < 4; ti++) {
+      const tx = -d * (7 + ti * 2.4);
+      g.fillStyle(0x4a5a6a, 0.90 * a);
+      g.fillEllipse(tx, -14, 3, 6);
+      g.lineStyle(0.6, 0x6a7a8a, 0.55 * a);
+      g.strokeCircle(tx, -14, 1.4);
+    }
+
+    // ── Wyrzutnia ASROC (8-komórkowa VLS) ────────────────────────────────────
+    g.fillStyle(0x3a4855, 0.90 * a);
+    g.fillRect(d * 12, -26, d * 8, 3);      // podstawa
+    for (let row = 0; row < 2; row++) {
+      for (let cell = 0; cell < 4; cell++) {
+        g.fillStyle(0x2a3844, 0.95 * a);
+        g.fillRect(d * (13 + cell * 1.8), -30 + row * 2.2, d * 1.3, 2);
+        g.fillStyle(0x3a4855, 0.50 * a);
+        g.fillRect(d * (13.3 + cell * 1.8), -29.5 + row * 2.2, d * 0.6, 1.2);
       }
     }
-
-    // ── Maszt z radarem ───────────────────────────────────────────────────────
-    g.fillStyle(0xbbccdd, 0.50 * a);
-    g.fillRect(-1, -36, 2, 9);   // maszt
-    // Antena radaru (obracający się element)
-    const radarAngle = (Date.now() * 0.0018) % (Math.PI * 2);
-    g.lineStyle(1.5, 0x88aacc, 0.65 * a);
-    const rx1 = Math.cos(radarAngle) * 7, ry1 = Math.sin(radarAngle) * 3;
-    g.strokeLineShape(new Phaser.Geom.Line(0, -36, rx1, -36 + ry1));
-    g.strokeLineShape(new Phaser.Geom.Line(0, -36, -rx1, -36 - ry1));
-
-    // ── Wyrzutnia ASROC ───────────────────────────────────────────────────────
-    g.fillStyle(0x778899, 0.82 * a);
-    g.fillRect(d * 10, -15, d * 12, 5);
-    g.fillStyle(0x556677, 0.75 * a);
-    g.fillRect(d * 11, -18, d * 8, 3);
-    // Wskaźnik gotowości ASROC (świeci gdy CD < 6s)
     if (this.asrocCD < 6) {
       const frac = 1 - this.asrocCD / 6;
-      g.fillStyle(0xff8800, frac * 0.90 * a);
-      g.fillCircle(d * 14, -19, 3);
+      g.fillStyle(0xff8800, frac * 0.92 * a);
+      g.fillCircle(d * 16, -32, 2.5);
     }
 
-    // ── Wyrzutniki torped (burta) ─────────────────────────────────────────────
-    g.fillStyle(0x556677, 0.70 * a);
-    g.fillRect(-d * 20, -9, d * 6, 4);
+    // ── CIWS (Phalanx / AK-630 — obrona bezpośrednia) ────────────────────────
+    g.fillStyle(0x3a4855, 0.85 * a);
+    g.fillCircle(-d * 8, -15, 4);
+    g.fillStyle(supCol, 0.88 * a);
+    g.fillCircle(-d * 8, -15, 2.5);
+    g.lineStyle(1.5, 0x2a3848, 0.90 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(-d * 8, -15, -d * 8, -21));
+    g.lineStyle(1.0, 0x3a4a5a, 0.75 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(-d * 8, -18, -d * 4, -20));
+
+    // ── Maszt trójnogowy główny ───────────────────────────────────────────────
+    g.lineStyle(1.2, 0x8899bb, 0.68 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(d * 8, -34, d * 5, -52));
+    g.strokeLineShape(new Phaser.Geom.Line(d * 8, -34, d * 11, -52));
+    g.strokeLineShape(new Phaser.Geom.Line(d * 8, -34, d * 8,  -55));
+    // Platforma obserwacyjna
+    g.fillStyle(0x2a3848, 0.80 * a);
+    g.fillRect(d * 4, -53, d * 8, 2);
+    // Antena radaru obrotowego
+    const ra = (ft0 * 0.0018 * 1000) % (Math.PI * 2);
+    g.lineStyle(1.8, 0x88aacc, 0.72 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(d * 8, -54, d * 8 + Math.cos(ra) * 11, -54 + Math.sin(ra) * 4));
+    g.strokeLineShape(new Phaser.Geom.Line(d * 8, -54, d * 8 - Math.cos(ra) * 11, -54 - Math.sin(ra) * 4));
+    // Reja + antena IFF
+    g.lineStyle(0.8, 0xaabbcc, 0.42 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(d * 4, -50, d * 12, -50));
+    g.strokeLineShape(new Phaser.Geom.Line(d * 8, -46, d * 8, -52));
+
+    // ── Maszt rufowy ──────────────────────────────────────────────────────────
+    g.lineStyle(0.9, 0x7788aa, 0.50 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(-d * 40, -8, -d * 40, -28));
+    g.strokeLineShape(new Phaser.Geom.Line(-d * 36, -26, -d * 44, -26));
+    // Reflektor
+    g.fillStyle(0x6688aa, 0.45 * a);
+    g.fillCircle(-d * 36, -26, 2);
+
+    // ── Zrzutniki głębinowe rufowe ────────────────────────────────────────────
+    g.fillStyle(0x3a4440, 0.80 * a);
+    for (let i = 0; i < 4; i++) {
+      g.fillRect(-d * (39 + i * 2.8), -4, d * 2, 6);
+    }
+
+    // ── Kotwica dziobowa ──────────────────────────────────────────────────────
+    g.fillStyle(0x2a3440, 0.70 * a);
+    g.fillCircle(d * 43, -14, 2.5);
+    g.lineStyle(0.8, 0x3a4450, 0.60 * a);
+    g.strokeLineShape(new Phaser.Geom.Line(d * 43, -11, d * 43, -6));
+    g.strokeLineShape(new Phaser.Geom.Line(d * 41, -8, d * 45, -8));
+
+    // ── Lampki nawigacyjne ────────────────────────────────────────────────────
+    g.fillStyle(0xff2222, 0.92 * a); g.fillCircle(-d * 46, -5, 1.5);   // rufowa
+    g.fillStyle(0x22dd22, 0.92 * a); g.fillCircle( d * 48, -2, 1.5);   // dziobowa
+    g.fillStyle(0xffffff, 0.72 * a); g.fillCircle( d * 8, -55, 1.5);   // wierzchołkowa
 
     // ── Pęknięcia / dym / ogień przy uszkodzeniach ───────────────────────────
     if (this.hull < 0.75) {
