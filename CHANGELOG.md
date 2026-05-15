@@ -4,6 +4,26 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.41] — 2026-05-16
+
+### Naprawiono — 100% pokrycia źródeł obrażeń w sekcji AWARIE
+
+Wszystkie 6 źródeł obrażeń teraz trafia do dziennika AWARII i uszkadza odpowiednie systemy:
+
+- `applyDamage('KOLIZJA Z DNEM')` — uderzenie w dno (było: bezpośrednie `this.hull -=`)
+- `_continuousHullDamage('TARCIE O DNO', naped/balast)` — tarcie przy poziomym ruchu po dnie (rate-limit: 8s)
+- `_continuousHullDamage('BRAK TLENU', tlen/zasilanie)` — obrażenia przy wyczerpaniu O₂ (rate-limit: 8s)
+- `_continuousHullDamage('PRZECIĄŻENIE CIŚNIENIOWE', balast/zasilanie/naped)` — głębokość kruszenia (rate-limit: 8s)
+- `applyDamage('TORPEDA ASROC')` i `applyDamage('ZARZUT GŁĘBINOWY')` — już pokryte
+
+Dodano `_continuousHullDamage(amount, source, weights)` — odpowiednik `applyDamage` dla źródeł ciągłych:
+rate-limiter `_contDmgCooldowns` zapobiega spamowaniu dziennika (max 1 wpis / 8s / źródło).
+Każdy wpis loguje uszkodzony system z wagami specyficznymi dla źródła.
+
+Naprawiono błąd kodowania w regex `applyDamage` (GŁĘBINOWY → /ZARZUT/).
+
+---
+
 ## [0.10.40] — 2026-05-15
 
 ### Dodano — Pełna integracja systemu awarii z rozgrywką

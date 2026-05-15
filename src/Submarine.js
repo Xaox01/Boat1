@@ -43,7 +43,8 @@ export class Submarine {
       tlen:    { health: 1.0, label: 'SYS. TLENOWY',    emoji: '○' },
       zasilanie: { health: 1.0, label: 'ZASILANIE',     emoji: '◇' },
     };
-    this._damageLog = [];   // { t, msg, sev } — zdarzenia awarii
+    this._damageLog       = [];   // { ts, msg, sev } — zdarzenia awarii
+    this._contDmgCooldowns = {};  // { source: remainingSeconds } — rate-limiter ciągłych obrażeń
 
     // Derived / exported to GameScene
     this.noise            = 0;   // raw acoustic output
@@ -156,9 +157,9 @@ export class Submarine {
 
     // Wagi systemów — różne strefy kadłuba trafiają różne systemy
     const w = { naped:1, sonarP:1, sonarA:1, torpedy:1, rakiety:1, balast:1, tlen:1, zasilanie:1 };
-    if (/ASROC|TORPEDA/.test(source))         { w.torpedy*=3; w.sonarA*=2; w.rakiety*=2; }
-    else if (/ZARZUT|G.ÊBINOWY/.test(source)) { w.balast*=3; w.tlen*=2; w.zasilanie*=2; }
-    else if (/KOLIZJA|DNO/.test(source))      { w.naped*=3; w.balast*=2; }
+    if      (/ASROC|TORPEDA/.test(source))  { w.torpedy*=3; w.sonarA*=2;   w.rakiety*=2; }
+    else if (/ZARZUT/.test(source))         { w.balast*=3; w.tlen*=2;     w.zasilanie*=2; }
+    else if (/KOLIZJA|TARCIE|DNO/.test(source)) { w.naped*=3; w.balast*=2; }
 
     const keys  = Object.keys(w);
     const total = keys.reduce((s, k) => s + w[k], 0);
@@ -183,6 +184,33 @@ export class Submarine {
     const ts  = `${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
     const txt = damaged.length ? ` ⚠ ${damaged.join(', ')}` : '';
     this._damageLog.unshift({ ts, msg: `${source||'TRAFIENIE'} −${Math.round(amount*100)}% kad.${txt}`, sev });
+    if (this._damageLog.length > 20) this._damageLog.pop();
+  }
+
+  // Ciągłe obrażenia (tlen, głębokość, tarcie) — rate-limitowane wpisy w dzienniku
+  _continuousHullDamage(amount, source, weights = null) {
+    this.hull = Math.max(0, this.hull - amount);
+
+    if ((this._contDmgCooldowns[source] ?? 0) > 0) return;
+    this._contDmgCooldowns[source] = 8.0;   // max 1 wpis na 8s z tego samego źródła
+
+    const sev = this.hull < 0.3 ? 'crit' : 'warn';
+    const w   = weights || { naped:1, sonarP:1, sonarA:1, torpedy:1, rakiety:1, balast:1, tlen:1, zasilanie:1 };
+    const keys  = Object.keys(w);
+    const total = keys.reduce((s, k) => s + w[k], 0);
+    let r = Math.random() * total;
+    let pickedKey = keys[0];
+    for (const k of keys) { r -= w[k]; if (r <= 0) { pickedKey = k; break; } }
+
+    const sys = this.systems[pickedKey];
+    let txt = '';
+    if (sys && sys.health > 0) {
+      sys.health = Math.max(0, sys.health - (0.07 + Math.random() * 0.10));
+      txt = ` ⚠ ${sys.label}`;
+    }
+    const t  = new Date();
+    const ts = `${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+    this._damageLog.unshift({ ts, msg: `${source}${txt}`, sev });
     if (this._damageLog.length > 20) this._damageLog.pop();
   }
 
@@ -417,7 +445,8 @@ export class Submarine {
       const impactVy = Math.abs(this.vy);
       this.impactVelocity = impactVy;
       if (impactVy > 25) {
-        this.hull -= Phaser.Math.Clamp((impactVy - 25) / 260, 0.003, 0.22);
+        const dmg = Phaser.Math.Clamp((impactVy - 25) / 260, 0.003, 0.22);
+        this.applyDamage(dmg, 'KOLIZJA Z DNEM');
       }
       this.y  = FLOOR_Y;
       this.vy = 0;
@@ -426,8 +455,10 @@ export class Submarine {
       this.onFloor = true;
     }
 
+    // Tarcie o dno przy poziomym ruchu
     if (this.onFloor && Math.abs(this.vx) > 15) {
-      this.hull -= 0.0008 * (Math.abs(this.vx) / 100);
+      const dmg = 0.0008 * (Math.abs(this.vx) / 100);
+      this._continuousHullDamage(dmg, 'TARCIE O DNO', { naped: 3, balast: 2, zasilanie: 1 });
     }
   }
 
@@ -485,14 +516,22 @@ export class Submarine {
       this.oxygen -= (0.00055 + depth * 0.0000018) * tlenDrainMult * dt;
     }
     this.oxygen = Phaser.Math.Clamp(this.oxygen, 0, 1);
-    if (this.oxygen <= 0) this.hull -= 0.007 * dt;
+    if (this.oxygen <= 0) {
+      this._continuousHullDamage(0.007 * dt, 'BRAK TLENU', { tlen: 3, zasilanie: 2 });
+    }
 
     // ── Crush depth ───────────────────────────────────────────────────────
     if (depth > CRUSH_DEPTH) {
-      this.hull -= ((depth - CRUSH_DEPTH) / 100) * 0.16 * dt;
+      const dmg = ((depth - CRUSH_DEPTH) / 100) * 0.16 * dt;
+      this._continuousHullDamage(dmg, 'PRZECIĄŻENIE CIŚNIENIOWE', { balast: 3, zasilanie: 2, naped: 1 });
     }
 
     this.hull = Phaser.Math.Clamp(this.hull, 0, 1);
+
+    // ── Cooldowny ciągłych obrażeń ─────────────────────────────────────────
+    for (const k of Object.keys(this._contDmgCooldowns)) {
+      this._contDmgCooldowns[k] = Math.max(0, this._contDmgCooldowns[k] - dt);
+    }
   }
 
   // ── Rendering ──────────────────────────────────────────────────────────────
