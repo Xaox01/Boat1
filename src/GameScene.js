@@ -634,7 +634,7 @@ export class GameScene extends Phaser.Scene {
     this._applyCamera();
     this._dayTime = (this._dayTime + dt / 480) % 1;   // pełny cykl co 8 minut
     this.ocean.update(delta, this.camX, this._dayTime);
-    this._devConsole.update();
+    this._devConsole.update(dt);
     this._updatePings(dt);
     this.sonar.update(delta, this.sub, [...this.enemies.filter(e => !e._sinking), ...this.merchants], this.sub.torpedoes, this._activePings);
     this._exportSonarState();
