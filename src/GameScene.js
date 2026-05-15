@@ -500,7 +500,8 @@ export class GameScene extends Phaser.Scene {
         this.cameras.main.shake(isMerchant ? 350 : 400, isMerchant ? 0.012 : 0.014);
         this.cameras.main.flash(200, 255, 160, 60, false);
         if (target.hull <= 0) {
-          target.destroyed = true;
+          if (isMerchant) target.destroyed = true;
+          else target.startSinking();
           const mb2 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
           const mr2 = this._rng(this.sub.x, this.sub.y, target.x, target.y);
           if (isMerchant) {
@@ -527,7 +528,7 @@ export class GameScene extends Phaser.Scene {
 
     // Player torpedo hits vs enemies
     for (const t of this.sub.torpedoes) {
-      for (const target of this.enemies.filter(e => !e.destroyed)) {
+      for (const target of this.enemies.filter(e => !e.destroyed && !e._sinking)) {
         const dmg = t.checkHit(target);
         if (dmg > 0) {
           target.hull -= dmg;
@@ -535,7 +536,7 @@ export class GameScene extends Phaser.Scene {
           this.cameras.main.shake(300, 0.008);
           this.cameras.main.flash(120, 200, 255, 120, false);
           if (target.hull <= 0) {
-            target.destroyed = true;
+            target.startSinking();
             this._logEvent(target.label ? `${target.label} zatopiony!` : 'Wróg zatopiony!');
             const tb2 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
             const tr2 = this._rng(this.sub.x, this.sub.y, target.x, target.y);
@@ -1090,7 +1091,7 @@ export class GameScene extends Phaser.Scene {
     this._prevCavitating = sub.cavitating;
 
     // Enemy state transitions — destroyers
-    for (const enemy of this.enemies) {
+    for (const enemy of this.enemies.filter(e => !e._sinking)) {
       const prev = this._prevEnemyState.get(enemy);
       const curr = enemy.state;
       if (prev !== curr) {

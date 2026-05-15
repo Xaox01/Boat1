@@ -4,6 +4,33 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.30] — 2026-05-15
+
+### Dodano — animacja tonięcia niszczyciela (7.5s)
+
+**src/Enemy.js:**
+- `startSinking()` — inicjuje animację; blokuje dalszy atak, zeruje needsReinforcement, revealTimer = 9.5s
+- `_updateSinking(dt)` — tick animacji: bąble powietrza (co ~0.11s), finalnie `destroyed = true`
+- `_drawSinking(prog)` — pełna animacja proceduralna:
+  - Plama oleju — rośnie od 36px do 280px, tęczowy reflex
+  - Bąble powietrza — unoszą się 38px/s, zanikają przez 3.8s
+  - Fale na powierzchni — elipsa rozchodząca się od prog=0.55
+  - Okręt pochyla się do 90° (`rotateCanvas`) i zanurza 95px w dół
+  - Wybuch początkowy — biała kula (prog < 0.20)
+  - Ogień — 4–9 cząsteczek, intensywność rośnie z progresem
+  - Dym — 5–13 cząsteczek, gęstnieje i ciemnieje
+  - Pęknięcia kadłuba pojawiają się od prog=0.15
+  - Alpha fade na finałowych 17% animacji
+- Sinking branch w `update()` — pomija całą logikę bojową i AI
+- Torpedo/rakieta: torpedy gracza nie mogą trafić już tonącego (`!e._sinking` filter)
+- State transitions log: pomija tonące okręty
+
+**src/GameScene.js:**
+- Trafienie torpedą Mk.48: `target.startSinking()` zamiast `target.destroyed = true`
+- Trafienie rakietą vs wrogie: `target.startSinking()` zamiast `target.destroyed = true`
+- Filter torpedy gracza: `!e.destroyed && !e._sinking`
+- Loop state transitions: `filter(e => !e._sinking)`
+
 ## [0.10.29] — 2026-05-14
 
 ### Zmieniono — AI wrogów v2: dead reckoning, posiłki, flanking, lepszy SEARCH

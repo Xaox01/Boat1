@@ -185,7 +185,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | 🟡 | Promienie słońca — god rays przebijające się przez powierzchnię (WebGL shader) |
 | 🟡 | Bąble powietrza — unoszące się przy wynurzaniu i eksplozjach |
 | 🟡 | Deszcz i burza morska — efekt na powierzchni, wpływ na hałas |
-| 🟡 | Zniszczony niszczyciel — animacja tonięcia, ślad olejowy i dym |
+| ✅ | Zniszczony niszczyciel — animacja tonięcia 7.5s: przechył 90°, ogień, dym, bąble, plama oleju, fale |
 | 🟡 | Ślad torpedy przez wodę — zanikająca linia biały szlak |
 | 🟡 | Efekt implozji kadłuba — silna kompresja grafiki przy śmierci |
 | 🟢 | Paralaksa tła — warstwy oceanu przesuwające się z różną prędkością |
