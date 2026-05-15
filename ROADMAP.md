@@ -22,7 +22,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Świat 12 000px (~14.4km) zamiast 4 096px |
 | 🔴 | Prądy oceanu — poziome znoszenie w zależności od głębokości |
 | 🔴 | Kąt natarcia do torpedy — wpływ prędkości łodzi na trajektorię |
-| 🟡 | Zniszczenie systemów — utrata sonaru / napędu od obrażeń |
+| ✅ | Zniszczenie systemów — utrata sonaru / napędu od obrażeń (model health per system) |
 | 🟡 | Przeciążenie ciśnieniowe przy przekroczeniu głębokości kruszenia |
 | 🟢 | Trim — kontrola kąta poprzecznego (obrót wokół osi Z) |
 | 🟢 | Silnik Diesla na powierzchni — szybsze ładowanie, większy hałas |
@@ -127,7 +127,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Mapa taktyczna [M] — live overlay z terenem, trasą, kontaktami, zasięgami |
 | ✅ | Stacja BROŃ (F4) — rury torpedowe, zapasy bojowe, 3 karty uzbrojenia, live sync z HUD |
 | 🔴 | Zegar prawdziwy 24h — pora dnia wpływa na widoczność (peryskop) |
-| 🔴 | Panel uszkodzeń — lista systemów z ikonami statusu (OK / AWARIA) |
+| ✅ | Panel AWARIE (F6) — lista 8 systemów z paskami zdrowia, badge statusu, dziennik awarii 5Hz |
 | 🟡 | Wiadomości radiowe — przychodzące meldunki ze sztabu (fabuła) |
 | 🟡 | Historia trajektorii łodzi — subtelna linia za okrętem |
 | 🟡 | Panel komputera torpedowego TMA (Track Motion Analysis) |
@@ -243,4 +243,4 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 
 ---
 
-*Ostatnia aktualizacja: 2026-05-14 — peryskop pełna integracja: selekcja V-*, hałas masztu, badge HUD, FOV cone CONN, sync kursu*
+*Ostatnia aktualizacja: 2026-05-15 — panel AWARIE (F6): śledzenie 8 systemów, applyDamage(), dziennik zdarzeń*

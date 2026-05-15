@@ -460,8 +460,7 @@ export class GameScene extends Phaser.Scene {
       // Torpedy samonaprowadzające z ASROC
       for (const ht of enemy.homingTorpedoes) {
         if (ht.recentHit) {
-          this.sub.hull -= ht.recentHit.damage;
-          this.sub.hull  = Math.max(0, this.sub.hull);
+          this.sub.applyDamage(ht.recentHit.damage, 'TORPEDA ASROC');
           this.cameras.main.shake(550, 0.025);
           this.cameras.main.flash(180, 255, 140, 60, false);
           this._logEvent('TRAFIENIE — torpeda naprowadzana ASROC!');
@@ -727,6 +726,12 @@ export class GameScene extends Phaser.Scene {
     window._sonar.silentRunning = sub.silentRunning;
     window._sonar.depth         = sub.depthMetres;
     window._sonar.dayTime       = this._dayTime;
+    window._sonar.hull          = sub.hull;
+    window._sonar.battery       = sub.battery;
+    window._sonar.oxygen        = sub.oxygen;
+    window._sonar.noise         = sub.noise;
+    window._sonar.systems       = sub.systems;
+    window._sonar.damageLog     = sub._damageLog;
     window._sonar.tick++;
 
     // Synchronizuj wybór z stacji SONAR/PERYSKOP do systemu celowania

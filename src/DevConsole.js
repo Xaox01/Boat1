@@ -412,7 +412,7 @@ export class DevConsole {
 
   // ── Parser komend ─────────────────────────────────────────────────────────
 
-  _exec(raw) {
+  async _exec(raw) {
     this._print('> ' + raw, HDR_CLR);
     const parts = raw.trim().split(/\s+/);
     const cmd   = parts[0].toLowerCase();
@@ -429,7 +429,9 @@ export class DevConsole {
           this._print('  hull <0-1>    — kondycja kadłuba');
           this._print('  depth <m>     — głębokość w metrach');
           this._print('  tp <x>        — teleport na X [px]');
-          this._print('  spawn [n]     — spawnuj N wrogów');
+          this._print('  spawn [n]     — spawnuj N wrogów (alert, z dystansu)');
+          this._print('  ship [n] [dx] — spawnuj N okrętów tuż obok (widoczne, PATROL)');
+          this._print('  reveal        — ujawnij wszystkich wrogów na ekranie');
           this._print('  kill          — zatop wszystkich wrogów');
           this._print('  wave <n>      — ustaw nr fali zagrożenia');
           this._print('  ammo          — uzupełnij całą amunicję');
@@ -485,6 +487,37 @@ export class DevConsole {
             ?? { x: sub.x + 2500, lastKnownSubX: sub.x, lastKnownSubY: sub.y };
           for (let i = 0; i < n; i++) s._spawnReinforcement(anchor);
           this._print(`Spawniono ${n} wr${n === 1 ? 'oga' : 'ogów'}`);
+          break;
+        }
+
+        case 'ship': {
+          // Spawnuje okręty blisko gracza — pełna widoczność, spokojny patrol
+          const n  = Math.max(1, Math.min(8, parseInt(args[0]) || 1));
+          const dx = parseFloat(args[1]) || 350;   // domyślnie 350px od gracza
+          const WORLD_W = s.WORLD_W ?? 12000;
+          const { Enemy: EnemyCls } = await import('./Enemy.js');
+          for (let i = 0; i < n; i++) {
+            const offset = dx + i * 200;
+            const cx = Math.max(200, Math.min(WORLD_W - 200, sub.x + offset));
+            const e  = new EnemyCls(s, cx, Math.max(80, cx - 800), Math.min(WORLD_W - 80, cx + 800), `TEST-${i + 1}`);
+            e.revealTimer = 9999;   // zawsze widoczny
+            s.enemies.push(e);
+            this._print(`  TEST-${i + 1}  x=${Math.round(cx)}px`, VAL_CLR);
+          }
+          this._print(`Spawniono ${n} okr${n === 1 ? 'ęt' : 'ęty/ętów'} (widoczne)`);
+          break;
+        }
+
+        case 'reveal': {
+          // Ujawnij wszystkich aktualnych wrogów na 60 sekund
+          let cnt = 0;
+          for (const e of s.enemies) {
+            if (!e.destroyed) { e.revealTimer = Math.max(e.revealTimer, 60); cnt++; }
+          }
+          for (const m of s.merchants ?? []) {
+            m.revealTimer = Math.max(m.revealTimer, 60); cnt++;
+          }
+          this._print(cnt ? `Ujawniono ${cnt} jednostek na 60s` : 'Brak jednostek');
           break;
         }
 

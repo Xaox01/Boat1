@@ -536,7 +536,9 @@ export class Enemy {
 
         if (dist < CHARGE_BLAST_R) {
           const ratio = 1 - dist / CHARGE_BLAST_R;
-          sub.hull -= Phaser.Math.Clamp(ratio * 0.44, 0.04, 0.44);
+          const dmg   = Phaser.Math.Clamp(ratio * 0.44, 0.04, 0.44);
+          if (sub.applyDamage) sub.applyDamage(dmg, 'ZARZUT GŁĘBINOWY');
+          else sub.hull = Math.max(0, sub.hull - dmg);
         }
         this.recentExplosions.push({ x: c.x, y: c.y, dist });
       }

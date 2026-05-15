@@ -4,6 +4,32 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.38] — 2026-05-15
+
+### Dodano — Panel AWARIE (stanowisko F6)
+
+**Submarine.js:**
+- Dodano `this.systems` — 8 śledzonych systemów okrętowych (napęd, sonar pasywny/aktywny, torpedy, rakiety, balast, tlen, zasilanie)
+- Każdy system: `{ health: 1.0, label, emoji }`
+- `applyDamage(amount, source)` — centralna metoda obrażeń: redukuje kadłub, uszkadza 1–2 losowe systemy, loguje zdarzenie do `_damageLog`
+
+**GameScene.js:**
+- Eksport do `window._sonar`: `hull`, `battery`, `oxygen`, `noise`, `systems`, `damageLog`
+- Trafienie torpedą ASROC przechodzi przez `sub.applyDamage()` zamiast bezpośredniej redukcji `sub.hull`
+
+**Enemy.js:**
+- Obrażenia od zarzutów głębinowych kierowane przez `sub.applyDamage('ZARZUT GŁĘBINOWY')`
+
+**index.html:**
+- Nowa zakładka `AWARIE` (F6) — siatka 2-kolumnowa, czerwone tło
+- Sekcja nagłówka: badge ogólnego statusu (OPERACYJNY / ZDEGRADOWANY / USZKODZONY / KRYTYCZNE)
+- Wiersz kondycji: kadłub%, bateria%, tlen% z progami kolorów
+- Lista systemów: ikona + nazwa + pasek postępu + badge (ok/deg/crit/fail z animacją blink)
+- Dziennik awarii: ostatnie 20 zdarzeń z poziomami info/warn/crit
+- `damageLoop()` — pętla 5Hz aktualizująca cały panel
+
+---
+
 ## [0.10.37] — 2026-05-15
 
 ### Zmieniono — proceduralny model niszczyciela (Enemy.js)

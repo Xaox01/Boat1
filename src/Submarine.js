@@ -32,6 +32,19 @@ export class Submarine {
     this.oxygen      = 1.0;
     this.enginePower = 0;
 
+    // Systemy okrętowe — zdrowie 0–1, uszkadzane przy trafieniach
+    this.systems = {
+      naped:   { health: 1.0, label: 'NAPĘD GÓWNY',     emoji: '⚙' },
+      sonarP:  { health: 1.0, label: 'SONAR PASYWNY',   emoji: '◎' },
+      sonarA:  { health: 1.0, label: 'SONAR AKTYWNY',   emoji: '◉' },
+      torpedy: { health: 1.0, label: 'SYS. TORPEDOWE',  emoji: '▶' },
+      rakiety: { health: 1.0, label: 'SYS. RAKIETOWY',  emoji: '↑' },
+      balast:  { health: 1.0, label: 'SYS. BALASTU',    emoji: '≈' },
+      tlen:    { health: 1.0, label: 'SYS. TLENOWY',    emoji: '○' },
+      zasilanie: { health: 1.0, label: 'ZASILANIE',     emoji: '◇' },
+    };
+    this._damageLog = [];   // { t, msg, sev } — zdarzenia awarii
+
     // Derived / exported to GameScene
     this.noise            = 0;   // raw acoustic output
     this.noiseEffective   = 0;   // what enemy hydrophones detect (masked by thermocline)
@@ -123,6 +136,35 @@ export class Submarine {
     this.noiseSurge    = 1.0;   // silne zakłócenie akustyczne — zdradza pozycję!
     this.missiles.push(new Missile(this.scene, this.x, this.y, targetX));
     return 'ok';
+  }
+
+  // Uszkodzenie kadłuba + losowe systemy okrętowe
+  applyDamage(amount, source = '') {
+    this.hull = Math.max(0, this.hull - amount);
+    const keys  = Object.keys(this.systems);
+    const sev   = amount > 0.3 ? 'crit' : amount > 0.15 ? 'warn' : 'info';
+
+    // Przy dużym trafieniu: 2 systemy, przy małym: 1 (33% szansy)
+    const hits = (sev === 'crit') ? 2 : (Math.random() < 0.33 ? 1 : 0);
+    const damaged = [];
+    for (let i = 0; i < hits; i++) {
+      const key = keys[Math.floor(Math.random() * keys.length)];
+      const sys = this.systems[key];
+      if (sys.health > 0) {
+        sys.health = Math.max(0, sys.health - (0.4 + Math.random() * 0.5));
+        damaged.push(sys.label);
+      }
+    }
+
+    const t = new Date();
+    const ts = `${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+    const dmgTxt = damaged.length ? ` — AWARIA: ${damaged.join(', ')}` : '';
+    this._damageLog.unshift({
+      ts,
+      msg: `${source || 'TRAFIENIE'} −${Math.round(amount*100)}% kad.${dmgTxt}`,
+      sev,
+    });
+    if (this._damageLog.length > 20) this._damageLog.pop();
   }
 
   // Tryb nasłuchu — okręt prawie nieruchomy → pasywny sonar znacznie czulszy

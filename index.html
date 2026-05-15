@@ -384,6 +384,111 @@
       border: 1px solid currentColor; margin-bottom: 10px;
     }
 
+    /* ── DAMAGE STATION ─────────────────────────────────── */
+    #damage-station {
+      display: none;
+      position: absolute; inset: 0; z-index: 12;
+      background: radial-gradient(ellipse at 50% 40%, #100408 0%, var(--bg) 72%);
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto 1fr;
+      gap: 14px; padding: 14px;
+    }
+    #damage-station.active { display: grid; }
+
+    #ds-header {
+      grid-column: 1 / -1;
+      display: flex; align-items: baseline; justify-content: space-between;
+      border-bottom: 1px solid var(--ink-faint); padding-bottom: 8px;
+      flex-shrink: 0;
+    }
+    #ds-header-title {
+      font-family: var(--fd); font-size: 11px; letter-spacing: 3px; color: var(--ink-dim);
+    }
+    #ds-header-status {
+      font-family: var(--fm); font-size: 9px; letter-spacing: 2px;
+    }
+
+    /* System grid */
+    #ds-systems {
+      display: flex; flex-direction: column; gap: 0; min-height: 0;
+      background: var(--bg-panel);
+      border: 1px solid var(--ink-faint);
+    }
+    #ds-systems::before {
+      content: 'SYSTEMY OKRĘTOWE';
+      display: block; padding: 7px 12px 5px;
+      font-size: 8px; letter-spacing: 2.5px; color: var(--ink-dim);
+      border-bottom: 1px solid var(--ink-faint);
+    }
+    .ds-sys-row {
+      display: grid;
+      grid-template-columns: 22px 1fr 56px 70px;
+      align-items: center; gap: 8px;
+      padding: 7px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .ds-sys-row:last-child { border-bottom: none; }
+    .ds-sys-icon { font-size: 10px; text-align: center; opacity: 0.7; }
+    .ds-sys-name { font-size: 9px; letter-spacing: 1.5px; color: var(--ink-dim); }
+    .ds-sys-bar-wrap {
+      height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden;
+    }
+    .ds-sys-bar { height: 100%; border-radius: 2px; transition: width 0.4s, background 0.4s; }
+    .ds-sys-badge {
+      font-family: var(--fm); font-size: 9px; letter-spacing: 1px; text-align: right;
+    }
+    .ds-sys-badge.ok     { color: var(--green); }
+    .ds-sys-badge.deg    { color: var(--amber); }
+    .ds-sys-badge.crit   { color: #ff4444; }
+    .ds-sys-badge.fail   { color: #ff2222; animation: ds-blink 0.8s infinite; }
+    @keyframes ds-blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+    /* Condition summary bar at top of systems */
+    #ds-condition-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      padding: 10px 0 8px;
+      border-bottom: 1px solid var(--ink-faint);
+    }
+    .ds-cond-cell {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 4px 8px; border-right: 1px solid var(--ink-faint);
+    }
+    .ds-cond-cell:last-child { border-right: none; }
+    .ds-cond-lbl { font-size: 7px; letter-spacing: 2px; color: var(--ink-faint); }
+    .ds-cond-val { font-family: var(--fd); font-size: 22px; line-height: 1.1; margin-top: 2px; }
+    .ds-cond-sub { font-size: 7px; letter-spacing: 1px; color: var(--ink-faint); }
+
+    /* Damage log */
+    #ds-log {
+      display: flex; flex-direction: column; gap: 0; min-height: 0; overflow: hidden;
+      background: var(--bg-panel);
+      border: 1px solid var(--ink-faint);
+    }
+    #ds-log::before {
+      content: 'DZIENNIK AWARII';
+      display: block; padding: 7px 12px 5px; flex-shrink: 0;
+      font-size: 8px; letter-spacing: 2.5px; color: var(--ink-dim);
+      border-bottom: 1px solid var(--ink-faint);
+    }
+    #ds-log-entries {
+      overflow-y: auto; flex: 1;
+      scrollbar-width: thin; scrollbar-color: var(--ink-faint) transparent;
+    }
+    .ds-log-entry {
+      display: grid; grid-template-columns: 38px 1fr;
+      gap: 6px; padding: 6px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 9px; line-height: 1.5;
+    }
+    .ds-log-entry:last-child { border-bottom: none; }
+    .ds-log-ts { color: var(--ink-faint); font-variant-numeric: tabular-nums; padding-top: 1px; }
+    .ds-log-msg { color: var(--ink-dim); letter-spacing: 0.3px; }
+    .ds-log-entry.warn  .ds-log-msg { color: var(--amber); }
+    .ds-log-entry.crit  .ds-log-msg { color: #ff5533; }
+    .ds-log-empty { padding: 18px 12px; font-size: 9px; letter-spacing: 1px; color: var(--ink-faint); text-align: center; }
+
     /* ── LEFT PANEL ────────────────────────────────────── */
     #left-panel {
       width:200px; flex-shrink:0;
@@ -742,7 +847,7 @@
         <span class="stab-lbl">NAWIGACJA</span>
         <span class="stab-code">F5</span>
       </div>
-      <div class="stab" data-station="conn">
+      <div class="stab" data-station="damage">
         <span class="stab-lbl">AWARIE</span>
         <span class="stab-code">F6</span>
       </div>
@@ -1176,6 +1281,51 @@
 
       </div><!-- #weapon-station -->
 
+      <!-- ══ DAMAGE STATION ══ -->
+      <div id="damage-station">
+
+        <!-- Nagłówek -->
+        <div id="ds-header">
+          <span id="ds-header-title">PANEL AWARII — ORP ORZEŁ</span>
+          <span id="ds-header-status" class="ok">● OPERACYJNY</span>
+        </div>
+
+        <!-- Lewa kolumna: kondycja + systemy -->
+        <div style="display:flex;flex-direction:column;gap:10px;min-height:0;">
+          <!-- Kondycja ogólna (3 wartości) -->
+          <div id="ds-condition-row" style="background:var(--bg-panel);border:1px solid var(--ink-faint);">
+            <div class="ds-cond-cell">
+              <span class="ds-cond-lbl">KADŁUB</span>
+              <span class="ds-cond-val" id="ds-hull">100<span style="font-size:12px">%</span></span>
+              <span class="ds-cond-sub" id="ds-hull-sub">INTEGRALNY</span>
+            </div>
+            <div class="ds-cond-cell">
+              <span class="ds-cond-lbl">BATERIA</span>
+              <span class="ds-cond-val" id="ds-battery">100<span style="font-size:12px">%</span></span>
+              <span class="ds-cond-sub" id="ds-batt-sub">PEŁNA</span>
+            </div>
+            <div class="ds-cond-cell">
+              <span class="ds-cond-lbl">TLEN</span>
+              <span class="ds-cond-val" id="ds-oxygen">100<span style="font-size:12px">%</span></span>
+              <span class="ds-cond-sub" id="ds-oxy-sub">NORMA</span>
+            </div>
+          </div>
+
+          <!-- Lista systemów -->
+          <div id="ds-systems" style="flex:1;overflow-y:auto;">
+            <!-- generowane przez JS -->
+          </div>
+        </div>
+
+        <!-- Prawa kolumna: dziennik awarii -->
+        <div id="ds-log">
+          <div id="ds-log-entries">
+            <div class="ds-log-empty">BRAK ZAREJESTROWANYCH AWARII</div>
+          </div>
+        </div>
+
+      </div><!-- #damage-station -->
+
     </div><!-- #game-container -->
 
     <!-- ══ PRAWY PANEL — DZIENNIK ══ -->
@@ -1359,10 +1509,11 @@
   tickClock();
 
   // ── Station tab switching ───────────────────────────────
-  const stabs          = document.querySelectorAll('.stab[data-station]');
-  const sonarStation   = document.getElementById('sonar-station');
-  const periscopeStation = document.getElementById('periscope-station');
-  const weaponStation  = document.getElementById('weapon-station');
+  const stabs           = document.querySelectorAll('.stab[data-station]');
+  const sonarStation    = document.getElementById('sonar-station');
+  const periscopeStation= document.getElementById('periscope-station');
+  const weaponStation   = document.getElementById('weapon-station');
+  const damageStation   = document.getElementById('damage-station');
 
   function _switchStation(id) {
     stabs.forEach(t => t.classList.remove('active'));
@@ -1372,6 +1523,7 @@
     sonarStation    && sonarStation.classList.remove('active');
     periscopeStation && periscopeStation.classList.remove('active');
     weaponStation   && weaponStation.classList.remove('active');
+    damageStation   && damageStation.classList.remove('active');
     _ssActive = false;
     _pActive  = false;
     _wsActive = false;
@@ -1387,6 +1539,8 @@
     } else if (id === 'weapon') {
       weaponStation && weaponStation.classList.add('active');
       _wsActive = true;
+    } else if (id === 'damage') {
+      damageStation && damageStation.classList.add('active');
     }
   }
 
@@ -1403,6 +1557,7 @@
     if (e.key === 'F2' || e.key === '2') { e.preventDefault(); _switchStation('sonar'); }
     if (e.key === 'F3' || e.key === '3') { e.preventDefault(); _switchStation('periscope'); }
     if (e.key === 'F4' || e.key === '4') { e.preventDefault(); _switchStation('weapon'); }
+    if (e.key === 'F6' || e.key === '6') { e.preventDefault(); _switchStation('damage'); }
     // ESC
     if (e.key === 'Escape') {
       if (_ssActive) {
@@ -2315,6 +2470,133 @@
     }
     requestAnimationFrame(weaponLoop);
   }
+  requestAnimationFrame(weaponLoop);
+
+  // ══════════════════════════════════════════════════════
+  // ── DAMAGE STATION ────────────────────────────────────
+  // ══════════════════════════════════════════════════════
+  const _dsSystemOrder = ['naped','sonarP','sonarA','torpedy','rakiety','balast','tlen','zasilanie'];
+  let   _dsPrevLogLen  = 0;
+
+  function _dsHealthColor(h) {
+    if (h >= 0.75) return 'var(--green)';
+    if (h >= 0.40) return 'var(--amber)';
+    return '#ff4444';
+  }
+  function _dsBadge(h) {
+    if (h >= 0.75) return ['OK',        'ok'];
+    if (h >= 0.40) return ['ZDEGR.',    'deg'];
+    if (h >  0.0)  return ['KRYT.',     'crit'];
+    return             ['AWARIA',    'fail'];
+  }
+
+  function _dsRebuildSystems(systems) {
+    const el = document.getElementById('ds-systems');
+    if (!el) return;
+    // Wyczyść stare rzędy (zostaw ::before przez CSS)
+    el.innerHTML = '';
+    for (const key of _dsSystemOrder) {
+      const sys = systems[key];
+      if (!sys) continue;
+      const h   = sys.health;
+      const [badge, cls] = _dsBadge(h);
+      const barW  = Math.round(h * 100);
+      const barC  = _dsHealthColor(h);
+      const row   = document.createElement('div');
+      row.className = 'ds-sys-row';
+      row.innerHTML = `
+        <span class="ds-sys-icon">${sys.emoji || '◆'}</span>
+        <span class="ds-sys-name">${sys.label}</span>
+        <div class="ds-sys-bar-wrap"><div class="ds-sys-bar" style="width:${barW}%;background:${barC}"></div></div>
+        <span class="ds-sys-badge ${cls}">${badge}</span>
+      `;
+      el.appendChild(row);
+    }
+  }
+
+  function _dsUpdateHeader(systems, hull) {
+    const allOk   = Object.values(systems).every(s => s.health >= 0.75);
+    const hasCrit = Object.values(systems).some(s => s.health < 0.40);
+    const hasFail = Object.values(systems).some(s => s.health <= 0);
+    const hEl = document.getElementById('ds-header-status');
+    if (!hEl) return;
+    if (hasFail || hull < 0.2) {
+      hEl.textContent = '■ KRYTYCZNE';
+      hEl.className = 'crit';
+      hEl.style.color = '#ff2222';
+    } else if (hasCrit || hull < 0.4) {
+      hEl.textContent = '▲ USZKODZONY';
+      hEl.className = 'warn';
+      hEl.style.color = 'var(--amber)';
+    } else if (!allOk) {
+      hEl.textContent = '◆ ZDEGRADOWANY';
+      hEl.className = '';
+      hEl.style.color = 'var(--amber)';
+    } else {
+      hEl.textContent = '● OPERACYJNY';
+      hEl.className = 'ok';
+      hEl.style.color = 'var(--green)';
+    }
+  }
+
+  function _dsUpdateCondition(hull, battery, oxygen) {
+    const hullPct = Math.round(hull * 100);
+    const battPct = Math.round(battery * 100);
+    const oxyPct  = Math.round(oxygen * 100);
+
+    const hEl = document.getElementById('ds-hull');
+    const bEl = document.getElementById('ds-battery');
+    const oEl = document.getElementById('ds-oxygen');
+    const hsEl = document.getElementById('ds-hull-sub');
+    const bsEl = document.getElementById('ds-batt-sub');
+    const osEl = document.getElementById('ds-oxy-sub');
+
+    if (hEl) {
+      hEl.innerHTML = `${hullPct}<span style="font-size:12px">%</span>`;
+      hEl.style.color = hull >= 0.6 ? 'var(--ink)' : hull >= 0.3 ? 'var(--amber)' : '#ff4444';
+    }
+    if (hsEl) hsEl.textContent = hull >= 0.8 ? 'INTEGRALNY' : hull >= 0.5 ? 'USZKODZONY' : hull >= 0.25 ? 'KRYTYCZNY' : 'IMPLOZJA';
+    if (bEl) {
+      bEl.innerHTML = `${battPct}<span style="font-size:12px">%</span>`;
+      bEl.style.color = battery >= 0.4 ? 'var(--ink)' : battery >= 0.15 ? 'var(--amber)' : '#ff4444';
+    }
+    if (bsEl) bsEl.textContent = battery >= 0.6 ? 'PEŁNA' : battery >= 0.3 ? 'NORMALNA' : battery >= 0.1 ? 'SŁABA' : 'KRYTYCZNA';
+    if (oEl) {
+      oEl.innerHTML = `${oxyPct}<span style="font-size:12px">%</span>`;
+      oEl.style.color = oxygen >= 0.4 ? 'var(--ink)' : oxygen >= 0.2 ? 'var(--amber)' : '#ff4444';
+    }
+    if (osEl) osEl.textContent = oxygen >= 0.6 ? 'NORMA' : oxygen >= 0.3 ? 'OBNIŻONY' : oxygen >= 0.1 ? 'KRYTYCZNY' : 'BRAK TLENU';
+  }
+
+  function _dsUpdateLog(log) {
+    if (!log || log.length === _dsPrevLogLen) return;
+    _dsPrevLogLen = log.length;
+    const el = document.getElementById('ds-log-entries');
+    if (!el) return;
+    if (!log.length) {
+      el.innerHTML = '<div class="ds-log-empty">BRAK ZAREJESTROWANYCH AWARII</div>';
+      return;
+    }
+    el.innerHTML = log.map(e => `
+      <div class="ds-log-entry ${e.sev || ''}">
+        <span class="ds-log-ts">${e.ts}</span>
+        <span class="ds-log-msg">${e.msg}</span>
+      </div>
+    `).join('');
+  }
+
+  function damageLoop() {
+    const sonar = window._sonar;
+    if (sonar?.systems) {
+      _dsRebuildSystems(sonar.systems);
+      _dsUpdateHeader(sonar.systems, sonar.hull ?? 1);
+      _dsUpdateCondition(sonar.hull ?? 1, sonar.battery ?? 1, sonar.oxygen ?? 1);
+      _dsUpdateLog(sonar.damageLog || []);
+    }
+    setTimeout(damageLoop, 200);   // 5Hz — wystarczy dla panelu statusu
+  }
+  damageLoop();
+
   requestAnimationFrame(weaponLoop);
 })();
 </script>
