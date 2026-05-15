@@ -4,6 +4,26 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.31] — 2026-05-15
+
+### Poprawiono — animacja tonięcia v2: opad na dno, wrak, szczątki, muł
+
+**src/Enemy.js:**
+- Czas animacji wydłużony z 7.5s do **14s**
+- Okręt opada od `SURFACE_Y=80` do `OCEAN_FLOOR_Y=580` (500px w dół)
+- Rotacja akumulowana: przyspiesza do prog=0.22 (2.8 rad/s), zwalnia przy dnie
+- Kolor kadłuba ściemnia się z głębokością: `0x775511 → 0x443308 → 0x1e1402`
+- **Szczątki** (`type:'debris'`): prostokąty odrywające się w fazie podwodnej, unoszą się i obracają; żyją do 13s
+- **Bąble**: gęstsze na początku (para od ognia) i przy dnie (powietrze wydobywające się z wraku)
+- **Splash**: woda wyrzucona przy zanurzaniu, elipsa 170px zanikająca w 0.21s
+- Fale rozchodzą się do 310px po powierzchni
+- Plama oleju rośnie do 370px z tęczowym refleksem
+- **Uderzenie w dno** (prog > 0.85): chmura mułu 440px, wrak osiada — kadłub + przechylona nadbudówka + maszt leżący na dnie
+- `_sinkBubbles` → `_sinkParticles` (unified array z `type` field)
+- Nowe pola konstruktora: `_sinkAngle`, `_shipSinkY`, `_sinkParticles`
+
+---
+
 ## [0.10.30] — 2026-05-15
 
 ### Dodano — animacja tonięcia niszczyciela (7.5s)
