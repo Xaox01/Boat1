@@ -972,6 +972,23 @@ export class Enemy {
       g.fillCircle(this.x - 8, SURF - 22, 3);
     }
 
+    // ── Kolumna dymu bojowego (world space — nie obraca się z okrętem) ─────────
+    if (this.hull < 0.75) {
+      const ft   = Date.now() * 0.001;
+      const dmg  = Math.min((0.75 - this.hull) / 0.75, 1);
+      const cnt  = 2 + Math.floor(dmg * 7);
+      for (let i = 0; i < cnt; i++) {
+        const age  = (i / cnt + ft * 0.24) % 1;
+        const jx   = Math.sin(ft * 0.55 + i * 1.1) * (7 + dmg * 18);
+        const fy   = SURF - 20 - age * (50 + dmg * 90);
+        const fr   = 5 + age * (12 + dmg * 22);
+        const fa   = (1 - age) * 0.68 * dmg * shipAlpha;
+        const scol = i < 3 ? 0x070707 : (i < 6 ? 0x161210 : 0x28201a);
+        g.fillStyle(scol, fa);
+        g.fillCircle(this.x + jx, fy, fr);
+      }
+    }
+
     // Używamy układu lokalnego z centrum na (this.x, SURF)
     g.save();
     g.translateCanvas(this.x, SURF);
@@ -1063,19 +1080,64 @@ export class Enemy {
     g.fillStyle(0x556677, 0.70 * a);
     g.fillRect(-d * 20, -9, d * 6, 4);
 
-    // ── Pęknięcia / ogień przy uszkodzeniach ─────────────────────────────────
-    if (this.hull < 0.6) {
-      const ca = (0.6 - this.hull) * 3.5 * a;
-      g.lineStyle(1.2, 0xff5533, ca);
-      g.strokeLineShape(new Phaser.Geom.Line(-18, -7, -8, -2));
-      g.strokeLineShape(new Phaser.Geom.Line(10, -8, 20, -1));
-      if (this.hull < 0.3) {
-        // Ogień na pokładzie
-        const ft = Date.now() * 0.001;
-        g.fillStyle(0xff6600, (0.5 + 0.5 * Math.sin(ft * 8)) * 0.70 * a);
-        g.fillCircle(d * 5 + Math.sin(ft * 5) * 3, -13, 5 + Math.sin(ft * 7) * 2);
-        g.fillStyle(0xff2200, 0.45 * a);
-        g.fillCircle(d * 5, -16, 3);
+    // ── Pęknięcia / dym / ogień przy uszkodzeniach ───────────────────────────
+    if (this.hull < 0.75) {
+      const ft  = Date.now() * 0.001;
+      const dmg = 1 - this.hull;
+
+      // Pęknięcia kadłuba
+      if (this.hull < 0.60) {
+        const ca = (0.60 - this.hull) * 3.8 * a;
+        g.lineStyle(1.2, 0xff5533, ca);
+        g.strokeLineShape(new Phaser.Geom.Line(-18, -7, -8, -2));
+        g.strokeLineShape(new Phaser.Geom.Line(10, -8, 20, -1));
+        if (this.hull < 0.40) {
+          g.lineStyle(0.9, 0xff8855, ca * 0.65);
+          g.strokeLineShape(new Phaser.Geom.Line(-4, -10, 6, -4));
+        }
+      }
+
+      // Płomień dziobowy — od hull < 0.50
+      if (this.hull < 0.50) {
+        const fs  = (0.50 - this.hull) / 0.50;
+        const f1  = 0.55 + 0.45 * Math.sin(ft * 9.2 + 1.1);
+        g.fillStyle(0xff6600, f1 * 0.82 * fs * a);
+        g.fillCircle(d * 14 + Math.sin(ft * 6.1) * 2, -13, 4 + f1 * 5 * fs);
+        g.fillStyle(0xff2200, f1 * 0.58 * fs * a);
+        g.fillCircle(d * 14, -17, 2.5 + f1 * 3 * fs);
+        g.fillStyle(0xffaa00, f1 * 0.32 * fs * a);
+        g.fillCircle(d * 14 + Math.sin(ft * 11.3) * 1.5, -19, 1.5 + f1 * 1.8 * fs);
+
+        // Płomień rufowy — od hull < 0.35
+        if (this.hull < 0.35) {
+          const f2 = 0.55 + 0.45 * Math.sin(ft * 11.7 + 3.7);
+          g.fillStyle(0xff4400, f2 * 0.78 * fs * a);
+          g.fillCircle(-d * 16 + Math.sin(ft * 7.3) * 2, -11, 3 + f2 * 6 * fs);
+          g.fillStyle(0xff8800, f2 * 0.50 * fs * a);
+          g.fillCircle(-d * 16, -15, 2 + f2 * 3 * fs);
+        }
+
+        // Ogień na mostku + iskry — od hull < 0.20
+        if (this.hull < 0.20) {
+          const f3 = 0.5 + 0.5 * Math.sin(ft * 13.3 + 5.1);
+          g.fillStyle(0xff3300, f3 * 0.92 * a);
+          g.fillCircle(2 + Math.sin(ft * 8.4) * 3, -22, 5 + f3 * 7);
+          g.fillStyle(0xff6600, f3 * 0.68 * a);
+          g.fillCircle(2, -27, 3 + f3 * 4.5);
+          g.fillStyle(0xffcc00, f3 * 0.32 * a);
+          g.fillCircle(2 + Math.sin(ft * 17) * 2, -31, 2 + f3 * 2.5);
+          // Iskry lecące z mostka
+          for (let i = 0; i < 4; i++) {
+            const sp = (i * 0.25 + ft * 1.4) % 1;
+            const sx = Math.sin(i * 2.3 + ft * 3.1) * 28;
+            const sy = -(13 + sp * 22);
+            g.fillStyle(0xffee44, (1 - sp) * 0.85 * a);
+            g.fillCircle(sx, sy, 1.8 * (1 - sp));
+          }
+          // Pomarańczowy poświat przy najcięższych uszkodzeniach
+          g.fillStyle(0xff4400, 0.08 * Math.sin(ft * 4) * a);
+          g.fillEllipse(0, -15, 70, 30);
+        }
       }
     }
 

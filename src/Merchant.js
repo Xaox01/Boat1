@@ -157,15 +157,60 @@ export class Merchant {
     g.fillStyle(0x22dd22, 0.88); g.fillCircle(x + d * 58, y,  2);   // dziobowe
 
     // ── Uszkodzenia ──────────────────────────────────────────────────────────
-    if (hullDmg) {
-      const da = (0.5 - this.hull) * 5;
-      g.lineStyle(1.5, 0xff4400, da * 0.90);
-      g.strokeLineShape(new Phaser.Geom.Line(x - d * 20, y - 10, x - d * 8, y + 2));
-      g.strokeLineShape(new Phaser.Geom.Line(x + d * 10, y - 7,  x + d * 22, y + 4));
-      // Dym z uszkodzeń
-      if (Math.random() < 0.30) {
-        g.fillStyle(0x553322, 0.25);
-        g.fillCircle(x + Phaser.Math.Between(-20, 20), y - Phaser.Math.Between(5, 14), Phaser.Math.Between(3, 7));
+    if (this.hull < 0.75) {
+      const ft  = Date.now() * 0.001;
+      const dmg = 1 - this.hull;
+
+      // Czarny dym unoszący się nad kadłubem
+      const cnt = 2 + Math.floor(dmg * 6);
+      for (let i = 0; i < cnt; i++) {
+        const age  = (i / cnt + ft * 0.22) % 1;
+        const jx   = x + Math.sin(ft * 0.5 + i * 1.0) * (6 + dmg * 16);
+        const fy   = y - 12 - age * (40 + dmg * 70);
+        const fr   = 5 + age * (10 + dmg * 18);
+        const fa   = (1 - age) * 0.65 * dmg;
+        g.fillStyle(0x080808, fa);
+        g.fillCircle(jx, fy, fr);
+      }
+
+      // Pęknięcia kadłuba
+      if (this.hull < 0.60) {
+        const da = (0.60 - this.hull) * 5;
+        g.lineStyle(1.5, 0xff4400, da * 0.90);
+        g.strokeLineShape(new Phaser.Geom.Line(x - d * 20, y - 10, x - d * 8, y + 2));
+        g.strokeLineShape(new Phaser.Geom.Line(x + d * 10, y - 7,  x + d * 22, y + 4));
+      }
+
+      // Płomień na ładowni — od hull < 0.50
+      if (this.hull < 0.50) {
+        const fs = (0.50 - this.hull) / 0.50;
+        const f1 = 0.55 + 0.45 * Math.sin(ft * 8.7 + 0.8);
+        g.fillStyle(0xff5500, f1 * 0.80 * fs);
+        g.fillCircle(x - d * 20 + Math.sin(ft * 5.8) * 3, y - 20, 5 + f1 * 7 * fs);
+        g.fillStyle(0xff2200, f1 * 0.55 * fs);
+        g.fillCircle(x - d * 20, y - 25, 3 + f1 * 4 * fs);
+        g.fillStyle(0xffaa00, f1 * 0.28 * fs);
+        g.fillCircle(x - d * 20, y - 28, 2 + f1 * 2 * fs);
+
+        // Drugi ogień (dziobowy) — od hull < 0.30
+        if (this.hull < 0.30) {
+          const f2 = 0.55 + 0.45 * Math.sin(ft * 12.1 + 4.0);
+          g.fillStyle(0xff4400, f2 * 0.75 * fs);
+          g.fillCircle(x + d * 40 + Math.sin(ft * 7.1) * 2, y - 16, 4 + f2 * 6 * fs);
+          g.fillStyle(0xff8800, f2 * 0.50 * fs);
+          g.fillCircle(x + d * 40, y - 20, 2.5 + f2 * 3.5 * fs);
+
+          // Iskry z ładowni
+          for (let i = 0; i < 3; i++) {
+            const sp = (i * 0.33 + ft * 1.3) % 1;
+            g.fillStyle(0xffee44, (1 - sp) * 0.80);
+            g.fillCircle(
+              x - d * 20 + Math.sin(i * 2.1 + ft * 2.9) * 22,
+              y - 18 - sp * 18,
+              1.8 * (1 - sp)
+            );
+          }
+        }
       }
     }
   }
