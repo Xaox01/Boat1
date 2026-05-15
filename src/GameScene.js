@@ -636,7 +636,7 @@ export class GameScene extends Phaser.Scene {
     this.ocean.update(delta, this.camX, this._dayTime);
     this._devConsole.update();
     this._updatePings(dt);
-    this.sonar.update(delta, this.sub, [...this.enemies, ...this.merchants], this.sub.torpedoes, this._activePings);
+    this.sonar.update(delta, this.sub, [...this.enemies.filter(e => !e._sinking), ...this.merchants], this.sub.torpedoes, this._activePings);
     this._exportSonarState();
     this._drawBearingLines();
     this._drawPings();
@@ -783,7 +783,7 @@ export class GameScene extends Phaser.Scene {
     // ── Peryskop — kontakty wizualne + klasyfikacja ───────────────────────────
     const VISUAL_RANGE = 3500;
     const sonarIdMap   = new Map((this.sonar.contacts || []).map((c, i) => [c.enemy, `K-${i + 1}`]));
-    const allUnits     = [...this.enemies.filter(e => !e.destroyed), ...this.merchants.filter(m => !m.destroyed)];
+    const allUnits     = [...this.enemies.filter(e => !e.destroyed && !e._sinking), ...this.merchants.filter(m => !m.destroyed)];
 
     window._sonar.visualContacts = allUnits
       .map((e, vIdx) => {
