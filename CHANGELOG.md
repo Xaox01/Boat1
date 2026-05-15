@@ -4,6 +4,29 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.35] — 2026-05-15
+
+### Dodano — animacja wybuchu przy trafieniu torpedą (ImpactFX)
+
+**src/ImpactFX.js** (nowy plik):
+- **Fale uderzeniowe**: 3 koncentryczne pierścienie (290/360/430px) z opóźnieniami 0/0.12/0.28s; czas trwania 1.8–2.8s; biały rdzeń + niebieskawa zewnętrzna obwódka
+- **Błysk podwodny**: biały → żółty → pomarańczowy gradient, 0.45s; rozbłysk eliptyczny na powierzchni
+- **Fontanna bryzgów**: 20 kropelek wachlarzowo w górę, siła odrzutu + grawitacja, 0.75s
+- **Słup wody**: wznosi się do 138px (0.85s) → trzyma (1.30s) → opada (2.40s); opadające strumienie boczne po fazie wzrostu
+- **Plama oleju**: elipsa 2.4:1 rosnąca od r=30px; tęczowe odbicia na powierzchni; trwa 18s
+- **Odłamki**: 18 kawałków z grawitacją (200px/s²), losową rotacją, kolorami od czarnego do pomarańczowego; znikają po wpadnięciu w wodę
+- **Dym**: kolumna 14 kłębów rosnących co 0.32s, wznoszą się 30px/s, ciemne → coraz jaśniejsze
+- **Ogień**: 6 płomieni nad plamą oleju z migotaniem (sin), 20s max; trójwarstwowy gradient
+- **Eksplozje wtórne**: 3 mini-wybuchy w t=2.4s, 5.6s, 9.0s — bryzgi + pierścień ognia
+
+**src/GameScene.js:**
+- Zaimportowano i zainicjalizowano `ImpactFX`
+- `_impactFX.trigger()` wywoływane przy każdym trafieniu torpedy (wróg + merchant)
+- `_impactFX.update(dt, camX)` w głównej pętli gry
+- Trzęsienie kamery 820ms/0.012 (niezależne od `cameras.main.shake` trafienia)
+
+---
+
 ## [0.10.34] — 2026-05-15
 
 ### Dodano — animacja wystrzelenia torpedy (TorpedoLaunchFX)

@@ -10,6 +10,7 @@ import { SaveSystem } from './SaveSystem.js';
 import { TutorialMission } from './TutorialMission.js';
 import { DevConsole } from './DevConsole.js';
 import { TorpedoLaunchFX } from './TorpedoLaunchFX.js';
+import { ImpactFX } from './ImpactFX.js';
 
 const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
@@ -112,6 +113,7 @@ export class GameScene extends Phaser.Scene {
     this._bot        = new TestBot(this);
     this._devConsole = new DevConsole(this);
     this._launchFX   = new TorpedoLaunchFX(this);
+    this._impactFX   = new ImpactFX(this);
 
     // Sonar pasywny — triangulacja
     this._bearingSamples = new Map();   // enemy → [{subX, subY, bearing}]
@@ -539,6 +541,7 @@ export class GameScene extends Phaser.Scene {
         if (dmg > 0) {
           target.hull -= dmg;
           target.onHit();
+          this._impactFX.trigger(target.x, target.y);
           this.cameras.main.shake(300, 0.008);
           this.cameras.main.flash(120, 200, 255, 120, false);
           if (target.hull <= 0) {
@@ -580,6 +583,7 @@ export class GameScene extends Phaser.Scene {
         if (dmg > 0) {
           m.hull -= dmg;
           m.onHit();
+          this._impactFX.trigger(m.x, m.y);
           this.cameras.main.shake(200, 0.006);
           this.cameras.main.flash(100, 255, 200, 80, false);
           if (m.hull <= 0) {
@@ -639,6 +643,7 @@ export class GameScene extends Phaser.Scene {
     this.ocean.update(delta, this.camX, this._dayTime);
     this._devConsole.update(dt);
     this._launchFX.update(dt, this.camX);
+    this._impactFX.update(dt, this.camX);
     this._updatePings(dt);
     this.sonar.update(delta, this.sub, [...this.enemies.filter(e => !e._sinking), ...this.merchants], this.sub.torpedoes, this._activePings);
     this._exportSonarState();
