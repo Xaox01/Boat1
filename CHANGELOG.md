@@ -4,6 +4,22 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.39] — 2026-05-15
+
+### Zmieniono — Panel AWARIE: schemat SVG okrętu z kolorowymi strefami
+
+**index.html:**
+- Zastąpiono listę systemów pełnym widokiem bocznym okrętu (SVG, 128px)
+- 8 stref kadłuba odpowiadających systemom: NAPĘD, ZASIL., TLEN, SON-P, BALAST, SON-A, RAK., TORP.
+- Strefy przycinane clipPath do kształtu kadłuba ciśnieniowego
+- Kolorowanie stref: transparent (OK) → amber (zdegr.) → czerwony (krit.) → mocna czerwień + blink (awaria)
+- Kółka statusu pod etykietami stref — zielone/amber/czerwone/migające
+- Elementy dekoracyjne: płetwy rufowe, śruba, kiosk z masztami, rury torpedowe, żebra kadłuba, kopuła sonaru, znacznik reaktora VM-A, linia wodna
+- Dolna sekcja: kondycja (kadłub/bateria/tlen) w kolumnie po lewej + dziennik awarii po prawej
+- `_dsUpdateZones(systems)` zastępuje `_dsRebuildSystems()`
+
+---
+
 ## [0.10.38] — 2026-05-15
 
 ### Dodano — Panel AWARIE (stanowisko F6)
