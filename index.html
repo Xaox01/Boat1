@@ -2670,13 +2670,39 @@
     `).join('');
   }
 
+  // Miganie wskaźnika HUD przy krytycznym uszkodzeniu powiązanego systemu
+  function _dsFlashHUD(id, isCrit) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (isCrit) {
+      el.style.animation = 'ds-blink 0.7s infinite';
+      el.style.color     = '#ff3322';
+    } else {
+      el.style.animation = '';
+      el.style.color     = '';
+    }
+  }
+
   function damageLoop() {
     const sonar = window._sonar;
     if (sonar?.systems) {
-      _dsUpdateZones(sonar.systems);
-      _dsUpdateHeader(sonar.systems, sonar.hull ?? 1);
+      const sys = sonar.systems;
+      _dsUpdateZones(sys);
+      _dsUpdateHeader(sys, sonar.hull ?? 1);
       _dsUpdateCondition(sonar.hull ?? 1, sonar.battery ?? 1, sonar.oxygen ?? 1);
       _dsUpdateLog(sonar.damageLog || []);
+
+      // Miganie HUD — systemy powiązane ze wskaźnikami
+      _dsFlashHUD('hud-speed',    (sys.naped?.health     ?? 1) < 0.35);
+      _dsFlashHUD('bar-ballast',  (sys.balast?.health    ?? 1) < 0.35);
+      _dsFlashHUD('hud-ballast',  (sys.balast?.health    ?? 1) < 0.35);
+      _dsFlashHUD('hud-battery',  (sys.zasilanie?.health ?? 1) < 0.35);
+      _dsFlashHUD('bar-battery',  (sys.zasilanie?.health ?? 1) < 0.35);
+      _dsFlashHUD('hud-oxygen',   (sys.tlen?.health      ?? 1) < 0.35);
+      _dsFlashHUD('bar-oxygen',   (sys.tlen?.health      ?? 1) < 0.35);
+      _dsFlashHUD('hud-ping',     (sys.sonarA?.health    ?? 1) < 0.1);
+      _dsFlashHUD('hud-torpedoes',(sys.torpedy?.health   ?? 1) < 0.25);
+      _dsFlashHUD('hud-missiles', (sys.rakiety?.health   ?? 1) < 0.1);
     }
     setTimeout(damageLoop, 200);   // 5Hz
   }

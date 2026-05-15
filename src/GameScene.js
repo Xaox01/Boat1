@@ -158,6 +158,7 @@ export class GameScene extends Phaser.Scene {
         }
         else if (result === 'brak')       this._logEvent('Brak rakiet!');
         else if (result === 'za_gleboko') this._logEvent('Za głęboko! Wynurzyć (max 70m).');
+        else if (result === 'awaria')     { this._logEvent('SYS. RAKIETOWY — AWARIA!'); this._shipLog('Układ rakietowy zniszczony — start niemożliwy.', 'crit'); }
       }
     });
 
@@ -410,6 +411,7 @@ export class GameScene extends Phaser.Scene {
       if      (result === 'ok')         this._logEvent('Rakieta odpalona!');
       else if (result === 'brak')       this._logEvent('Brak rakiet!');
       else if (result === 'za_gleboko') this._logEvent('Za głęboko! Wynurzyć (max 70m).');
+      else if (result === 'awaria')     { this._logEvent('SYS. RAKIETOWY — AWARIA!'); this._shipLog('Układ rakietowy zniszczony.', 'crit'); }
     }
 
     this.sub.update(delta, this.cursors, this.keys);
@@ -1497,6 +1499,12 @@ export class GameScene extends Phaser.Scene {
 
   _firePing() {
     const sub = this.sub;
+    // Sonar aktywny zablokowany przy zniszczonym systemie
+    if ((sub.systems?.sonarA?.health ?? 1) < 0.1) {
+      this._logEvent('SONAR-A AWARIA — ping zablokowany!');
+      this._shipLog('Sonar aktywny zniszczony. Ping niemożliwy.', 'crit');
+      return;
+    }
     const PING_MAX_R    = 1100;
     const PING_ALERT_R  = 1100;
 

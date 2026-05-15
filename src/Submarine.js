@@ -102,15 +102,19 @@ export class Submarine {
   }
 
   fireTorpedo(targetX, targetY) {
-    if (this._salvoCD > 0) return false;   // inter-salvo cooldown
-    const tube = this.tubes.find(t => t.loaded);
+    const torpH = this.systems.torpedy?.health ?? 1.0;
+    if (torpH <= 0) return false;           // sys. torpedowy zniszczony
+    if (this._salvoCD > 0) return false;
+    // Uszkodzenia blokują kolejne rury (0.7→3, 0.4→2, 0.15→1, 0→0)
+    const availCount = torpH > 0.7 ? 4 : torpH > 0.4 ? 3 : torpH > 0.15 ? 2 : 1;
+    const tube = this.tubes.slice(0, availCount).find(t => t.loaded);
     if (!tube) return false;
     tube.loaded = false;
     tube.reloadTimer = tube.reloadBase;
     this._torpedosFired++;
-    this._salvoCD = 3.0;   // 3s między kolejnymi wystrzeleniami
+    this._salvoCD = 3.0;
     this.torpedoes.push(new Torpedo(this.scene, this.x, this.y, targetX, targetY));
-    return tube.id;   // truthy — kompatybilne z if(fireTorpedo(...))
+    return tube.id;
   }
 
   deployNoisemaker() {
@@ -126,44 +130,59 @@ export class Submarine {
     return true;
   }
 
-  // Rakieta wymaga głębokości ≤ 30m (prawie na powierzchni)
+  // Rakieta wymaga głębokości ≤ 70m i sprawnego systemu rakietowego
   fireMissile(targetX) {
     if (this.missileCount  <= 0)  return 'brak';
     if (this.missileFireCD >  0)  return 'cd';
     if (this.depthMetres   >  70) return 'za_gleboko';
+    if ((this.systems.rakiety?.health ?? 1) <= 0) return 'awaria';
     this.missileCount--;
     this.missileFireCD = 2.5;
-    this.noiseSurge    = 1.0;   // silne zakłócenie akustyczne — zdradza pozycję!
+    this.noiseSurge    = 1.0;
     this.missiles.push(new Missile(this.scene, this.x, this.y, targetX));
     return 'ok';
   }
 
-  // Uszkodzenie kadłuba + losowe systemy okrętowe
+  // Modifier systemu 0.0→1.0 (0 = zniszczony, 1 = sprawny)
+  sysMod(key, minAtZero = 0.0) {
+    const h = this.systems[key]?.health ?? 1.0;
+    return minAtZero + (1.0 - minAtZero) * h;
+  }
+
+  // Uszkodzenie kadłuba + systemy okrętowe ważone według źródła trafienia
   applyDamage(amount, source = '') {
     this.hull = Math.max(0, this.hull - amount);
-    const keys  = Object.keys(this.systems);
-    const sev   = amount > 0.3 ? 'crit' : amount > 0.15 ? 'warn' : 'info';
+    const sev = amount > 0.25 ? 'crit' : amount > 0.12 ? 'warn' : 'info';
 
-    // Przy dużym trafieniu: 2 systemy, przy małym: 1 (33% szansy)
-    const hits = (sev === 'crit') ? 2 : (Math.random() < 0.33 ? 1 : 0);
+    // Wagi systemów — różne strefy kadłuba trafiają różne systemy
+    const w = { naped:1, sonarP:1, sonarA:1, torpedy:1, rakiety:1, balast:1, tlen:1, zasilanie:1 };
+    if (/ASROC|TORPEDA/.test(source))         { w.torpedy*=3; w.sonarA*=2; w.rakiety*=2; }
+    else if (/ZARZUT|G.ÊBINOWY/.test(source)) { w.balast*=3; w.tlen*=2; w.zasilanie*=2; }
+    else if (/KOLIZJA|DNO/.test(source))      { w.naped*=3; w.balast*=2; }
+
+    const keys  = Object.keys(w);
+    const total = keys.reduce((s, k) => s + w[k], 0);
+    const pick  = () => {
+      let r = Math.random() * total;
+      for (const k of keys) { r -= w[k]; if (r <= 0) return k; }
+      return keys[0];
+    };
+
+    const hits    = sev === 'crit' ? 2 : (Math.random() < 0.5 ? 1 : 0);
     const damaged = [];
     for (let i = 0; i < hits; i++) {
-      const key = keys[Math.floor(Math.random() * keys.length)];
+      const key = pick();
       const sys = this.systems[key];
-      if (sys.health > 0) {
-        sys.health = Math.max(0, sys.health - (0.4 + Math.random() * 0.5));
+      if (sys && sys.health > 0) {
+        sys.health = Math.max(0, sys.health - (0.12 + Math.random() * 0.22));
         damaged.push(sys.label);
       }
     }
 
-    const t = new Date();
-    const ts = `${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
-    const dmgTxt = damaged.length ? ` — AWARIA: ${damaged.join(', ')}` : '';
-    this._damageLog.unshift({
-      ts,
-      msg: `${source || 'TRAFIENIE'} −${Math.round(amount*100)}% kad.${dmgTxt}`,
-      sev,
-    });
+    const t   = new Date();
+    const ts  = `${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+    const txt = damaged.length ? ` ⚠ ${damaged.join(', ')}` : '';
+    this._damageLog.unshift({ ts, msg: `${source||'TRAFIENIE'} −${Math.round(amount*100)}% kad.${txt}`, sev });
     if (this._damageLog.length > 20) this._damageLog.pop();
   }
 
@@ -173,8 +192,12 @@ export class Submarine {
     return speed < 12 && Math.abs(this.enginePower) < 0.08 && !this.cavitating;
   }
 
-  // Wzmocnienie pasywnego sonaru (1.0 = normalne, 1.6 = tryb nasłuchu)
-  get sonarBonus() { return this.listenMode ? 1.6 : 1.0; }
+  // Wzmocnienie pasywnego sonaru — tryb nasłuchu × zdrowie sonar-P
+  get sonarBonus() {
+    const listenBonus = this.listenMode ? 1.6 : 1.0;
+    const sonarPMod   = Math.max(0.15, this.systems.sonarP?.health ?? 1.0);
+    return listenBonus * sonarPMod;
+  }
 
   get depthMetres() {
     const SURF  = this.scene.SURFACE_Y;
@@ -194,11 +217,14 @@ export class Submarine {
   }
 
   _updateTorpedoes(dt) {
-    // Ładowanie rur torpedowych
+    // Uszkodzony system torpedowy → wolniejsze przeładowanie
+    const torpH      = this.systems.torpedy?.health ?? 1.0;
+    const reloadRate = Math.max(0.12, torpH);   // min 12% prędkości (ok. 8× wolniej)
+
     this.recentTubeLoaded = null;
     for (const tube of this.tubes) {
       if (!tube.loaded && tube.reloadTimer > 0) {
-        tube.reloadTimer -= dt;
+        tube.reloadTimer -= dt * reloadRate;
         if (tube.reloadTimer <= 0) {
           tube.reloadTimer = 0;
           tube.loaded      = true;
@@ -230,31 +256,37 @@ export class Submarine {
     const boost    = keys.shift.isDown ? 2.0 : 1.0;
     const hasJuice = this.battery > 0;
 
+    // Uszkodzony napęd ogranicza max moc silnika
+    const napedCap = Math.max(0.22, this.systems.naped?.health ?? 1.0);
+
     if (hasJuice) {
       if (cursors.left.isDown || keys.a.isDown) {
         this.enginePower = Phaser.Math.Clamp(
-          this.enginePower - ENGINE_RAMP * dt * boost, -1, 1);
+          this.enginePower - ENGINE_RAMP * dt * boost, -napedCap, napedCap);
       } else if (cursors.right.isDown || keys.d.isDown) {
         this.enginePower = Phaser.Math.Clamp(
-          this.enginePower + ENGINE_RAMP * dt * boost, -1, 1);
+          this.enginePower + ENGINE_RAMP * dt * boost, -napedCap, napedCap);
       } else {
         this.enginePower *= Math.pow(0.18, dt);
       }
     } else {
       this.enginePower *= Math.pow(0.04, dt);
     }
+    // Wymuszenie limitu nawet gdy battery właśnie się skończyła
+    this.enginePower = Phaser.Math.Clamp(this.enginePower, -napedCap, napedCap);
 
     if (keys.space.isDown) {
       this.enginePower *= Math.pow(0.03, dt);
     }
 
+    const balastCmdMod = Math.max(0.15, this.systems.balast?.health ?? 1.0);
     if (cursors.up.isDown || keys.w.isDown) {
-      this.targetBallast = Math.max(0, this.targetBallast - BALLAST_CMD_RATE * dt);
+      this.targetBallast = Math.max(0, this.targetBallast - BALLAST_CMD_RATE * balastCmdMod * dt);
       const spd = Math.sqrt(this.vx ** 2 + this.vy ** 2);
       this.angularVel -= 0.004 * spd * dt;
     }
     if (cursors.down.isDown || keys.s.isDown) {
-      this.targetBallast = Math.min(1, this.targetBallast + BALLAST_CMD_RATE * dt);
+      this.targetBallast = Math.min(1, this.targetBallast + BALLAST_CMD_RATE * balastCmdMod * dt);
       const spd = Math.sqrt(this.vx ** 2 + this.vy ** 2);
       this.angularVel += 0.004 * spd * dt;
     }
@@ -264,13 +296,20 @@ export class Submarine {
 
   _updateBallast(dt) {
     const depth       = this.depthMetres;
-    const depthFactor = 1 / (1 + depth / 300);   // 1.0 at surface → 0.33 at 600m
-    const maxStep     = BALLAST_RATE * depthFactor * dt;
+    const balastH     = this.systems.balast?.health ?? 1.0;
+    const balastMod   = Math.max(0.06, balastH);  // min 6% prędkości przy awarii
+    const depthFactor = 1 / (1 + depth / 300);
+    const maxStep     = BALLAST_RATE * balastMod * depthFactor * dt;
     const diff        = this.targetBallast - this.ballast;
     if (Math.abs(diff) <= maxStep) {
       this.ballast = this.targetBallast;
     } else {
       this.ballast += Math.sign(diff) * maxStep;
+    }
+    // Uszkodzony balast — niekontrolowany wyciek / przeciek sprężonego powietrza
+    if (balastH < 0.25 && Math.random() < 0.006 * dt * 60) {
+      this.targetBallast = Phaser.Math.Clamp(
+        this.targetBallast + (Math.random() - 0.45) * 0.15, 0, 1);
     }
   }
 
@@ -279,8 +318,9 @@ export class Submarine {
   _applyPhysics(dt) {
     const THERMO_Y = this.scene.THERMO_Y;
 
-    const thrustX = Math.cos(this.angle) * this.enginePower * MAX_ENGINE_FORCE;
-    const thrustY = Math.sin(this.angle) * this.enginePower * MAX_ENGINE_FORCE;
+    const napedMod = Math.max(0.20, this.systems.naped?.health ?? 1.0);
+    const thrustX = Math.cos(this.angle) * this.enginePower * MAX_ENGINE_FORCE * napedMod;
+    const thrustY = Math.sin(this.angle) * this.enginePower * MAX_ENGINE_FORCE * napedMod;
 
     const bOff  = this.ballast - NEUTRAL_BALLAST;
     const buoyY = bOff * 340;
@@ -398,21 +438,22 @@ export class Submarine {
     const depth = this.depthMetres;
 
     // ── Cavitation noise model ─────────────────────────────────────────────
-    // Below CAVITATION_SPEED: noise scales smoothly with speed.
-    // Above CAVITATION_SPEED: noise jumps sharply (propeller creates vapor bubbles).
+    const napedH      = this.systems.naped?.health ?? 1.0;
+    const cavThreshold = CAVITATION_SPEED * (0.45 + 0.55 * napedH); // uszkodzony → cavituje wcześniej
     const engineNoise = Math.abs(this.enginePower) * 0.50;
     let speedNoise;
-    if (spd > CAVITATION_SPEED && Math.abs(this.enginePower) > 0.25) {
+    if (spd > cavThreshold && Math.abs(this.enginePower) > 0.25) {
       this.cavitating = true;
-      const excess    = (spd - CAVITATION_SPEED) / (290 - CAVITATION_SPEED); // 0→1
-      speedNoise      = 0.22 + excess * excess * 0.60;  // quadratic spike
+      const excess    = (spd - cavThreshold) / (290 - cavThreshold);
+      speedNoise      = 0.22 + excess * excess * 0.60;
     } else {
       this.cavitating = false;
       speedNoise      = (spd / CAVITATION_SPEED) * 0.22;
     }
-    // Skok hałasu po odpaleniu rakiety — zanika w ~4s
+    // Uszkodzony napęd generuje dodatkowe wibracje akustyczne
+    const napedNoise = (1.0 - napedH) * 0.14;
     this.noiseSurge = Math.max(0, this.noiseSurge - dt * 0.28);
-    this.noise = Phaser.Math.Clamp(engineNoise + speedNoise + this.noiseSurge, 0, 1);
+    this.noise = Phaser.Math.Clamp(engineNoise + speedNoise + this.noiseSurge + napedNoise, 0, 1);
 
     // ── Thermocline noise masking ──────────────────────────────────────────
     // Sound bends around the thermocline (acoustic shadow zone).
@@ -422,25 +463,26 @@ export class Submarine {
     this.noiseEffective = Phaser.Math.Clamp(this.noise * (1 - mask), 0, 1);
 
     // ── Battery ────────────────────────────────────────────────────────────
-    // Hotel load: systems always draw power even at rest
+    const zasH       = this.systems.zasilanie?.health ?? 1.0;
+    const hotelMult  = 1 + (1.0 - zasH) * 2.8;    // uszkodzone zasilanie: do 3.8× hotel load
     const engineDrain = Math.abs(this.enginePower) * 0.0022;
-    this.battery -= (engineDrain + HOTEL_LOAD) * dt;
+    this.battery -= (engineDrain + HOTEL_LOAD * hotelMult) * dt;
 
-    // Snorkel charging: at very shallow depth with engine off, diesel recharges battery
     this.snorkeling = depth < SNORKEL_DEPTH_M && this.battery < 1;
     if (this.snorkeling) {
-      // Net gain only when engine is mostly off (idle); diesel can't beat full engine drain
       this.battery += 0.00065 * dt;
     }
-    this.battery = Phaser.Math.Clamp(this.battery, 0, 1);
+    // Uszkodzone zasilanie ogranicza maksymalny poziom baterii
+    const maxBattery = Math.max(0.42, zasH);
+    this.battery = Phaser.Math.Clamp(this.battery, 0, maxBattery);
 
     // ── Oxygen ────────────────────────────────────────────────────────────
-    // Przy głębokości snorchla (<18m) powietrze z zewnątrz — tlen rośnie
+    const tlenH      = this.systems.tlen?.health ?? 1.0;
+    const tlenDrainMult = 1 + (1.0 - tlenH) * 2.8;  // uszkodzony tlen: do 3.8× szybszy spadek
     if (depth < SNORKEL_DEPTH_M) {
       this.oxygen = Math.min(1, this.oxygen + 0.055 * dt);
     } else {
-      // 0.00055/s bazowo → ~30 min na płytkim; głębiej trochę szybciej
-      this.oxygen -= (0.00055 + depth * 0.0000018) * dt;
+      this.oxygen -= (0.00055 + depth * 0.0000018) * tlenDrainMult * dt;
     }
     this.oxygen = Phaser.Math.Clamp(this.oxygen, 0, 1);
     if (this.oxygen <= 0) this.hull -= 0.007 * dt;
@@ -649,7 +691,7 @@ export class Submarine {
     g.fillStyle(0xff2222, 1); g.fillCircle(-40, 0, 2.0);   // rufowe czerwone
     g.fillStyle(0x22dd22, 1); g.fillCircle( 46, 0, 2.0);   // dziobowe zielone
 
-    // ── Uszkodzenia ───────────────────────────────────────────────────────────
+    // ── Uszkodzenia kadłuba ───────────────────────────────────────────────────
     if (this.hull < 0.6) {
       const ca = (0.6 - this.hull) * 3.5;
       g.lineStyle(1.2, 0xff5533, ca);
@@ -658,12 +700,40 @@ export class Submarine {
       if (this.hull < 0.3) {
         g.strokeLineShape(new Phaser.Geom.Line(0, -8, 8, 5));
         g.strokeLineShape(new Phaser.Geom.Line(-5, 0, 5, 8));
-        // Wyciek ropy
         if (Math.random() < 0.28) {
           g.fillStyle(0x885522, 0.38);
           g.fillCircle(Phaser.Math.Between(-22, 22), Phaser.Math.Between(-7, 7), Phaser.Math.Between(1, 3));
         }
       }
+    }
+
+    // ── Efekty systemowe ─────────────────────────────────────────────────────
+    // Uszkodzony napęd — dym/olej z maszynowni (rufa)
+    const napedH = this.systems.naped?.health ?? 1.0;
+    if (napedH < 0.65 && Math.random() < 0.85) {
+      const intensity = (0.65 - napedH) / 0.65;
+      g.fillStyle(0x445544, intensity * 0.38 * (0.5 + Math.random() * 0.5));
+      g.fillCircle(
+        Phaser.Math.Between(-50, -28),
+        Phaser.Math.Between(-5, 5),
+        Phaser.Math.Between(3, 9)
+      );
+      if (napedH < 0.25 && Math.random() < 0.4) {
+        g.fillStyle(0x774422, 0.35);
+        g.fillCircle(Phaser.Math.Between(-46, -30), Phaser.Math.Between(-4, 4), Phaser.Math.Between(2, 5));
+      }
+    }
+
+    // Uszkodzony balast — nieregularne bąble z zaworów ciśnieniowych
+    const balastH = this.systems.balast?.health ?? 1.0;
+    if (balastH < 0.55 && Math.random() < 0.72) {
+      const bInt = (0.55 - balastH) / 0.55;
+      g.fillStyle(0x88ccff, bInt * 0.55 + 0.12);
+      g.fillCircle(
+        Phaser.Math.Between(-35, 35),
+        Phaser.Math.Between(-8, 2),
+        Phaser.Math.Between(1, 4)
+      );
     }
 
     g.restore();

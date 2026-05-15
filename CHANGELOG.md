@@ -4,6 +4,30 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.40] — 2026-05-15
+
+### Dodano — Pełna integracja systemu awarii z rozgrywką
+
+**Submarine.js — każdy system faktycznie wpływa na grę:**
+- `sysMod(key, minAtZero)` — pomocnik zamieniający zdrowie systemu na modifier (0→minAtZero, 1→1.0)
+- **NAPĘD**: `enginePower` ograniczony do `max(0.22, health)` w `_handleInput()`; siła ciągu skalowana w `_applyPhysics()`; niższy próg kawitacji przy uszkodzeniu; dodatkowy hałas akustyczny proporcjonalny do uszkodzeń; dym/olej z maszynowni (efekt wizualny)
+- **BALAST**: szybkość zmiany balastu skalowana przez `max(0.06, health)` w `_updateBallast()`; niekontrolowany dryft przy `health < 0.25`; komendy balastowe słabną; nieregularne bąble z zaworów (efekt wizualny)
+- **SONAR PASYWNY**: `sonarBonus` getter uwzględnia `sonarP.health` — zakres detekcji wroga spada do 15% przy awarii
+- **SONAR AKTYWNY**: `_firePing()` zablokowany gdy `sonarA.health < 0.1` — komunikat AWARIA w dzienniku
+- **TORPEDY**: dostępna liczba rur zależna od zdrowia (4/3/2/1/0); prędkość przeładowania skalowana przez `max(0.12, health)` — do 8× wolniej
+- **RAKIETY**: odpalenie niemożliwe gdy `rakiety.health ≤ 0` — nowy kod zwrotny `'awaria'`
+- **TLEN**: zużycie tlenu × `(1 + (1-health) × 2.8)` — do 3.8× szybsze
+- **ZASILANIE**: hotel load × `(1 + (1-health) × 2.8)` — do 3.8× szybszy drain; max poziom baterii ograniczony do `max(0.42, health)`
+- `applyDamage()` przepisany: ważone uszkodzenia systemów według źródła (`ASROC→torpedy/sonarA`, `ZARZUT→balast/tlen`, `KOLIZJA→naped/balast`); mniej drastyczne obrażenia (0.12–0.34 zamiast 0.4–0.9)
+
+**GameScene.js:**
+- Obsługa `result === 'awaria'` przy obu ścieżkach odpalenia rakiet (klik + klawisz R)
+
+**index.html:**
+- `_dsFlashHUD()` — miganie wskaźników HUD przy krytycznych uszkodzeniach systemów: prędkość→NAPĘD, balast→BALAST, bateria→ZASILANIE, tlen→TLEN, ping→SONAR-A, torpedy→TORPEDY, rakiety→RAKIETY
+
+---
+
 ## [0.10.39] — 2026-05-15
 
 ### Zmieniono — Panel AWARIE: schemat SVG okrętu z kolorowymi strefami

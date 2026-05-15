@@ -22,7 +22,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Świat 12 000px (~14.4km) zamiast 4 096px |
 | 🔴 | Prądy oceanu — poziome znoszenie w zależności od głębokości |
 | 🔴 | Kąt natarcia do torpedy — wpływ prędkości łodzi na trajektorię |
-| ✅ | Zniszczenie systemów — utrata sonaru / napędu od obrażeń (model health per system) |
+| ✅ | Zniszczenie systemów — każdy z 8 systemów faktycznie wpływa na rozgrywkę (naped/balast/sonar/torp/rak/tlen/zasil) |
 | 🟡 | Przeciążenie ciśnieniowe przy przekroczeniu głębokości kruszenia |
 | 🟢 | Trim — kontrola kąta poprzecznego (obrót wokół osi Z) |
 | 🟢 | Silnik Diesla na powierzchni — szybsze ładowanie, większy hałas |
