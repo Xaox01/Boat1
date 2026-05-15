@@ -181,7 +181,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | 🔴 | Kaustyki — animowane refleksy świetlne na dnie i kadłubie |
 | ✅ | Torpeda — widoczny ślad bąbelków (wake trail) za torpedą |
 | 🔴 | Peryskop — nakładka z soczewką i krzyżem optycznym |
-| 🟡 | Cykl dnia i nocy — zmiana koloru oceanu, widoczności |
+| ✅ | Cykl dnia i nocy — zmiana koloru oceanu, widoczności |
 | 🟡 | Promienie słońca — god rays przebijające się przez powierzchnię (WebGL shader) |
 | 🟡 | Bąble powietrza — unoszące się przy wynurzaniu i eksplozjach |
 | 🟡 | Deszcz i burza morska — efekt na powierzchni, wpływ na hałas |

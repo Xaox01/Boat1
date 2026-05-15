@@ -4,6 +4,25 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.32] — 2026-05-15
+
+### Dodano — cykl dnia i nocy (8-minutowy, proceduralny)
+
+**src/Ocean.js:**
+- Nowe grafiki screen-space: `skyOverlay` (depth 1) i `darkOverlay` (depth 9) — nie przesuwane z kamerą
+- `_buildStars()` — 58 gwiazd o deterministycznych pozycjach z mruganiem (`sin(t*1.8 + phase*4.5)`)
+- `_lerpCol(a, b, t)` — interpolacja kolorów hex bit-per-channel
+- `_getDayPalette(dt)` — 9 klatek kluczowych (północ→świt→dzień→zmierzch→północ) ze smoothstep
+- `_drawSky(g, pal)` — gradient nieba, gwiazdy w nocy, słońce z halo (w dzień) lub księżyc z poświatą (w nocy), linia horyzontu
+- `update()` przyjmuje teraz `dayTime` (0–1); kolor fal i poświaty termokliny zależą od pory dnia
+
+**src/GameScene.js:**
+- `this._dayTime = 0.0` — licznik czasu dnia (inicjalizacja w `create()`)
+- `this._dayTime = (this._dayTime + dt / 480) % 1` — pełny cykl co 8 minut rzeczywistych
+- `window._sonar.dayTime` — eksport do UI (overlay HTML może wyświetlać porę dnia)
+
+---
+
 ## [0.10.31] — 2026-05-15
 
 ### Poprawiono — animacja tonięcia v2: opad na dno, wrak, szczątki, muł

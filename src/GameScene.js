@@ -186,6 +186,7 @@ export class GameScene extends Phaser.Scene {
     this._gameOver        = false;
     this._wave            = 1;
     this._prevEnemyState  = new Map();
+    this._dayTime         = 0.0;   // 0=północ, 0.25=świt, 0.5=południe, 0.75=zmierzch
 
     // Tryb piaskownicy — ciągłe generowanie wrogów
     this._enemySerial     = 0;    // globalny licznik spawniętych okrętów
@@ -629,7 +630,8 @@ export class GameScene extends Phaser.Scene {
     this._setText(shipLogTime, `${mm}:${ss}`);
 
     this._applyCamera();
-    this.ocean.update(delta, this.camX);
+    this._dayTime = (this._dayTime + dt / 480) % 1;   // pełny cykl co 8 minut
+    this.ocean.update(delta, this.camX, this._dayTime);
     this._updatePings(dt);
     this.sonar.update(delta, this.sub, [...this.enemies, ...this.merchants], this.sub.torpedoes, this._activePings);
     this._exportSonarState();
@@ -709,6 +711,7 @@ export class GameScene extends Phaser.Scene {
     window._sonar.listenMode    = sub.listenMode;
     window._sonar.silentRunning = sub.silentRunning;
     window._sonar.depth         = sub.depthMetres;
+    window._sonar.dayTime       = this._dayTime;
     window._sonar.tick++;
 
     // Synchronizuj wybór z stacji SONAR/PERYSKOP do systemu celowania
