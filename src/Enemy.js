@@ -110,11 +110,13 @@ export class Enemy {
     this.recentASROC      = false;
 
     // Animacja tonięcia
-    this._sinking     = false;
-    this._sinkTimer   = 0;
-    this._sinkDur     = 7.5;
-    this._sinkSide    = 1;    // +1/-1 w którą stronę przechyla
-    this._sinkBubbles = [];
+    this._sinking      = false;
+    this._sinkTimer    = 0;
+    this._sinkDur      = 14.0;    // 14 sekund od wybuchu do wraku na dnie
+    this._sinkSide     = 1;
+    this._sinkAngle    = 0;       // akumulowany kąt obrotu [rad]
+    this._shipSinkY    = 0;       // bieżąca pozycja Y okrętu
+    this._sinkParticles = [];     // bąble + szczątki
 
     // AI v2 — dead reckoning + koordynacja
     this._contactAge      = 0;      // sekundy od ostatniego świeżego kontaktu sonarowego
@@ -127,13 +129,16 @@ export class Enemy {
   // Inicjuje animację tonięcia — niszczyciel tonie przez ~7.5s zanim destroyed=true
   startSinking() {
     if (this._sinking || this.destroyed) return;
-    this._sinking          = true;
-    this._sinkTimer        = this._sinkDur;
-    this._sinkSide         = Math.random() < 0.5 ? 1 : -1;
-    this.revealTimer       = this._sinkDur + 2;
-    this.needsReinforcement = false;
-    this._withdrawing      = true;
-    this.state             = STATE.WITHDRAW;
+    this._sinking           = true;
+    this._sinkTimer         = this._sinkDur;
+    this._sinkSide          = Math.random() < 0.5 ? 1 : -1;
+    this._sinkAngle         = 0;
+    this._shipSinkY         = this.scene.SURFACE_Y;
+    this._sinkParticles     = [];
+    this.revealTimer        = this._sinkDur + 3;
+    this.needsReinforcement  = false;
+    this._withdrawing        = true;
+    this.state               = STATE.WITHDRAW;
   }
 
   // Wywoływane z GameScene gdy torpeda lub rakieta trafi
@@ -622,144 +627,240 @@ export class Enemy {
   // ── Tonięcie ──────────────────────────────────────────────────────────────
 
   _updateSinking(dt) {
+    const SURF  = this.scene.SURFACE_Y;
+    const FLOOR = this.scene.OCEAN_FLOOR_Y;
+
     this._sinkTimer = Math.max(0, this._sinkTimer - dt);
     const prog = 1 - this._sinkTimer / this._sinkDur;
 
-    // Bąble powietrza wydobywające się z tonącego kadłuba
-    if (prog < 0.80 && Math.random() < dt * 9) {
-      this._sinkBubbles.push({
-        x:   this.x + Phaser.Math.Between(-28, 28),
-        y:   this.scene.SURFACE_Y + 8,
+    // Pozycja Y: SURF → FLOOR-10 przez prog 0.08–0.88
+    const sf = prog < 0.08 ? 0 : Phaser.Math.Clamp((prog - 0.08) / 0.80, 0, 1);
+    this._shipSinkY = SURF + Math.pow(sf, 1.55) * (FLOOR - SURF - 10);
+
+    // Rotacja — przyspiesza do 0.22, stała, zwalnia przy dnie
+    const rotSpd = prog < 0.22 ? (prog / 0.22) * 2.8
+                 : prog > 0.88 ? 2.8 * Math.max(0, 1 - (prog - 0.88) / 0.12)
+                 : 2.8;
+    this._sinkAngle += rotSpd * dt * this._sinkSide;
+
+    const shipY = this._shipSinkY;
+
+    // Bąble — gęste na początku (para od ognia) i przy dnie (powietrze z wraku)
+    const bRate = (prog < 0.16 || (prog > 0.85 && prog < 0.97)) ? 18 : 5;
+    if (prog < 0.96 && Math.random() < dt * bRate) {
+      this._sinkParticles.push({
+        type: 'bubble',
+        x: this.x + Phaser.Math.Between(-26, 26),
+        y: Math.min(shipY + 6, FLOOR - 8),
+        vy: -(28 + Math.random() * 28),
         age: 0,
-        r:   2 + Math.random() * 3,
+        r: 1.5 + Math.random() * 3,
       });
     }
-    for (const b of this._sinkBubbles) b.age += dt;
-    this._sinkBubbles = this._sinkBubbles.filter(b => b.age < 3.8);
+
+    // Szczątki — odrywają się w fazie podwodnej
+    if (prog > 0.13 && prog < 0.76 && Math.random() < dt * 2.8) {
+      const cols = [0x775511, 0x334455, 0x556677, 0x443322, 0x887766];
+      this._sinkParticles.push({
+        type: 'debris',
+        x: this.x + Phaser.Math.Between(-52, 52),
+        y: shipY + Phaser.Math.Between(-18, 18),
+        vx: (Math.random() - 0.5) * 16,
+        vy: -(5 + Math.random() * 14),
+        rot: Math.random() * Math.PI * 2,
+        rotv: (Math.random() - 0.5) * 3.2,
+        age: 0,
+        size: 4 + Math.random() * 10,
+        col: cols[Math.floor(Math.random() * cols.length)],
+      });
+    }
+
+    // Update cząsteczek
+    for (const p of this._sinkParticles) {
+      p.age += dt;
+      if (p.type === 'bubble') {
+        p.y += p.vy * dt;
+      } else {
+        p.x   += p.vx * dt;
+        p.y   += p.vy * dt;
+        p.vy   = p.vy * (1 - dt * 0.45);
+        p.vx   = p.vx * (1 - dt * 0.35);
+        p.rot += p.rotv * dt;
+      }
+    }
+    this._sinkParticles = this._sinkParticles.filter(p =>
+      p.type === 'bubble' ? p.age < 5.2 && p.y > SURF - 35 : p.age < 13 && p.y > SURF
+    );
 
     if (this._sinkTimer <= 0) this.destroyed = true;
     this._drawSinking(prog);
   }
 
   _drawSinking(prog) {
-    const g    = this.gfx;
-    const SURF = this.scene.SURFACE_Y;
+    const g     = this.gfx;
+    const SURF  = this.scene.SURFACE_Y;
+    const FLOOR = this.scene.OCEAN_FLOOR_Y;
+    const shipY = this._shipSinkY ?? SURF;
+    const t     = Date.now() * 0.001;
     g.clear();
 
-    // ── Plama olejowa — rozrasta się przez cały czas ──────────────────────
-    const oilR = 18 + prog * 140;
-    g.fillStyle(0x221100, 0.18 + prog * 0.28);
-    g.fillEllipse(this.x, SURF + 4, oilR * 2.8, oilR * 0.55);
-    // Tęczowe refleksy oleju
-    g.fillStyle(0x332244, 0.10 + prog * 0.12);
-    g.fillEllipse(this.x - oilR * 0.18, SURF + 3, oilR * 1.1, oilR * 0.28);
+    // ── Plama oleju na powierzchni ────────────────────────────────────────
+    const oilR = 24 + prog * 185;
+    g.fillStyle(0x1a0d00, 0.24 + prog * 0.20);
+    g.fillEllipse(this.x, SURF + 4, oilR * 2.9, oilR * 0.48);
+    g.fillStyle(0x330e22, 0.08 + prog * 0.09);
+    g.fillEllipse(this.x + oilR * 0.22, SURF + 3, oilR * 0.80, oilR * 0.20);
 
-    // ── Bąble powietrza ───────────────────────────────────────────────────
-    for (const b of this._sinkBubbles) {
-      const f = Math.max(0, 1 - b.age / 3.8);
-      g.fillStyle(0xaaddff, f * 0.60);
-      g.fillCircle(b.x, b.y - b.age * 38, b.r + b.age * 1.2);
+    // ── Dym i ogień na powierzchni (zanim okręt zejdzie pod wodę) ────────
+    if (prog < 0.28) {
+      const si = 1 - prog / 0.28;
+      for (let i = 0; i < 9; i++) {
+        const age = (i * 0.111 + t * 0.17) % 1;
+        g.fillStyle(0x0a0a0a, (1 - age) * 0.70 * si);
+        g.fillCircle(
+          this.x + Math.sin(t * 0.7 + i * 0.9) * 28 * age,
+          SURF - 10 - age * (52 + si * 44),
+          7 + age * (22 + si * 20)
+        );
+      }
+      for (let i = 0; i < 6; i++) {
+        const age = (i / 6 + t * 0.55) % 1;
+        g.fillStyle(0xff4400, (1 - age) * 0.87 * si);
+        g.fillCircle(
+          this.x + Math.sin(t * 2.5 + i * 1.3) * 24 * age,
+          SURF - 9 - age * (34 + si * 28),
+          5 + age * (14 + si * 12)
+        );
+      }
     }
 
-    // ── Fale na powierzchni (od zanurzenia) ───────────────────────────────
-    if (prog > 0.55) {
-      const wp = (prog - 0.55) / 0.45;
-      g.lineStyle(1.5, 0x88bbdd, (1 - wp) * 0.50);
-      g.strokeEllipse(this.x, SURF + 2, wp * 210, wp * 32);
-      g.lineStyle(1.0, 0x88bbdd, (1 - wp) * 0.28);
-      g.strokeEllipse(this.x, SURF + 2, wp * 145, wp * 22);
+    // ── Splash przy zanurzaniu ────────────────────────────────────────────
+    if (prog > 0.06 && prog < 0.27) {
+      const sp = (prog - 0.06) / 0.21;
+      g.fillStyle(0x88aacc, (1 - sp) * 0.50);
+      g.fillEllipse(this.x, SURF - sp * 20, sp * 170, sp * 48);
+      g.lineStyle(2, 0xbbd4ee, (1 - sp) * 0.72);
+      g.strokeEllipse(this.x, SURF + 4, (sp * 95 + 35) * 2, sp * 20 + 10);
     }
 
-    // ── Okręt — z przechyłem i zanurzeniem ───────────────────────────────
-    const sinkY  = prog > 0.28
-      ? Math.pow((prog - 0.28) / 0.72, 2.4) * 95
-      : 0;
-    const angle  = Math.pow(prog, 1.35) * (Math.PI / 2.0) * this._sinkSide;
-    const alpha  = prog > 0.83 ? Math.max(0, 1 - (prog - 0.83) / 0.17) : 1.0;
+    // ── Fale rozchodzące się po zanurzeniu ────────────────────────────────
+    if (prog > 0.14) {
+      const wp = Math.min((prog - 0.14) / 0.62, 1);
+      g.lineStyle(1.5, 0x6688aa, (1 - wp) * 0.44);
+      g.strokeEllipse(this.x, SURF + 2, wp * 310, wp * 44);
+      g.lineStyle(1.0, 0x6688aa, (1 - wp) * 0.24);
+      g.strokeEllipse(this.x, SURF + 2, wp * 210, wp * 30);
+    }
+
+    // ── Bąble i szczątki ──────────────────────────────────────────────────
+    for (const p of this._sinkParticles) {
+      const dep = Phaser.Math.Clamp((p.y - SURF) / (FLOOR - SURF), 0, 1);
+      if (p.type === 'bubble') {
+        const f = Math.max(0, 1 - p.age / 5.2);
+        g.fillStyle(0x88bbdd, f * (0.55 - dep * 0.35));
+        g.fillCircle(p.x, p.y, p.r + p.age * 0.65);
+      } else {
+        const f = Math.max(0, 1 - p.age / 13);
+        g.save();
+        g.translateCanvas(p.x, p.y);
+        g.rotateCanvas(p.rot);
+        g.fillStyle(p.col, f * (0.72 - dep * 0.42));
+        g.fillRect(-p.size / 2, -p.size * 0.30, p.size, p.size * 0.62);
+        g.restore();
+      }
+    }
+
+    // ── Okręt — zanurza się, obraca, ściemnia z głębokością ──────────────
+    const depth   = Phaser.Math.Clamp((shipY - SURF) / (FLOOR - SURF), 0, 1);
+    const alpha   = prog > 0.90 ? Math.max(0, 1 - (prog - 0.90) / 0.10) : 1.0;
+    const visA    = alpha * (1 - depth * 0.62);
+    const shipCol = depth < 0.12 ? 0x775511 : depth < 0.45 ? 0x443308 : 0x1e1402;
+    const d       = this.dir;
 
     g.save();
-    g.translateCanvas(this.x, SURF + sinkY);
-    g.rotateCanvas(angle);
+    g.translateCanvas(this.x, shipY);
+    g.rotateCanvas(this._sinkAngle);
 
-    const d   = this.dir;
-    const col = 0x775511;   // przypalony, ciemny
-
-    // Cień kadłuba podwodnego
-    g.fillStyle(0x111820, 0.50 * alpha);
+    g.fillStyle(0x040810, 0.45 * alpha);
     g.fillRect(-28, 0, 56, 7);
-
-    // Kadłub główny
-    g.fillStyle(col, 0.90 * alpha);
+    g.fillStyle(shipCol, 0.90 * visA);
     g.fillRect(-28, -10, 56, 10);
-
-    // Pokład dziobowy
-    g.fillStyle(col, 0.85 * alpha);
+    g.fillStyle(shipCol, 0.84 * visA);
     g.fillRect(d * 8, -14, d * 20, 4);
-
-    // Dziób
-    g.fillStyle(col, 0.90 * alpha);
+    g.fillStyle(shipCol, 0.88 * visA);
     g.fillTriangle(d * 38, -4, d * 28, -11, d * 28, 1);
-
-    // Nadbudówka
-    g.fillStyle(col, 0.92 * alpha);
+    g.fillStyle(shipCol, 0.90 * visA);
     g.fillRect(-8, -20, 18, 10);
-    g.fillStyle(0x223344, 0.80 * alpha);
+    g.fillStyle(0x101e2a, 0.76 * visA);
     g.fillRect(-5, -27, 13, 7);
-
-    // Komin
-    g.fillStyle(0x223344, 0.85 * alpha);
+    g.fillStyle(0x101e2a, 0.80 * visA);
     g.fillRect(-d * 4, -31, 7, 11);
-
-    // Maszt pochylony
-    g.fillStyle(0x99aaaa, 0.45 * alpha);
+    g.fillStyle(0x445566, 0.38 * visA);
     g.fillRect(-1, -36, 2, 9);
 
-    // ── Ogień (intensywny) ────────────────────────────────────────────────
-    const t   = Date.now() * 0.001;
-    const fi  = Math.min(1.0, prog * 2.2);
-    // Wybuch początkowy (pierwsze 20% animacji)
-    if (prog < 0.20) {
-      const burst = 1 - prog / 0.20;
-      g.fillStyle(0xffffff, burst * 0.75 * alpha);
-      g.fillCircle(0, -14, 5 + burst * 32);
-      g.fillStyle(0xff8800, burst * 0.90 * alpha);
-      g.fillCircle(0, -14, 4 + burst * 24);
-      g.fillStyle(0xff3300, burst * 0.70 * alpha);
-      g.fillCircle(Math.sin(t * 11) * 12, -12 + Math.cos(t * 9) * 8, 3 + burst * 14);
-    }
-    // Ciągły ogień
-    const fireCount = 4 + Math.floor(prog * 5);
-    for (let i = 0; i < fireCount; i++) {
-      const age  = (i / fireCount + t * 0.55) % 1;
-      const fx   = Math.sin(t * 2.5 + i * 1.3) * 22 * age;
-      const fy   = -(9 + age * (44 + prog * 30));
-      const fr   = 5 + age * (14 + prog * 12);
-      g.fillStyle(0xff4400, (1 - age) * 0.82 * fi * alpha);
-      g.fillCircle(fx, fy, fr);
-      g.fillStyle(0xffaa00, (1 - age) * 0.60 * fi * alpha);
-      g.fillCircle(fx, fy - fr * 0.4, fr * 0.52);
+    // Wybuch początkowy + ogień (tylko blisko powierzchni)
+    if (depth < 0.28) {
+      const fi = 1 - depth / 0.28;
+      if (prog < 0.10) {
+        const burst = 1 - prog / 0.10;
+        g.fillStyle(0xffffff, burst * 0.70 * visA);
+        g.fillCircle(0, -14, 5 + burst * 34);
+        g.fillStyle(0xff8800, burst * 0.88 * visA);
+        g.fillCircle(0, -14, 4 + burst * 25);
+      }
+      for (let i = 0; i < 5; i++) {
+        const age = (i * 0.2 + t * 0.55) % 1;
+        g.fillStyle(0xff4400, (1 - age) * 0.80 * fi * visA);
+        g.fillCircle(Math.sin(t * 2.5 + i * 1.3) * 20 * age, -(9 + age * 40), 5 + age * 13);
+      }
     }
 
-    // ── Dym (gęsty, czarny) ───────────────────────────────────────────────
-    const smokeCount = 5 + Math.floor(prog * 8);
-    for (let i = 0; i < smokeCount; i++) {
-      const age  = (i / smokeCount + t * 0.22) % 1;
-      const sx   = Math.sin(t * 0.6 + i * 0.85) * 28 * age;
-      const sy   = -(12 + age * (62 + prog * 45));
-      const sr   = 7 + age * (22 + prog * 28);
-      g.fillStyle(0x111111, (1 - age) * 0.62 * alpha);
-      g.fillCircle(sx, sy, sr);
-    }
-
-    // ── Pęknięcia kadłuba i ogień na pokładzie ────────────────────────────
-    if (prog > 0.15) {
-      const ca = Math.min(1, (prog - 0.15) * 2.5) * alpha;
+    // Pęknięcia szkieletu
+    if (prog > 0.09) {
+      const ca = Math.min(1, (prog - 0.09) * 4) * visA;
       g.lineStyle(1.5, 0xff5533, ca);
-      g.strokeLineShape(new Phaser.Geom.Line(-20, -8, -6, -2));
-      g.strokeLineShape(new Phaser.Geom.Line(8, -9, 22, -2));
+      g.strokeLineShape(new Phaser.Geom.Line(-22, -8, -7, -2));
+      g.strokeLineShape(new Phaser.Geom.Line(10, -9, 24, -2));
+      if (prog > 0.38) {
+        g.lineStyle(1.2, 0xcc3311, ca * 0.70);
+        g.strokeLineShape(new Phaser.Geom.Line(-5, -20, 5, -10));
+      }
     }
 
     g.restore();
+
+    // ── Uderzenie w dno ───────────────────────────────────────────────────
+    if (prog > 0.85) {
+      const ip = Phaser.Math.Clamp((prog - 0.85) / 0.15, 0, 1);
+      const ie = 1 - ip;
+
+      // Chmura mułu
+      g.fillStyle(0x7a6a40, ie * 0.44);
+      g.fillEllipse(this.x, FLOOR + 4, ip * 260, ip * 34);
+      g.fillStyle(0x5c4f2e, ie * 0.28);
+      g.fillEllipse(this.x, FLOOR + 1, ip * 440, ip * 20);
+
+      // Wrak osiadający na dnie
+      if (ip > 0.28) {
+        const wa = Math.min(1, (ip - 0.28) / 0.72);
+        // Kadłub wraku
+        g.fillStyle(0x221508, wa * 0.88);
+        g.fillRect(this.x - 31, FLOOR - 8, 62, 10);
+        // Przechylona nadbudówka
+        g.save();
+        g.translateCanvas(this.x + this._sinkSide * 8, FLOOR - 9);
+        g.rotateCanvas(this._sinkSide * 0.50);
+        g.fillStyle(0x150e04, wa * 0.72);
+        g.fillRect(-9, -10, 18, 10);
+        g.restore();
+        // Maszt leżący na dnie
+        g.fillStyle(0x2a3a3a, wa * 0.52);
+        g.fillRect(this.x - this._sinkSide * 30, FLOOR - 2, this._sinkSide * 38, 2);
+        // Muł wokół wraku (osiada)
+        g.fillStyle(0x5a4a30, wa * ie * 0.28 + wa * 0.08);
+        g.fillEllipse(this.x, FLOOR + 3, 110 + wa * 70, 16);
+      }
+    }
   }
 
   // ── Renderowanie ─────────────────────────────────────────────────────────
