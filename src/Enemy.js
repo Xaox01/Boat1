@@ -308,6 +308,15 @@ export class Enemy {
     let range = BASE_HYDROPHONE * sub.noiseEffective * (1 - decoyMask);
     if (sub.belowThermocline) range *= THERMO_MASK;
 
+    // Strefa ciszy akustycznej — tuż pod okrętem, własna śruba zagłusza dziobowy hydrofor
+    if (dy > 30 && Math.abs(dx) < 80) range *= 0.18;
+
+    // Hałas własny okrętu — szybki sprint głuszy hydrofonię; nasłuch wzmacnia
+    range *= this._listening        ? 1.12
+           : this.state === STATE.HUNT  ? 0.62
+           : this.state === STATE.ALERT ? 0.83
+           : 1.0;
+
     if (dist < range) {
       this.detectTimer      = Math.min(this.detectTimer + dt * (1 - decoyMask * 0.6), HUNT_THRESHOLD + 1);
       this.lastBearingToSub = Math.atan2(dy, dx);
@@ -352,6 +361,13 @@ export class Enemy {
     } else {
       this._huntDuration = Math.max(0, this._huntDuration - dt * 0.5);
       if (this._huntDuration === 0) this.needsReinforcement = false;
+    }
+
+    // Natychmiastowe radiowanie kontaktu przy wejściu w HUNT — nie czeka 18s
+    if (prev !== STATE.HUNT && this.state === STATE.HUNT) {
+      for (const e of (this.scene.enemies ?? [])) {
+        if (e !== this && !e._sinking && !e.destroyed) e.receiveRadioAlert(sub.x, sub.y, this.x);
+      }
     }
 
     if (prev === STATE.HUNT && this.state !== STATE.HUNT && this.state !== STATE.WITHDRAW) {
@@ -502,7 +518,7 @@ export class Enemy {
     this.chargeCD = Math.max(0, this.chargeCD - dt);
 
     // Spekulacyjne zarzuty podczas przeszukiwania
-    if (this.state === STATE.SEARCH && this.chargeCD <= 0 && Math.random() < 0.007) {
+    if (this.state === STATE.SEARCH && this.chargeCD <= 0 && Math.random() < 0.014) {
       this._dropPattern(sub);
       this.chargeCD = CHARGE_COOLDOWN * 1.8;
     }
@@ -548,18 +564,27 @@ export class Enemy {
   }
 
   _dropPattern(sub) {
-    const SURF     = this.scene.SURFACE_Y;
+    const SURF    = this.scene.SURFACE_Y;
+    const FLOOR   = this.scene.OCEAN_FLOOR_Y;
     const fallTime = (sub.y - SURF) / CHARGE_FALL_SPD;
-    const predY    = Phaser.Math.Clamp(
-      sub.y + sub.vy * fallTime * 0.42,
-      SURF + 25, this.scene.OCEAN_FLOOR_Y - 25
+    const predY   = Phaser.Math.Clamp(
+      sub.y + sub.vy * fallTime * 0.65,   // lepsza predykcja głębokości niż 0.42
+      SURF + 30, FLOOR - 30
     );
-    const offsets = [0, this.dir * 55, -this.dir * 55];
-    for (const xOff of offsets) {
+    // 5-zarzutowy bracket głębokości — gracz nie może „siedzieć" na jednej głębokości
+    const pattern = [
+      { xOff: 0,                yOff: 0   },   // centrum
+      { xOff:  this.dir * 55,   yOff:  42 },   // flanka prawa, głębiej
+      { xOff: -this.dir * 55,   yOff: -38 },   // flanka lewa, płycej
+      { xOff:  this.dir * 25,   yOff: -22 },   // blisko, płycej
+      { xOff: -this.dir * 22,   yOff:  28 },   // blisko, głębiej
+    ];
+    for (const { xOff, yOff } of pattern) {
+      const ty = Phaser.Math.Clamp(predY + yOff + Phaser.Math.Between(-16, 16), SURF + 30, FLOOR - 30);
       this.charges.push({
         x: this.x + xOff, y: SURF + 10,
-        targetY: predY + Phaser.Math.Between(-22, 22),
-        speed: CHARGE_FALL_SPD + Math.random() * 28,
+        targetY: ty,
+        speed: CHARGE_FALL_SPD + Math.random() * 32,
         exploded: false, explodeTimer: 0,
       });
     }

@@ -101,6 +101,10 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Szok po trafieniu — spowolnienie 15%→100% przez kilka sekund |
 | ✅ | Ślad olejowy — widoczny na powierzchni podczas WITHDRAW |
 | ✅ | Manewr unikania torpedy — zdrowy vs uszkodzony |
+| ✅ | Strefa ciszy akustycznej — pod kilem okrętu detekcja 18% (własna śruba blokuje hydrofor) |
+| ✅ | Hałas własny prędkości — HUNT -38% zasięgu, nasłuch +12% (sprint-and-listen obustronne) |
+| ✅ | Natychmiastowe radiowanie kontaktu — wejście w HUNT = broadcast do wszystkich okrętów |
+| ✅ | 5-zarzutowy bracket głębokości — pokrycie głębokości ±42px, lepsza predykcja vy |
 | 🔴 | Okręt podwodny wroga (EnemySub) — detekcja tylko sonarowa, brak widoczności |
 | 🔴 | Helikopter ZOP — szybkie przemieszczanie, spuszczany hydrofor, torpedy |
 | 🔴 | Samolot patrolowy P-3 Orion — boje sonarowe, torpedy, szeroki zasięg |

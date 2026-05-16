@@ -4,6 +4,35 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.43] — 2026-05-16
+
+### Ulepszone — AI wrogów: akustyka, koordynacja, zarzuty
+
+**Strefa ciszy akustycznej (shadow zone):**
+Bezpośrednio pod niszczycielem (|dx| < 80px, dy > 30px) detekcja pasywna spada do 18% —
+własna śruba zagłusza dziobowy hydrofor. Gracz może wykorzystać manewr „pod keel".
+
+**Hałas własny prędkości:**
+- HUNT (pełna prędkość): zasięg hydrofonu ×0.62 (-38%)
+- ALERT (zbliżanie): zasięg ×0.83 (-17%)
+- Nasłuch (sprint-and-listen): zasięg ×1.12 (+12%)
+Manewr sprint-and-listen jest teraz znaczący w obie strony — gracz może uciec kiedy wróg pędzi.
+
+**Natychmiastowe radiowanie kontaktu:**
+Wejście w HUNT = natychmiastowy broadcast `receiveRadioAlert` do wszystkich sąsiednich okrętów.
+Wcześniej koordynacja wymagała 18s — teraz jest błyskawiczna, wróg nie czeka.
+
+**Ulepszony wzorzec zarzutów głębinowych:**
+5 zamiast 3 zarzutów, w brackecie głębokości ±42px wokół predykowanej pozycji:
+centrum, 2× flanka (głębiej/płycej), 2× blisko (głębiej/płycej).
+Predykcja głębokości: `sub.vy × fallTime × 0.65` (było 0.42) — trafniejsza przy nurkujących łodziach.
+
+**Agresywniejszy SEARCH:**
+Spekulatywne zarzuty w fazie SEARCH: co klatkę prawdopodobieństwo 0.014 (było 0.007) — wróg
+jest mniej pasywny w trakcie przeszukiwania rejonu.
+
+---
+
 ## [0.10.42] — 2026-05-15
 
 ### Dodano — Komendy AWARIE w DevConsole
