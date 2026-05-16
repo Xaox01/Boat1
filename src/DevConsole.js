@@ -438,6 +438,9 @@ export class DevConsole {
           this._print('  god           — nieśmiertelność toggle');
           this._print('  speed <n>     — mnożnik czasu (0.1–5)');
           this._print('  clear         — wyczyść log');
+          this._print('── MAPA TESTOWA ─────────────────────────────────────────', DIM_CLR);
+          this._print('  testmap       — załaduj mapę testową (5 stref, god mode)');
+          this._print('  resetmap      — wyjdź z trybu testowego');
           this._print('── AWARIE ───────────────────────────────────────────────', DIM_CLR);
           this._print('  sys                          — status wszystkich systemów');
           this._print('  attack <asroc|dc|hedgehog|floor|crush|tlen> [%] — symuluj trafienie');
@@ -573,6 +576,101 @@ export class DevConsole {
         case 'clear':
           this._logEl.innerHTML = '';
           break;
+
+        // ── MAPA TESTOWA ─────────────────────────────────────────────────────
+
+        case 'testmap': {
+          // Zniszcz wszystkie obecne jednostki
+          for (const e of s.enemies) {
+            if (e.gfx)     e.gfx.destroy();
+            if (e._sprite) e._sprite.destroy();
+          }
+          for (const m of (s.merchants ?? [])) { if (m.gfx) m.gfx.destroy(); }
+          s.enemies   = [];
+          s.merchants = [];
+
+          // Pozycja startowa — tuż pod termoklinem (~240m)
+          const BASE_X   = 2000;
+          const THERMO_Y = s.SURFACE_Y + Math.round((s.OCEAN_FLOOR_Y - s.SURFACE_Y) * 0.33);
+          sub.x = BASE_X;
+          sub.y = THERMO_Y + 35;
+          sub.vx = sub.vy = 0;
+
+          // Pełna regeneracja okrętu
+          sub.hull            = 1.0;
+          sub.battery         = 1.0;
+          sub.oxygen          = 1.0;
+          sub.missileCount    = 3;
+          sub.noisemakerCount = 5;
+          sub.tubes.forEach(t => { t.loaded = true; t.reloadTimer = 0; });
+          for (const sys of Object.values(sub.systems)) sys.health = 1.0;
+
+          // God mode + reset wave
+          this._godMode = s._godMode = true;
+          s._wave             = 1;
+          s._enemiesSpawned   = true;
+          s._waveTimer        = 0;
+          s.camX = Math.max(0, BASE_X - 320);
+
+          // Progowo z Enemy.js (hardkodowane — muszą zgadzać się z HUNT_THRESHOLD/ALERT_THRESHOLD)
+          const HUNT_T  = 7.5;
+          const ALERT_T = 2.7;
+
+          const { Enemy: EnemyCls } = await import('./Enemy.js');
+          const WW = s.WORLD_W ?? 12000;
+
+          // 5 stref taktycznych z różnymi dystansami i stanami AI
+          const ZONES = [
+            { dx:  230, state: 'HUNT',   label: 'HEDGE-ZONE ', info: 'zasięg hedgehog/RBU     (+230px)' },
+            { dx:  600, state: 'HUNT',   label: 'DC-ZONE    ', info: 'zasięg zarzutów DC      (+600px)' },
+            { dx: 1400, state: 'ALERT',  label: 'SONAR-MID  ', info: 'mid-range sonaru pas.  (+1400px)' },
+            { dx: 2900, state: 'PATROL', label: 'ASROC-ZONE ', info: 'optymalny zasięg ASROC (+2900px)' },
+            { dx: -350, state: 'PATROL', label: 'LEFT-FLANK ', info: 'flanka lewa             (-350px)' },
+          ];
+
+          s._prevEnemyState = new Map();
+          for (const z of ZONES) {
+            const cx   = Math.max(250, Math.min(WW - 250, BASE_X + z.dx));
+            const half = 280;                             // wąski patrol — nie odpływa
+            const e    = new EnemyCls(
+              s, cx,
+              Math.max(80, cx - half),
+              Math.min(WW - 80, cx + half),
+              z.label.trim()
+            );
+            e.revealTimer   = 999999;                     // zawsze widoczny
+            e.lastKnownSubX = sub.x;
+            e.lastKnownSubY = sub.y;
+            e.detectTimer   = z.state === 'HUNT'  ? HUNT_T
+                            : z.state === 'ALERT' ? ALERT_T
+                            : 0;
+            s.enemies.push(e);
+            s._prevEnemyState.set(e, 0);                 // STATE.PATROL
+          }
+
+          // Banner HTML — pasek na górze ekranu
+          this._showTestBanner(true);
+
+          this._print('═══════════════════════════════════════════════════════', WARN_CLR);
+          this._print(' MAPA TESTOWA  —  sub @ x=2000, ~240m (pod termoklinem)', WARN_CLR);
+          this._print('───────────────────────────────────────────────────────', DIM_CLR);
+          for (const z of ZONES) {
+            const st = z.state === 'HUNT' ? '🔴 HUNT  ' : z.state === 'ALERT' ? '🟡 ALERT ' : '🟢 PATROL';
+            this._print(`  ${z.label}  [${st}]  ${z.info}`, VAL_CLR);
+          }
+          this._print('───────────────────────────────────────────────────────', DIM_CLR);
+          this._print('  god mode ON · pełna ammo · wszyscy widoczni · wave=1', DIM_CLR);
+          this._print('  → resetmap   aby wyjść z trybu testowego', DIM_CLR);
+          this._print('═══════════════════════════════════════════════════════', WARN_CLR);
+          break;
+        }
+
+        case 'resetmap': {
+          this._godMode = s._godMode = false;
+          this._showTestBanner(false);
+          this._print('Tryb testowy wyłączony — god mode OFF', DIM_CLR);
+          break;
+        }
 
         // ── AWARIE ──────────────────────────────────────────────────────────
 
@@ -740,6 +838,35 @@ export class DevConsole {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  _showTestBanner(visible) {
+    if (visible) {
+      if (!this._testBanner) {
+        const b = document.createElement('div');
+        b.id = 'dev-test-banner';
+        b.style.cssText = [
+          'position:fixed', 'top:0', 'left:0', 'right:0',
+          'background:rgba(255,140,0,0.13)',
+          'border-bottom:1px solid rgba(255,140,0,0.55)',
+          'color:#ff9900',
+          'font-family:"Courier New",monospace',
+          'font-size:10px',
+          'letter-spacing:2px',
+          'text-align:center',
+          'padding:3px 0',
+          'z-index:88888',
+          'pointer-events:none',
+        ].join(';');
+        b.innerHTML = '▸ TRYB TESTOWY &nbsp;|&nbsp; god mode &nbsp;|&nbsp; wszyscy wrogowie widoczni &nbsp;|&nbsp; <span style="opacity:.7">resetmap — wyjście</span>';
+        document.body.appendChild(b);
+        this._testBanner = b;
+      } else {
+        this._testBanner.style.display = '';
+      }
+    } else if (this._testBanner) {
+      this._testBanner.style.display = 'none';
+    }
+  }
 
   _timeLabel(n) {
     if (n < 0.23 || n > 0.88) return 'noc';

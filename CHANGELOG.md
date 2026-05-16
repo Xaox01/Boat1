@@ -4,6 +4,38 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.45] — 2026-05-16
+
+### Dodano — Mapa testowa w DevConsole (`testmap`)
+
+Komenda `testmap` w konsoli deweloperskiej (`~`) ładuje dedykowane środowisko testowe:
+
+**Setup:**
+- Okręt gracza teleportuje się na x=2000, głęb. ~240m (tuż pod termoklinem)
+- Pełna regeneracja: hull/battery/oxygen=100%, wszystkie systemy naprawione, max ammo
+- God mode włączony automatycznie, wave=1
+- Wszyscy wrogowie zawsze widoczni (revealTimer=∞)
+
+**5 stref taktycznych z nazwanymi wrogami:**
+| Etykieta | Dystans | Stan AI | Cel testu |
+|---|---|---|---|
+| HEDGE-ZONE | +230px | 🔴 HUNT | hedgehog / RBU-6000 |
+| DC-ZONE | +600px | 🔴 HUNT | zarzuty głębinowe |
+| SONAR-MID | +1400px | 🟡 ALERT | sonar pasywny / triangulacja |
+| ASROC-ZONE | +2900px | 🟢 PATROL | ASROC, śledzenie, nasłuch |
+| LEFT-FLANK | −350px | 🟢 PATROL | flanka lewa, sonar, torpedy |
+
+Każdy wróg ma wąski patrol (±280px) — nie odpływa podczas sesji testowej.
+
+**Wizualne:**
+- Pomarańczowy pasek na górze ekranu: „TRYB TESTOWY | god mode | wszyscy wrogowie widoczni"
+
+**Dodatkowe komendy:**
+- `resetmap` — wyłącza tryb testowy (god mode OFF, banner ukryty)
+- Wszystkie komendy AWARIE (sys/attack/dmg/repair/sim) działają w testmap
+
+---
+
 ## [0.10.44] — 2026-05-16
 
 ### Dodano — Hedgehog / RBU-6000: historyczna broń przeciw-okrętowa
