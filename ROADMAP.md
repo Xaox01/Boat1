@@ -105,6 +105,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Hałas własny prędkości — HUNT -38% zasięgu, nasłuch +12% (sprint-and-listen obustronne) |
 | ✅ | Natychmiastowe radiowanie kontaktu — wejście w HUNT = broadcast do wszystkich okrętów |
 | ✅ | 5-zarzutowy bracket głębokości — pokrycie głębokości ±42px, lepsza predykcja vy |
+| ✅ | Hedgehog / RBU-6000 — strzela przed okrętem, kontaktowy zapalnik, 10 pocisków w salwie |
 | 🔴 | Okręt podwodny wroga (EnemySub) — detekcja tylko sonarowa, brak widoczności |
 | 🔴 | Helikopter ZOP — szybkie przemieszczanie, spuszczany hydrofor, torpedy |
 | 🔴 | Samolot patrolowy P-3 Orion — boje sonarowe, torpedy, szeroki zasięg |

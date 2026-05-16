@@ -157,9 +157,10 @@ export class Submarine {
 
     // Wagi systemów — różne strefy kadłuba trafiają różne systemy
     const w = { naped:1, sonarP:1, sonarA:1, torpedy:1, rakiety:1, balast:1, tlen:1, zasilanie:1 };
-    if      (/ASROC|TORPEDA/.test(source))  { w.torpedy*=3; w.sonarA*=2;   w.rakiety*=2; }
-    else if (/ZARZUT/.test(source))         { w.balast*=3; w.tlen*=2;     w.zasilanie*=2; }
-    else if (/KOLIZJA|TARCIE|DNO/.test(source)) { w.naped*=3; w.balast*=2; }
+    if      (/ASROC|TORPEDA/.test(source))      { w.torpedy*=3; w.sonarA*=2;  w.rakiety*=2; }
+    else if (/HEDGEHOG/.test(source))           { w.naped*=2;  w.torpedy*=2; w.zasilanie*=2; }
+    else if (/ZARZUT/.test(source))             { w.balast*=3; w.tlen*=2;    w.zasilanie*=2; }
+    else if (/KOLIZJA|TARCIE|DNO/.test(source)) { w.naped*=3;  w.balast*=2; }
 
     const keys  = Object.keys(w);
     const total = keys.reduce((s, k) => s + w[k], 0);

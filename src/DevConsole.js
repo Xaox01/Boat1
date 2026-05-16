@@ -440,7 +440,7 @@ export class DevConsole {
           this._print('  clear         — wyczyść log');
           this._print('── AWARIE ───────────────────────────────────────────────', DIM_CLR);
           this._print('  sys                          — status wszystkich systemów');
-          this._print('  attack <asroc|dc|floor|crush|tlen> [%] — symuluj trafienie');
+          this._print('  attack <asroc|dc|hedgehog|floor|crush|tlen> [%] — symuluj trafienie');
           this._print('  dmg <system> [0-1]           — ustaw zdrowie systemu');
           this._print('  repair [system|all]          — napraw system(y)');
           this._print('  sim <asroc|barrage|depth|stress|critical> — scenariusz ataku');
@@ -596,11 +596,12 @@ export class DevConsole {
 
         case 'attack': {
           const SRC_MAP = {
-            asroc:  'TORPEDA ASROC',
-            dc:     'ZARZUT GŁĘBINOWY',
-            floor:  'KOLIZJA Z DNEM',
-            crush:  'PRZECIĄŻENIE CIŚNIENIOWE',
-            tlen:   'BRAK TLENU',
+            asroc:    'TORPEDA ASROC',
+            dc:       'ZARZUT GŁĘBINOWY',
+            hedgehog: 'HEDGEHOG',
+            floor:    'KOLIZJA Z DNEM',
+            crush:    'PRZECIĄŻENIE CIŚNIENIOWE',
+            tlen:     'BRAK TLENU',
           };
           const type = (args[0] ?? '').toLowerCase();
           const src  = SRC_MAP[type];

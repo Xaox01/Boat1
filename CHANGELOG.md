@@ -4,6 +4,31 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.44] — 2026-05-16
+
+### Dodano — Hedgehog / RBU-6000: historyczna broń przeciw-okrętowa
+
+Niszczyciel otrzymał wyrzutnik rakietowo-bombowy (Hedgehog Mk.10 / RBU-6000) — odmienną
+taktycznie broń od zarzutów głębinowych:
+
+**Mechanika:**
+- Strzela **przed** okrętem (nie nad celem), gdy cel jest w zasięgu 90–340px i okręt się zbliża
+- 10 pocisków w salwie, rozłożonych eliptycznie (±68px X, ±46px Y) wokół ostatniej pozycji
+- **Kontaktowy zapalnik** — eksploduje tylko przy bezpośrednim trafieniu (r=20px), nie jest obszarowy
+- Uszkadza: napęd × 2, torpedy × 2, zasilanie × 2 (trafienie śródokrętowe, inne niż ASROC)
+- Cooldown: 24s (niezależny od zarzutów głębinowych i ASROC)
+- Gracz nie musi się obawiać tylko gdy okręt jest bezpośrednio nad nim
+
+**Wizualne:**
+- Błysk odpalenia przy dziobie okrętu
+- Smugi ognia w powietrzu podczas lotu (airborne)
+- Blady żółty ślad pod wodą
+- Mały błysk kontaktowy przy trafieniu
+
+**DevConsole:** `attack hedgehog [%]` — symuluje trafienie hedgehogiem
+
+---
+
 ## [0.10.43] — 2026-05-16
 
 ### Ulepszone — AI wrogów: akustyka, koordynacja, zarzuty

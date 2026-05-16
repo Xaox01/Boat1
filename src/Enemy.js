@@ -35,6 +35,14 @@ const PING_SPEED        = 195;
 const PING_BOOST        = 3.5;
 const PING_BOOST_THERMO = 0.8;
 
+// Wyrzutnik rakietowo-bombowy — Hedgehog / RBU-6000
+// Strzela PRZED okrętem: nie musi przejeżdżać nad celem, kontaktowy zapalnik
+const HEDGE_COOLDOWN = 24;     // s między salvami
+const HEDGE_MIN_DIST = 90;     // nie odpala gdy już bezpośrednio nad celem
+const HEDGE_MAX_DIST = 340;    // maksymalny zasięg efektywny [px]
+const HEDGE_BLAST_R  = 20;     // kontaktowy zapalnik — małe pole rażenia
+const HEDGE_COUNT    = 10;     // rakiet / bomb w salwie
+
 // Ulepszenia AI v2
 const HUNT_DECAY_THERMO = 0.55;   // szybsza utrata kontaktu gdy gracz pod termoklinem
 const HUNT_DECAY_BASE   = 0.35;   // normalna utrata w HUNT (było 0.25) — nagradza ciszę
@@ -130,6 +138,11 @@ export class Enemy {
     this._shipSinkY    = 0;       // bieżąca pozycja Y okrętu
     this._sinkParticles = [];     // bąble + szczątki
 
+    // Hedgehog / RBU-6000
+    this.hedgehogs      = [];
+    this.hedgehogCD     = HEDGE_COOLDOWN * (0.4 + Math.random() * 0.8);
+    this._hedgehogFlash = 0;
+
     // AI v2 — dead reckoning + koordynacja
     this._contactAge      = 0;      // sekundy od ostatniego świeżego kontaktu sonarowego
     this._lastKnownVX     = 0;      // prędkość x łodzi w momencie ostatniego kontaktu
@@ -188,6 +201,7 @@ export class Enemy {
     this._updateMovement(dt);
     this._updateCharges(dt, sub);
     this._updateASROC(dt, sub);
+    this._updateHedgehog(dt, sub);
     this._draw();
   }
 
@@ -641,6 +655,83 @@ export class Enemy {
     this.homingTorpedoes = this.homingTorpedoes.filter(ht => !ht.dead);
   }
 
+  // ── Hedgehog / RBU-6000 ───────────────────────────────────────────────────
+
+  _updateHedgehog(dt, sub) {
+    this.hedgehogCD     = Math.max(0, this.hedgehogCD - dt);
+    this._hedgehogFlash = Math.max(0, this._hedgehogFlash - dt);
+
+    // Warunek odpalenia: HUNT, zbliżamy się do celu w odpowiednim zasięgu
+    if (this.state === STATE.HUNT && this.hedgehogCD <= 0 && this.hull > 0.12) {
+      const WORLD_W = this.scene.WORLD_W;
+      let dx = this.lastKnownSubX - this.x;
+      if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
+      const dist     = Math.abs(dx);
+      const approach = Math.sign(dx) === this.dir;  // płyniemy ku celowi
+
+      if (approach && dist > HEDGE_MIN_DIST && dist < HEDGE_MAX_DIST) {
+        this._fireHedgehog();
+        this.hedgehogCD = HEDGE_COOLDOWN;
+      }
+    }
+
+    // Aktualizuj pociski
+    for (const h of this.hedgehogs) {
+      if (h.exploded) { h.explodeTimer = Math.max(0, h.explodeTimer - dt); continue; }
+      h.x   += h.vx * dt;
+      h.y   += h.vy * dt;
+      h.age += dt;
+
+      // Kontaktowy zapalnik — eksploduje tylko przy bezpośrednim trafieniu
+      const hdx = sub.x - h.x;
+      const hdy = sub.y - h.y;
+      if (Math.sqrt(hdx * hdx + hdy * hdy) < HEDGE_BLAST_R) {
+        h.exploded     = true;
+        h.explodeTimer = 0.40;
+        if (sub.applyDamage) sub.applyDamage(0.16, 'HEDGEHOG');
+        else sub.hull = Math.max(0, sub.hull - 0.16);
+        this.recentExplosions.push({ x: h.x, y: h.y, dist: 0 });
+      }
+
+      // Ominięcie — dotarł do przewidywanej głębokości, dna lub upłynął czas
+      if (h.y >= h.landY || h.y >= this.scene.OCEAN_FLOOR_Y || h.age > 3.5) {
+        h.exploded = true; h.explodeTimer = 0;
+      }
+    }
+    this.hedgehogs = this.hedgehogs.filter(h => !h.exploded || h.explodeTimer > 0);
+  }
+
+  _fireHedgehog() {
+    const SURF  = this.scene.SURFACE_Y;
+    const FLOOR = this.scene.OCEAN_FLOOR_Y;
+    const tX    = this.lastKnownSubX;
+    const tY    = Phaser.Math.Clamp(this.lastKnownSubY, SURF + 30, FLOOR - 40);
+
+    this._hedgehogFlash = 0.55;
+
+    for (let i = 0; i < HEDGE_COUNT; i++) {
+      const angle = (i / HEDGE_COUNT) * Math.PI * 2;
+      const landX = tX + Math.cos(angle) * 68;
+      const landY = Phaser.Math.Clamp(tY + Math.sin(angle) * 46, SURF + 30, FLOOR - 30);
+
+      const sx   = this.x + this.dir * 40;   // startuje z dziobu
+      const sy   = SURF + 4;
+      const ddx  = landX - sx;
+      const ddy  = landY - sy;
+      const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+      const spd  = dist / 1.55;              // czas dolotu ~1.55s
+
+      this.hedgehogs.push({
+        x: sx, y: sy,
+        vx: ddx / dist * spd,
+        vy: ddy / dist * spd,
+        landY,
+        age: 0,
+        exploded: false, explodeTimer: 0,
+      });
+    }
+  }
+
   // ── Interfejsy ────────────────────────────────────────────────────────────
 
   getContactInfo(sub) {
@@ -948,6 +1039,33 @@ export class Enemy {
       g.fillCircle(cm.x, cm.y + cm.age * 5, cm.r + cm.age * 4);
     }
 
+    // Hedgehog / RBU-6000 — pociski widoczne fizycznie (zawsze, jak zarzuty)
+    for (const h of this.hedgehogs) {
+      if (h.exploded) {
+        if (h.explodeTimer <= 0) continue;
+        const frac = h.explodeTimer / 0.40;
+        g.fillStyle(0xffffff, frac * 0.70);
+        g.fillCircle(h.x, h.y, (1 - frac) * HEDGE_BLAST_R * 2.5);
+        g.fillStyle(0xffcc44, frac * 0.45);
+        g.fillCircle(h.x, h.y, (1 - frac) * HEDGE_BLAST_R * 1.2);
+        continue;
+      }
+      const airborne = h.y < SURF;
+      if (airborne) {
+        // Smugą ognia w powietrzu
+        g.lineStyle(1.4, 0xffaa22, 0.55);
+        g.strokeLineShape(new Phaser.Geom.Line(
+          h.x, h.y, h.x - h.vx * 0.09, h.y - h.vy * 0.09
+        ));
+        g.fillStyle(0xffffcc, 0.95);
+        g.fillCircle(h.x, h.y, 3.5);
+      } else {
+        // Pod wodą — blednie
+        g.fillStyle(0xffcc44, 0.68);
+        g.fillCircle(h.x, h.y, 2.2);
+      }
+    }
+
     // Zarzuty głębinowe — widoczne fizycznie
     for (const c of this.charges) {
       if (c.exploded) {
@@ -1017,6 +1135,15 @@ export class Enemy {
       const pulse = 0.35 + 0.25 * Math.sin(Date.now() * 0.008);
       g.lineStyle(1.5, 0x44ffcc, pulse * shipAlpha);
       g.strokeCircle(this.x, SURF - 14, 8);
+    }
+
+    // Błysk odpalenia Hedgehog / RBU przy dziobie
+    if (this._hedgehogFlash > 0) {
+      const frac = this._hedgehogFlash / 0.55;
+      g.fillStyle(0xffffff, frac * 0.95 * shipAlpha);
+      g.fillCircle(d * 46, -10, 3.5 + (1 - frac) * 16);
+      g.fillStyle(0xff8800, frac * 0.80 * shipAlpha);
+      g.fillCircle(d * 46, -10, 2 + (1 - frac) * 9);
     }
 
     // Wskaźnik ASROC gotowy
