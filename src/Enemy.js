@@ -1153,20 +1153,31 @@ export class Enemy {
       g.fillCircle(this.x - 8, SURF - 22, 3);
     }
 
-    // ── Kolumna dymu bojowego (world space — nie obraca się z okrętem) ─────────
+    // ── Kolumna dymu bojowego + poświata pożaru (world space) ──────────────────
     if (this.hull < 0.75) {
       const ft   = Date.now() * 0.001;
       const dmg  = Math.min((0.75 - this.hull) / 0.75, 1);
-      const cnt  = 2 + Math.floor(dmg * 7);
+      const cnt  = 3 + Math.floor(dmg * 10);
       for (let i = 0; i < cnt; i++) {
-        const age  = (i / cnt + ft * 0.24) % 1;
-        const jx   = Math.sin(ft * 0.55 + i * 1.1) * (7 + dmg * 18);
-        const fy   = SURF - 20 - age * (50 + dmg * 90);
-        const fr   = 5 + age * (12 + dmg * 22);
-        const fa   = (1 - age) * 0.68 * dmg * shipAlpha;
-        const scol = i < 3 ? 0x070707 : (i < 6 ? 0x161210 : 0x28201a);
-        g.fillStyle(scol, fa);
+        const age  = (i / cnt + ft * 0.22) % 1;
+        // Podwójna turbulencja — dym meandruje
+        const jx   = Math.sin(ft * 0.6  + i * 2.3) * (6 + dmg * 20)
+                   + Math.sin(ft * 1.45 + i * 0.9) * dmg * 8;
+        const fy   = SURF - 22 - age * (58 + dmg * 115);
+        const fr   = 6 + age * (15 + dmg * 28);
+        const fa   = (1 - age) * 0.74 * dmg * shipAlpha;
+        const li   = age < 0.2 ? 0 : age < 0.5 ? 1 : 2;
+        g.fillStyle([0x0a0808, 0x141210, 0x221c16][li], fa);
         g.fillCircle(this.x + jx, fy, fr);
+      }
+      // Czerwono-pomarańczowa poświata u podstawy dymu
+      if (this.hull < 0.50) {
+        const glow   = Math.min((0.50 - this.hull) / 0.50, 1) * shipAlpha;
+        const gpulse = 0.55 + 0.45 * Math.sin(ft * 5.2);
+        g.fillStyle(0xff3300, glow * gpulse * 0.24);
+        g.fillEllipse(this.x, SURF - 18, 72 + glow * 44, 28);
+        g.fillStyle(0xff8800, glow * gpulse * 0.14);
+        g.fillEllipse(this.x, SURF - 30, 48 + glow * 28, 18);
       }
     }
 
@@ -1456,48 +1467,57 @@ export class Enemy {
 
       // Płomień dziobowy — od hull < 0.50
       if (this.hull < 0.50) {
-        const fs  = (0.50 - this.hull) / 0.50;
-        const f1  = 0.55 + 0.45 * Math.sin(ft * 9.2 + 1.1);
-        g.fillStyle(0xff6600, f1 * 0.82 * fs * a);
-        g.fillCircle(d * 14 + Math.sin(ft * 6.1) * 2, -13, 4 + f1 * 5 * fs);
-        g.fillStyle(0xff2200, f1 * 0.58 * fs * a);
-        g.fillCircle(d * 14, -17, 2.5 + f1 * 3 * fs);
-        g.fillStyle(0xffaa00, f1 * 0.32 * fs * a);
-        g.fillCircle(d * 14 + Math.sin(ft * 11.3) * 1.5, -19, 1.5 + f1 * 1.8 * fs);
+        const fs = (0.50 - this.hull) / 0.50;
+        this._drawFlame(g, d * 14, -8, 24, fs, ft, 1.1, a);
 
         // Płomień rufowy — od hull < 0.35
         if (this.hull < 0.35) {
-          const f2 = 0.55 + 0.45 * Math.sin(ft * 11.7 + 3.7);
-          g.fillStyle(0xff4400, f2 * 0.78 * fs * a);
-          g.fillCircle(-d * 16 + Math.sin(ft * 7.3) * 2, -11, 3 + f2 * 6 * fs);
-          g.fillStyle(0xff8800, f2 * 0.50 * fs * a);
-          g.fillCircle(-d * 16, -15, 2 + f2 * 3 * fs);
+          const rf = (0.35 - this.hull) / 0.35;
+          this._drawFlame(g, -d * 16, -6, 20, rf * fs, ft, 3.7, a);
         }
 
         // Ogień na mostku + iskry — od hull < 0.20
         if (this.hull < 0.20) {
-          const f3 = 0.5 + 0.5 * Math.sin(ft * 13.3 + 5.1);
-          g.fillStyle(0xff3300, f3 * 0.92 * a);
-          g.fillCircle(2 + Math.sin(ft * 8.4) * 3, -22, 5 + f3 * 7);
-          g.fillStyle(0xff6600, f3 * 0.68 * a);
-          g.fillCircle(2, -27, 3 + f3 * 4.5);
-          g.fillStyle(0xffcc00, f3 * 0.32 * a);
-          g.fillCircle(2 + Math.sin(ft * 17) * 2, -31, 2 + f3 * 2.5);
-          // Iskry lecące z mostka
-          for (let i = 0; i < 4; i++) {
-            const sp = (i * 0.25 + ft * 1.4) % 1;
-            const sx = Math.sin(i * 2.3 + ft * 3.1) * 28;
-            const sy = -(13 + sp * 22);
-            g.fillStyle(0xffee44, (1 - sp) * 0.85 * a);
-            g.fillCircle(sx, sy, 1.8 * (1 - sp));
+          const mf = (0.20 - this.hull) / 0.20;
+          this._drawFlame(g, 2, -15, 34, mf, ft, 5.1, a);
+
+          // Iskry z mostka
+          for (let i = 0; i < 6; i++) {
+            const sp = (i * 0.17 + ft * 1.7) % 1;
+            const sx = Math.sin(i * 2.3 + ft * 3.1) * 34;
+            const sy = -(18 + sp * 30);
+            g.fillStyle(i % 3 === 0 ? 0xffee44 : 0xff8800, (1 - sp) * 0.88 * a);
+            g.fillCircle(sx, sy, (1.6 + (i % 2) * 0.5) * (1 - sp * 0.6));
           }
-          // Pomarańczowy poświat przy najcięższych uszkodzeniach
-          g.fillStyle(0xff4400, 0.08 * Math.sin(ft * 4) * a);
-          g.fillEllipse(0, -15, 70, 30);
+
+          // Pomarańczowy poświat
+          g.fillStyle(0xff4400, 0.10 * (0.5 + 0.5 * Math.sin(ft * 4.2)) * a);
+          g.fillEllipse(0, -14, 90, 35);
         }
       }
     }
 
     g.restore();
+  }
+
+  _drawFlame(g, cx, cy, ht, intensity, t, phase, alpha) {
+    if (alpha <= 0 || intensity <= 0) return;
+    const fl  = 0.58 + 0.42 * Math.sin(t * 11.3 + phase);
+    const fl2 = 0.68 + 0.32 * Math.sin(t * 17.6 + phase + 1.7);
+    const sw  = Math.sin(t * 6.7 + phase) * ht * 0.20;
+    const bh  = ht * intensity * fl;
+    const bw  = bh * 0.70;
+
+    g.fillStyle(0xffee66, alpha * 0.40 * fl2 * intensity);
+    g.fillEllipse(cx + sw * 0.2, cy - bh * 0.10, bw * 0.50, bh * 0.30);
+
+    g.fillStyle(0xff6600, alpha * 0.82 * fl * intensity);
+    g.fillEllipse(cx + sw * 0.55, cy - bh * 0.40, bw * 0.80, bh * 0.60);
+
+    g.fillStyle(0xff2200, alpha * 0.58 * fl * intensity);
+    g.fillEllipse(cx + sw, cy - bh * 0.58, bw, bh);
+
+    g.fillStyle(0xffcc00, alpha * 0.30 * fl2 * intensity);
+    g.fillEllipse(cx + sw * 1.2, cy - bh * 0.88, bw * 0.36, bh * 0.26);
   }
 }

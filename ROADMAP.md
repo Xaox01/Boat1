@@ -185,6 +185,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Efekty uszkodzeń okrętów — 4-fazowy dym/ogień/iskry zależny od stanu kadłuba (Enemy + Merchant) |
 | ✅ | Animacja wybuchu — flash, kula ognia, fala uderzeniowa, bąble, kolumna dymu |
 | ✅ | Eksplozja na powierzchni przy trafieniu torpedą — słup wody, odłamki, ogień, dym, plama oleju, wybuchy wtórne |
+| ✅ | Animacja ognia — 4-warstwowe pule płomieni (rdzeń/środek/podstawa/czubek) z niezależnym kołysaniem i migotaniem, deterministyczne iskry |
 | ✅ | Podwodna warstwa tła — ciemniejsza z głębokością, gradient |
 | 🔴 | Kaustyki — animowane refleksy świetlne na dnie i kadłubie |
 | ✅ | Torpeda — widoczny ślad bąbelków (wake trail) za torpedą |

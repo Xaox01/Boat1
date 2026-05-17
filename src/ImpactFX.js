@@ -273,26 +273,54 @@ export class ImpactFX {
 
   // ── Ogień ─────────────────────────────────────────────────────────────────
 
+  _drawFlamePool(g, sx, sy, radius, t, phase, fade, intensity) {
+    if (fade <= 0 || intensity <= 0) return;
+    const fl  = 0.55 + 0.45 * Math.sin(t * 12.3 + phase);
+    const fl2 = 0.65 + 0.35 * Math.sin(t * 19.1 + phase + 2.1);
+    const sw  = Math.sin(t * 7.1 + phase) * radius * 0.22;
+    const bh  = radius * 1.8 * intensity * fl;
+    const bw  = radius * 1.35;
+
+    g.fillStyle(0xffee44, fade * 0.32 * fl2 * intensity);
+    g.fillEllipse(sx, sy - bh * 0.12, bw * 0.55, bh * 0.28);
+
+    g.fillStyle(0xff6600, fade * 0.78 * fl * intensity);
+    g.fillEllipse(sx + sw * 0.5, sy - bh * 0.46, bw * 0.82, bh * 0.66);
+
+    g.fillStyle(0xff2200, fade * 0.58 * fl * intensity);
+    g.fillEllipse(sx + sw, sy - bh * 0.65, bw * 0.72, bh);
+
+    g.fillStyle(0xffcc00, fade * 0.28 * fl2 * intensity);
+    g.fillEllipse(sx + sw * 1.3, sy - bh * 0.90, bw * 0.35, bh * 0.25);
+  }
+
   _drawFire(g, sx, sy, t) {
     if (t < 0.85) return;
-    const fireT   = t - 0.85;
-    const slickR  = 30 + (t - 0.25) * 19;
-    const flicker = Math.sin(t * 15) * 0.28 + 0.72;
-    const lifeMax = 20.0;
-    const fade    = Math.max(0, 1 - fireT / lifeMax);
+    const fireT  = t - 0.85;
+    const slickR = 30 + (t - 0.25) * 19;
+    const lifeMax = 21.0;
+    const fade   = Math.max(0, 1 - fireT / lifeMax) * Math.min(fireT * 0.75, 1);
+    if (fade <= 0) return;
 
-    for (let i = 0; i < 6; i++) {
-      const fx = sx + Math.sin(i * 2.1 + t * 2.8) * slickR * 0.55;
-      const fy = sy - 3 - i * 5;
-      const fr = (4 + i * 2.8) * flicker;
-      const fa = (0.48 - i * 0.06) * fade * Math.min(fireT * 0.5, 1);
-      if (fa <= 0) continue;
-      g.fillStyle(0xff4400, fa * 0.85);
-      g.fillCircle(fx, fy, fr);
-      g.fillStyle(0xffaa00, fa * 0.55);
-      g.fillCircle(fx, fy - fr * 0.35, fr * 0.5);
-      g.fillStyle(0xffee44, fa * 0.25);
-      g.fillCircle(fx, fy - fr * 0.55, fr * 0.3);
+    this._drawFlamePool(g, sx - slickR * 0.43, sy - 4, slickR * 0.28, t, 0.0, fade, 0.90);
+    this._drawFlamePool(g, sx,                  sy - 4, slickR * 0.28, t, 2.3, fade, 1.25);
+    this._drawFlamePool(g, sx + slickR * 0.40,  sy - 4, slickR * 0.28, t, 4.7, fade, 0.80);
+
+    // Iskry (deterministyczne, bez stanu)
+    const et = t - 1.2;
+    if (et > 0) {
+      for (let i = 0; i < 14; i++) {
+        const cycle = 3.2 + (i % 4) * 0.65;
+        const age   = (et + i * 0.26) % cycle;
+        const prog  = age / cycle;
+        const ex    = sx + Math.sin(i * 2.17 + et * 0.28) * slickR * 0.58;
+        const ey    = sy - 6 - prog * (40 + (i % 5) * 16);
+        const er    = (1.2 + (i % 3) * 0.45) * (1 - prog * 0.55);
+        const ea    = (1 - prog) * 0.85 * fade * Math.sin(prog * Math.PI);
+        if (ea <= 0.02) continue;
+        g.fillStyle(i % 4 === 0 ? 0xffee44 : (i % 3 === 0 ? 0xff9900 : 0xff5500), ea);
+        g.fillCircle(ex, ey, er);
+      }
     }
   }
 

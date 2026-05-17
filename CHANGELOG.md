@@ -4,6 +4,26 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.46] — 2026-05-17
+
+### Zmieniono — Animacja ognia i płomieni
+
+**Enemy.js — ogień przy uszkodzeniach:**
+- Zastąpiono proste kółka nowym helperem `_drawFlame(g, cx, cy, ht, intensity, t, phase, alpha)`
+- Płomień składa się z 4 warstw elips: żółty rdzeń → pomarańczowy środek → ciemnoczerwona podstawa → żółty czubek
+- Każda warstwa ma niezależne kołysanie (`sw`) i migotanie (dwa sinus o różnych fazach)
+- Iskry z mostka: 6 zamiast 4, dwa kolory (żółty/pomarańczowy), trajektoria wyższa (+30px)
+- Poświat przy krytycznych uszkodzeniach: silniejszy (0.10, elipsa 90×35 zamiast 70×30)
+
+**ImpactFX.js — ogień po wybuchu torpedy:**
+- Nowy helper `_drawFlamePool()` — identyczna architektura 4-warstwowa jak w Enemy
+- 3 niezależne pule ognia wzdłuż plamy oleju (lewo/środek/prawo), różne fazy i intensywności (0.90/1.25/0.80)
+- Deterministyczny system iskier: 14 cząsteczek generowanych z czasu (bez stanu), `sin(prog·π)` fade-in/fade-out
+- Iskry różnokolorowe: żółte / pomarańczowe / czerwono-pomarańczowe (3 kategorie `i%4/i%3`)
+- Czas życia ognia wydłużony: 20s → 21s, płynniejszy fade-in (`fireT * 0.75` zamiast `0.5`)
+
+---
+
 ## [0.10.45] — 2026-05-16
 
 ### Dodano — Mapa testowa w DevConsole (`testmap`)
