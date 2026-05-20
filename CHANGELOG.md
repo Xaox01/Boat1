@@ -4,6 +4,35 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.50] — 2026-05-20
+
+### Zmieniono — Jaśniejsza plansza + zegar w HUD
+
+**Ocean.js — jaśniejsze kolory:**
+- Strefa epipelagiczna (powierzchnia→termoklina): `#001e3d→#002a55` → `#00386e→#00528e` (+60% jasności)
+- Termoklina: `#0a4a60` → `#1a6a80`
+- Strefa mezopelelagiczna: `#001830→#000308` → `#002244→#000e1c` (jaśniejsza, nadal głęboka)
+- Dno morskie: `#1c1008` → `#2c1c0c`
+- Linijka głębokości: `#246655` → `#359966` (wyraźniejsza)
+
+**Ocean.js — mniejsza ciemność nocna:**
+- `dark` przy północy: 0.32 → 0.20 (o 37% mniej czarne nakładanie)
+- `dark` przy późnej nocy: 0.26 → 0.16
+- `dark` przy zmierzchu/świcie: 0.04 → 0.02
+- Ciemność dzienna (południe/dzień) bez zmian: 0.00
+
+**GameScene.js — start o godzinie 10:00:**
+- `_dayTime` zmieniony z `0.0` (północ) na `0.42` (~10:00 rano)
+- Gracz startuje przy pełnym świetle dziennym
+
+**HUD — zegar:**
+- Nowy element `hud-clock` w panelu bocznym (pod "Fala")
+- Format `HH:MM` (tabular-nums, letter-spacing)
+- Odzwierciedla `_dayTime * 24h` — żywy czas in-game
+- Komenda `time` w DevConsole synchronizuje się z wyświetlanym czasem
+
+---
+
 ## [0.10.49] — 2026-05-20
 
 ### Dodano — Ambient glow ognia + komenda `firetest`

@@ -33,6 +33,7 @@ const hudMissiles     = $('hud-missiles');
 const hudNoisemakers  = $('hud-noisemakers');
 const hudPing         = $('hud-ping');
 const hudWave         = $('hud-wave');
+const hudClock        = $('hud-clock');
 const barBallast  = $('bar-ballast');
 const barNoise    = $('bar-noise');
 const barHull     = $('bar-hull');
@@ -196,7 +197,7 @@ export class GameScene extends Phaser.Scene {
     this._gameOver        = false;
     this._wave            = 1;
     this._prevEnemyState  = new Map();
-    this._dayTime         = 0.0;   // 0=północ, 0.25=świt, 0.5=południe, 0.75=zmierzch
+    this._dayTime         = 0.42;  // ~10:00 rano — jasny dzień od początku
 
     // Tryb piaskownicy — ciągłe generowanie wrogów
     this._enemySerial     = 0;    // globalny licznik spawniętych okrętów
@@ -899,6 +900,13 @@ export class GameScene extends Phaser.Scene {
       sub.missileCount === 0 ? '#ff4a4a' : !canFire ? '#886600' : '#ffaa00');
 
     this._setText(hudWave, `${this._wave}`);
+
+    if (hudClock) {
+      const totalH = this._dayTime * 24;
+      const hh = Math.floor(totalH) % 24;
+      const mm = Math.floor((totalH % 1) * 60);
+      this._setText(hudClock, `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`);
+    }
 
     const nm = this.sub.noisemakerCount;
     this._setText(hudNoisemakers, `${nm}`);

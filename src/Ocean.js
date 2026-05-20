@@ -63,19 +63,19 @@ export class Ocean {
     g.fillRect(0, 0, W, SURFACE_Y);
 
     // Strefa epipelagiczna (powierzchnia → termoklina)
-    g.fillGradientStyle(0x001e3d, 0x001e3d, 0x002a55, 0x002a55, 1);
+    g.fillGradientStyle(0x00386e, 0x00386e, 0x00528e, 0x00528e, 1);
     g.fillRect(0, SURFACE_Y, W, THERMO_Y - SURFACE_Y);
 
     // Warstwa termokliny
-    g.fillStyle(0x0a4a60, 0.50);
+    g.fillStyle(0x1a6a80, 0.50);
     g.fillRect(0, THERMO_Y - 3, W, 12);
 
     // Strefa mezopelelagiczna
-    g.fillGradientStyle(0x001830, 0x001830, 0x000308, 0x000308, 1);
+    g.fillGradientStyle(0x002244, 0x002244, 0x000e1c, 0x000e1c, 1);
     g.fillRect(0, THERMO_Y, W, H - THERMO_Y);
 
     // Wielokąt terenu
-    g.fillStyle(0x1c1008);
+    g.fillStyle(0x2c1c0c);
     g.beginPath();
     g.moveTo(0, H);
     g.lineTo(0, this._sampleAt(0));
@@ -112,7 +112,7 @@ export class Ocean {
     }
 
     // Linijka głębokości
-    g.lineStyle(1, 0x246655, 0.70);
+    g.lineStyle(1, 0x359966, 0.75);
     const pxPerM = (FLOOR_Y - SURFACE_Y) / 600;
     for (let m = 0; m <= 600; m += 50) {
       const ry = SURFACE_Y + m * pxPerM;
@@ -161,15 +161,15 @@ export class Ocean {
   _getDayPalette(dt) {
     // Klatki kluczowe: [pora, kolor_nieba_góra, kolor_nieba_dół, kolor_fal, ciemność]
     const K = [
-      { t: 0.00, top: 0x000206, bot: 0x000c1a, wave: 0x193058, dark: 0.32 },
-      { t: 0.21, top: 0x040118, bot: 0x0a0828, wave: 0x1a2a55, dark: 0.26 },
-      { t: 0.27, top: 0xcc3311, bot: 0xff9933, wave: 0xff8844, dark: 0.04 },
+      { t: 0.00, top: 0x000510, bot: 0x001022, wave: 0x1a3560, dark: 0.20 },
+      { t: 0.21, top: 0x050120, bot: 0x0c0a2e, wave: 0x1c2e58, dark: 0.16 },
+      { t: 0.27, top: 0xcc3311, bot: 0xff9933, wave: 0xff8844, dark: 0.02 },
       { t: 0.33, top: 0x2255cc, bot: 0x77bbff, wave: 0x66ccff, dark: 0.00 },
       { t: 0.50, top: 0x1155aa, bot: 0x44aaff, wave: 0x55d8ff, dark: 0.00 },
       { t: 0.67, top: 0x1a5599, bot: 0x55aaee, wave: 0x44ccff, dark: 0.00 },
-      { t: 0.73, top: 0xcc3311, bot: 0xff9933, wave: 0xffaa55, dark: 0.04 },
-      { t: 0.79, top: 0x040118, bot: 0x0a0820, wave: 0x1a2a4a, dark: 0.26 },
-      { t: 1.00, top: 0x000206, bot: 0x000c1a, wave: 0x193058, dark: 0.32 },
+      { t: 0.73, top: 0xcc3311, bot: 0xff9933, wave: 0xffaa55, dark: 0.02 },
+      { t: 0.79, top: 0x050120, bot: 0x0c0a28, wave: 0x1c2e4e, dark: 0.16 },
+      { t: 1.00, top: 0x000510, bot: 0x001022, wave: 0x1a3560, dark: 0.20 },
     ];
 
     const n = ((dt % 1) + 1) % 1;
