@@ -6,9 +6,10 @@ import Phaser from 'phaser';
 
 export class ImpactFX {
   constructor(scene) {
-    this.scene  = scene;
-    this.gfx    = scene.add.graphics().setDepth(8);
-    this._hits  = [];   // aktywne eksplozje
+    this.scene   = scene;
+    this.gfx     = scene.add.graphics().setDepth(8);
+    this.fireGfx = scene.add.graphics().setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
+    this._hits   = [];   // aktywne eksplozje
   }
 
   // ── Wywołane przy trafieniu torpedy ───────────────────────────────────────
@@ -21,7 +22,9 @@ export class ImpactFX {
     this._hits.push({
       ix, iy,          // pozycja eksplozji (world)
       t:  0,
-      debris:    this._spawnDebris(ix, iy),
+      debris:     this._spawnDebris(ix, iy),
+      fireParts:  [],
+      emberParts: [],
       secondary: [
         { delay: 2.4, t: 0, done: false, ox: Phaser.Math.Between(-45, 45) },
         { delay: 5.6, t: 0, done: false, ox: Phaser.Math.Between(-65, 65) },
@@ -60,6 +63,7 @@ export class ImpactFX {
   update(dt, camX) {
     const g = this.gfx;
     g.clear();
+    this.fireGfx.clear();
 
     for (let hi = this._hits.length - 1; hi >= 0; hi--) {
       const h = this._hits[hi];
@@ -67,8 +71,8 @@ export class ImpactFX {
       if (h.t > 32) { this._hits.splice(hi, 1); continue; }
 
       const t    = h.t;
-      const sx   = h.ix - camX;   // screen X
-      const sy   = h.iy;           // screen Y (= SURFACE_Y)
+      const sx   = h.ix - camX;
+      const sy   = h.iy;
 
       this._drawShockwaves(g, sx, sy, t);
       this._drawUnderwaterFlash(g, sx, sy, t);
@@ -77,7 +81,7 @@ export class ImpactFX {
       this._drawOilSlick(g, sx, sy, t);
       this._drawDebris(g, h, dt, camX, t);
       this._drawSmoke(g, sx, sy, t);
-      this._drawFire(g, sx, sy, t);
+      this._updateImpactFire(h, dt, t, camX);
       this._drawSecondary(g, h, sx, sy, dt, t);
     }
   }
@@ -271,56 +275,91 @@ export class ImpactFX {
     }
   }
 
-  // ── Ogień ─────────────────────────────────────────────────────────────────
+  // ── Ogień (cząsteczkowy, additive blending) ───────────────────────────────
 
-  _drawFlamePool(g, sx, sy, radius, t, phase, fade, intensity) {
-    if (fade <= 0 || intensity <= 0) return;
-    const fl  = 0.55 + 0.45 * Math.sin(t * 12.3 + phase);
-    const fl2 = 0.65 + 0.35 * Math.sin(t * 19.1 + phase + 2.1);
-    const sw  = Math.sin(t * 7.1 + phase) * radius * 0.22;
-    const bh  = radius * 1.8 * intensity * fl;
-    const bw  = radius * 1.35;
-
-    g.fillStyle(0xffee44, fade * 0.32 * fl2 * intensity);
-    g.fillEllipse(sx, sy - bh * 0.12, bw * 0.55, bh * 0.28);
-
-    g.fillStyle(0xff6600, fade * 0.78 * fl * intensity);
-    g.fillEllipse(sx + sw * 0.5, sy - bh * 0.46, bw * 0.82, bh * 0.66);
-
-    g.fillStyle(0xff2200, fade * 0.58 * fl * intensity);
-    g.fillEllipse(sx + sw, sy - bh * 0.65, bw * 0.72, bh);
-
-    g.fillStyle(0xffcc00, fade * 0.28 * fl2 * intensity);
-    g.fillEllipse(sx + sw * 1.3, sy - bh * 0.90, bw * 0.35, bh * 0.25);
-  }
-
-  _drawFire(g, sx, sy, t) {
+  _updateImpactFire(h, dt, t, camX) {
     if (t < 0.85) return;
+    const fg     = this.fireGfx;
     const fireT  = t - 0.85;
     const slickR = 30 + (t - 0.25) * 19;
-    const lifeMax = 21.0;
-    const fade   = Math.max(0, 1 - fireT / lifeMax) * Math.min(fireT * 0.75, 1);
-    if (fade <= 0) return;
+    const fade   = Math.max(0, 1 - fireT / 21.0) * Math.min(fireT * 0.75, 1);
+    if (fade <= 0) { h.fireParts = []; h.emberParts = []; return; }
 
-    this._drawFlamePool(g, sx - slickR * 0.43, sy - 4, slickR * 0.28, t, 0.0, fade, 0.90);
-    this._drawFlamePool(g, sx,                  sy - 4, slickR * 0.28, t, 2.3, fade, 1.25);
-    this._drawFlamePool(g, sx + slickR * 0.40,  sy - 4, slickR * 0.28, t, 4.7, fade, 0.80);
-
-    // Iskry (deterministyczne, bez stanu)
-    const et = t - 1.2;
-    if (et > 0) {
-      for (let i = 0; i < 14; i++) {
-        const cycle = 3.2 + (i % 4) * 0.65;
-        const age   = (et + i * 0.26) % cycle;
-        const prog  = age / cycle;
-        const ex    = sx + Math.sin(i * 2.17 + et * 0.28) * slickR * 0.58;
-        const ey    = sy - 6 - prog * (40 + (i % 5) * 16);
-        const er    = (1.2 + (i % 3) * 0.45) * (1 - prog * 0.55);
-        const ea    = (1 - prog) * 0.85 * fade * Math.sin(prog * Math.PI);
-        if (ea <= 0.02) continue;
-        g.fillStyle(i % 4 === 0 ? 0xffee44 : (i % 3 === 0 ? 0xff9900 : 0xff5500), ea);
-        g.fillCircle(ex, ey, er);
+    // 3 źródła ognia wzdłuż plamy oleju
+    const pools = [
+      { ox: -slickR * 0.43, power: 0.90 },
+      { ox: 0,              power: 1.25 },
+      { ox:  slickR * 0.40, power: 0.80 },
+    ];
+    for (const pool of pools) {
+      const n = Math.round(pool.power * 3 * dt * 60);
+      for (let i = 0; i < n && h.fireParts.length < 140; i++) {
+        h.fireParts.push({
+          x:       h.ix + pool.ox + (Math.random() - 0.5) * 22,
+          y:       h.iy - 4 + (Math.random() - 0.5) * 4,
+          vx:      (Math.random() - 0.5) * 20,
+          vy:      -(50 + Math.random() * 70) * pool.power,
+          life:    0,
+          maxLife: 0.8 + Math.random() * 1.0,
+          size:    6 + Math.random() * 10 * pool.power,
+          seed:    Math.random() * 1000,
+        });
       }
+      if (Math.random() < pool.power * 0.3 * dt && h.emberParts.length < 45) {
+        h.emberParts.push({
+          x:       h.ix + pool.ox + (Math.random() - 0.5) * 22,
+          y:       h.iy - 8,
+          vx:      (Math.random() - 0.5) * 52,
+          vy:      -(100 + Math.random() * 80),
+          life:    0,
+          maxLife: 1.2 + Math.random() * 1.2,
+          seed:    Math.random() * 1000,
+        });
+      }
+    }
+
+    // Fizyka + rysowanie cząsteczek ognia
+    for (let i = h.fireParts.length - 1; i >= 0; i--) {
+      const p = h.fireParts[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { h.fireParts.splice(i, 1); continue; }
+      p.x  += p.vx * dt;
+      p.y  += p.vy * dt;
+      p.vy -= 60 * dt;
+      p.vx += Math.sin(p.life * 7.2 + p.seed) * 15 * dt;
+      p.vx *= 1 - dt * 0.10;
+
+      const tk = p.life / p.maxLife;
+      let a;
+      if      (tk < 0.08) a = (tk / 0.08) * 0.65;
+      else if (tk < 0.70) a = 0.65;
+      else                a = Math.max(0, 0.65 * (1 - (tk - 0.70) / 0.30));
+      a *= fade;
+      if (a <= 0.01) continue;
+      const sx = p.x - camX;
+      const r  = p.size * (1 + tk * 0.45);
+      fg.fillStyle(0xde4e1e, a * 0.14); fg.fillCircle(sx, p.y, r * 2.0);
+      fg.fillStyle(0xff9838, a * 0.32); fg.fillCircle(sx, p.y, r * 1.3);
+      const core = tk < 0.25 ? 0xfffce4 : (tk < 0.55 ? 0xffde82 : (tk < 0.80 ? 0xff9838 : 0xde4e1e));
+      fg.fillStyle(core,    a * 0.55); fg.fillCircle(sx, p.y, r * 0.65);
+    }
+
+    // Fizyka + rysowanie iskier
+    for (let i = h.emberParts.length - 1; i >= 0; i--) {
+      const p = h.emberParts[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { h.emberParts.splice(i, 1); continue; }
+      p.x += p.vx * dt + Math.sin(p.life * 11 + p.seed) * 20 * dt;
+      p.y += p.vy * dt;
+      p.vy += 45 * dt;
+      p.vx *= 1 - dt * 0.50;
+
+      const tk = p.life / p.maxLife;
+      const fl = 0.55 + Math.sin(p.life * 22 + p.seed) * 0.45;
+      const a  = (1 - tk) * fl * fade;
+      if (a <= 0.02) continue;
+      fg.fillStyle(tk < 0.5 ? 0xffee44 : 0xff9900, a * 0.88);
+      fg.fillCircle(p.x - camX, p.y, 1.4 + fl * 0.9);
     }
   }
 

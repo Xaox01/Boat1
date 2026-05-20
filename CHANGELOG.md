@@ -4,6 +4,34 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.47] — 2026-05-20
+
+### Zmieniono — Animacja ognia: cząsteczkowy system z additive blending
+
+Wzorowane na standalone animacji `Płonący Okręt.html` (ship-burning.js):
+
+**Architektura:**
+- Oddzielny `fireGfx` (`setBlendMode(Phaser.BlendModes.ADD)`) — additive blending
+  tworzy bloom/glow przez nakładanie się cząsteczek (jasność sumuje się)
+- `_fireParts[]` + `_emberParts[]` — prawdziwy system cząsteczkowy (nie deterministyczny)
+
+**Enemy.js — ogień palącego się niszczyciela:**
+- `_getFireSources()` — aktywne źródła ognia zależne od hull (dziób <0.50, rufa <0.35, mostek <0.20)
+- `_updateFireParts(dt)` — spawn w world-space + fizyka: `vy -= 65·dt` (unoszenie), turbulencja `sin(t·7.4)`, drag
+- `_drawFireAdditive()` — 3 koncentryczne kółka per cząsteczka (glow dark-red → mid orange → core white/yellow)
+  kolor rdzenia zależny od wieku (t<0.25 biały, t<0.55 żółty, t<0.80 pomarańczowy, potem czerwony)
+- Iskry: migotanie `sin(life·22)`, żółte → pomarańczowe z wiekiem
+- `GameScene.js`: `e.fireGfx.x = -camX` (ręczna kamera)
+
+**ImpactFX.js — ogień po trafieniu torpedy:**
+- `_updateImpactFire(h, dt, t, camX)` — łączy spawn, fizykę i rysowanie w jednej metodzie
+- Cząsteczki przechowywane per-hit: `h.fireParts[]`, `h.emberParts[]` (world-space)
+- 3 pule źródłowe wzdłuż plamy oleju (power: 0.90/1.25/0.80)
+- Render w screen-space: `sx = p.x - camX` (bez osobnego gfx.x offsetu)
+- Usunięto stare `_drawFlamePool()` i `_drawFire()` oparte na elipsach
+
+---
+
 ## [0.10.46] — 2026-05-17
 
 ### Zmieniono — Animacja ognia i płomieni

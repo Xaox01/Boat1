@@ -687,7 +687,8 @@ export class GameScene extends Phaser.Scene {
     this.bearingGfx.x  = -this.camX;
     this._pingGfx.x    = -this.camX;
     for (const e of this.enemies) {
-      e.gfx.x = -this.camX;
+      e.gfx.x     = -this.camX;
+      e.fireGfx.x = -this.camX;
       for (const a  of e.asrocs)           a.gfx.x  = -this.camX;
       for (const ht of e.homingTorpedoes)  ht.gfx.x = -this.camX;
     }

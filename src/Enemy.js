@@ -149,6 +149,11 @@ export class Enemy {
     this._huntDuration    = 0;      // ile czasu (s) ciągłego HUNT — do wezwania posiłków
     this.needsReinforcement = false; // flaga — GameScene odczytuje i spawna posiłki
     this._flankApproach   = false;  // czy obchodzić z flanki (koordinacja)
+
+    // Cząsteczkowy system ognia (additive blending)
+    this.fireGfx    = scene.add.graphics().setDepth(4).setBlendMode(Phaser.BlendModes.ADD);
+    this._fireParts  = [];
+    this._emberParts = [];
   }
 
   // Inicjuje animację tonięcia — niszczyciel tonie przez ~7.5s zanim destroyed=true
@@ -202,6 +207,7 @@ export class Enemy {
     this._updateCharges(dt, sub);
     this._updateASROC(dt, sub);
     this._updateHedgehog(dt, sub);
+    this._updateFireParts(dt);
     this._draw();
   }
 
@@ -836,6 +842,7 @@ export class Enemy {
     const shipY = this._shipSinkY ?? SURF;
     const t     = Date.now() * 0.001;
     g.clear();
+    this.fireGfx.clear();
 
     // ── Plama oleju na powierzchni ────────────────────────────────────────
     const oilR = 24 + prog * 185;
@@ -1002,6 +1009,7 @@ export class Enemy {
     const g    = this.gfx;
     const SURF = this.scene.SURFACE_Y;
     g.clear();
+    this.fireGfx.clear();
 
     const col = this.state === STATE.WITHDRAW ? 0x886622
               : this.state === STATE.HUNT     ? 0xff3300
@@ -1465,59 +1473,103 @@ export class Enemy {
         }
       }
 
-      // Płomień dziobowy — od hull < 0.50
-      if (this.hull < 0.50) {
-        const fs = (0.50 - this.hull) / 0.50;
-        this._drawFlame(g, d * 14, -8, 24, fs, ft, 1.1, a);
-
-        // Płomień rufowy — od hull < 0.35
-        if (this.hull < 0.35) {
-          const rf = (0.35 - this.hull) / 0.35;
-          this._drawFlame(g, -d * 16, -6, 20, rf * fs, ft, 3.7, a);
-        }
-
-        // Ogień na mostku + iskry — od hull < 0.20
-        if (this.hull < 0.20) {
-          const mf = (0.20 - this.hull) / 0.20;
-          this._drawFlame(g, 2, -15, 34, mf, ft, 5.1, a);
-
-          // Iskry z mostka
-          for (let i = 0; i < 6; i++) {
-            const sp = (i * 0.17 + ft * 1.7) % 1;
-            const sx = Math.sin(i * 2.3 + ft * 3.1) * 34;
-            const sy = -(18 + sp * 30);
-            g.fillStyle(i % 3 === 0 ? 0xffee44 : 0xff8800, (1 - sp) * 0.88 * a);
-            g.fillCircle(sx, sy, (1.6 + (i % 2) * 0.5) * (1 - sp * 0.6));
-          }
-
-          // Pomarańczowy poświat
-          g.fillStyle(0xff4400, 0.10 * (0.5 + 0.5 * Math.sin(ft * 4.2)) * a);
-          g.fillEllipse(0, -14, 90, 35);
-        }
-      }
     }
 
     g.restore();
+    this._drawFireAdditive();
   }
 
-  _drawFlame(g, cx, cy, ht, intensity, t, phase, alpha) {
-    if (alpha <= 0 || intensity <= 0) return;
-    const fl  = 0.58 + 0.42 * Math.sin(t * 11.3 + phase);
-    const fl2 = 0.68 + 0.32 * Math.sin(t * 17.6 + phase + 1.7);
-    const sw  = Math.sin(t * 6.7 + phase) * ht * 0.20;
-    const bh  = ht * intensity * fl;
-    const bw  = bh * 0.70;
+  _getFireSources() {
+    const d = this.dir;
+    const sources = [];
+    if (this.hull < 0.50) {
+      const pw = (0.50 - this.hull) / 0.50;
+      sources.push({ dx: d * 14, dy: -8,  power: pw,         spread: 14 });
+    }
+    if (this.hull < 0.35) {
+      const pw = (0.35 - this.hull) / 0.35;
+      sources.push({ dx: -d * 16, dy: -6,  power: pw * 0.75, spread: 12 });
+    }
+    if (this.hull < 0.20) {
+      const pw = (0.20 - this.hull) / 0.20;
+      sources.push({ dx: 2,       dy: -15, power: pw,         spread: 10 });
+    }
+    return sources;
+  }
 
-    g.fillStyle(0xffee66, alpha * 0.40 * fl2 * intensity);
-    g.fillEllipse(cx + sw * 0.2, cy - bh * 0.10, bw * 0.50, bh * 0.30);
+  _updateFireParts(dt) {
+    const SURF = this.scene.SURFACE_Y;
+    if (!this._sinking && !this.destroyed) {
+      for (const src of this._getFireSources()) {
+        const n = Math.round(src.power * 5 * dt * 60);
+        for (let i = 0; i < n && this._fireParts.length < 200; i++) {
+          this._fireParts.push({
+            x:       this.x + src.dx + (Math.random() - 0.5) * src.spread,
+            y:       SURF + src.dy,
+            vx:      (Math.random() - 0.5) * 22,
+            vy:      -(65 + Math.random() * 85) * (0.7 + src.power * 0.3),
+            life:    0,
+            maxLife: 0.9 + Math.random() * 1.1,
+            size:    7 + Math.random() * 11 * src.power,
+            seed:    Math.random() * 1000,
+          });
+        }
+        if (Math.random() < src.power * 0.55 * dt && this._emberParts.length < 70) {
+          this._emberParts.push({
+            x:       this.x + src.dx + (Math.random() - 0.5) * src.spread,
+            y:       SURF + src.dy - 4,
+            vx:      (Math.random() - 0.5) * 60,
+            vy:      -(130 + Math.random() * 110),
+            life:    0,
+            maxLife: 1.4 + Math.random() * 1.4,
+            seed:    Math.random() * 1000,
+          });
+        }
+      }
+    }
+    for (let i = this._fireParts.length - 1; i >= 0; i--) {
+      const p = this._fireParts[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { this._fireParts.splice(i, 1); continue; }
+      p.x  += p.vx * dt;
+      p.y  += p.vy * dt;
+      p.vy -= 65 * dt;
+      p.vx += Math.sin(p.life * 7.4 + p.seed) * 16 * dt;
+      p.vx *= 1 - dt * 0.10;
+    }
+    for (let i = this._emberParts.length - 1; i >= 0; i--) {
+      const p = this._emberParts[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { this._emberParts.splice(i, 1); continue; }
+      p.x += p.vx * dt + Math.sin(p.life * 11 + p.seed) * 22 * dt;
+      p.y += p.vy * dt;
+      p.vy += 48 * dt;
+      p.vx *= 1 - dt * 0.50;
+    }
+  }
 
-    g.fillStyle(0xff6600, alpha * 0.82 * fl * intensity);
-    g.fillEllipse(cx + sw * 0.55, cy - bh * 0.40, bw * 0.80, bh * 0.60);
-
-    g.fillStyle(0xff2200, alpha * 0.58 * fl * intensity);
-    g.fillEllipse(cx + sw, cy - bh * 0.58, bw, bh);
-
-    g.fillStyle(0xffcc00, alpha * 0.30 * fl2 * intensity);
-    g.fillEllipse(cx + sw * 1.2, cy - bh * 0.88, bw * 0.36, bh * 0.26);
+  _drawFireAdditive() {
+    const fg = this.fireGfx;
+    for (const p of this._fireParts) {
+      const t = p.life / p.maxLife;
+      let a;
+      if      (t < 0.08) a = (t / 0.08) * 0.65;
+      else if (t < 0.70) a = 0.65;
+      else               a = Math.max(0, 0.65 * (1 - (t - 0.70) / 0.30));
+      if (a <= 0.01) continue;
+      const r = p.size * (1 + t * 0.45);
+      fg.fillStyle(0xde4e1e, a * 0.14); fg.fillCircle(p.x, p.y, r * 2.0);
+      fg.fillStyle(0xff9838, a * 0.32); fg.fillCircle(p.x, p.y, r * 1.3);
+      const core = t < 0.25 ? 0xfffce4 : (t < 0.55 ? 0xffde82 : (t < 0.80 ? 0xff9838 : 0xde4e1e));
+      fg.fillStyle(core,    a * 0.55); fg.fillCircle(p.x, p.y, r * 0.65);
+    }
+    for (const p of this._emberParts) {
+      const t  = p.life / p.maxLife;
+      const fl = 0.55 + Math.sin(p.life * 22 + p.seed) * 0.45;
+      const a  = (1 - t) * fl;
+      if (a <= 0.02) continue;
+      fg.fillStyle(t < 0.5 ? 0xffee44 : 0xff9900, a * 0.88);
+      fg.fillCircle(p.x, p.y, 1.4 + fl * 0.9);
+    }
   }
 }
