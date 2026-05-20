@@ -4,6 +4,25 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.56] — 2026-05-21
+
+### Zmieniono — Sprite gracza: okręt klasy Kilo (Projekt 877)
+
+**Submarine.js — kompletna wymiana sprite'u kadłuba:**
+
+- **Kadłub Kilo-class** narysowany krzywymi Béziera (Phaser `bezierCurveTo`) zamiast uproszczonego wielokąta
+- Dziób zaokrąglony z asymetrycznym profilem (x -300 → +310, skala 0.20 → ~122px)
+- Górny i dolny highlight gradient aproksymowany elipsami (efekt księżycowego światła na stali)
+- Nity/linie poszycia — 14 pionowych kresek co 38px wzdłuż kadłuba
+- **Kiosk (sail)** z krzywymi Béziera, highlight boczny, okienko radarowe
+- **Stery głębin kiosku** (fairwater planes) — trapezoidalne, po lewej stronie kiosku
+- **Maszty przy małej głębokości** (<40m): peryskop z migającą soczewką, antena radarowa z talerzem, maszt snorchla ze wskaźnikiem ładowania
+- **Stery rufowe**: poziomy sterołan + dwa pionowe (górny i dolny) — trójkątne płetwy
+- **Śruba 5-łopatowa** z perspektywą z boku: łopaty jako elipsy o zmiennej szerokości (abs(cos(ang))), 5 faz obrotu
+- Pozycja kawitacji zaktualizowana do nowej długości kadłuba (62px od środka)
+
+---
+
 ## [0.10.55] — 2026-05-20
 
 ### Zmieniono — Podwodna fizyka wybuchu (dwa tryby ImpactFX)
