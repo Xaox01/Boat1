@@ -542,9 +542,8 @@ export class ImpactFX {
       const sx    = f.x - camX;
       const sy    = f.y;
       const sway  = Math.sin(age * 3.1 + f.seed + 1.2) * sz * 0.18;
-      // glow pod płomieniem — elipsy zamiast kółek
-      fg.fillStyle(0xff8830, op * 0.40); fg.fillEllipse(sx, sy - sz * 0.3, sz * 5.5, sz * 2.2);
-      fg.fillStyle(0xff6020, op * 0.20); fg.fillEllipse(sx, sy - sz * 0.3, sz * 8.0, sz * 3.0);
+      // subtelny glow u podstawy płomienia (nie dominuje nad kształtem)
+      fg.fillStyle(0xff7020, op * 0.18); fg.fillEllipse(sx, sy - sz * 0.2, sz * 3.8, sz * 1.2);
       // płomień — 5 warstw elips: kształt języka
       fg.fillStyle(0x6e1a0e, op * 0.82); fg.fillEllipse(sx + sway,        sy - sz * 0.55, sz * 1.5, sz * 2.4);
       fg.fillStyle(0xcc3c18, op * 0.88); fg.fillEllipse(sx + sway * 0.65, sy - sz * 0.70, sz * 1.05, sz * 2.0);

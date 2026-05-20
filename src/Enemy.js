@@ -1553,20 +1553,18 @@ export class Enemy {
     for (const p of this._fireParts) {
       const t = p.life / p.maxLife;
       let a;
-      if      (t < 0.08) a = (t / 0.08) * 0.58;
-      else if (t < 0.65) a = 0.58;
-      else               a = Math.max(0, 0.58 * (1 - (t - 0.65) / 0.35));
+      if      (t < 0.08) a = (t / 0.08) * 0.55;
+      else if (t < 0.65) a = 0.55;
+      else               a = Math.max(0, 0.55 * (1 - (t - 0.65) / 0.35));
       if (a <= 0.01) continue;
       const r    = p.size * (1 + t * 0.5);
       const sway = Math.sin(p.life * 3.8 + p.seed) * r * 0.22;
-      // Kolor: biały-żółty na początku, pomarańczowy środek, czerwony koniec
       const col  = t < 0.22 ? 0xfffce4 : (t < 0.52 ? 0xffb040 : (t < 0.78 ? 0xff6018 : 0xcc2a08));
       const hot  = t < 0.22 ? 0xffee88 : 0xff8830;
-      // 4 warstwy elips — kształt języka ognia (wyższy niż szeroki)
-      fg.fillStyle(0xcc2a08, a * 0.10); fg.fillEllipse(p.x + sway,       p.y + r * 0.15, r * 2.6, r * 1.4);
-      fg.fillStyle(col,      a * 0.20); fg.fillEllipse(p.x + sway * 0.6, p.y - r * 0.05, r * 1.5, r * 2.0);
-      fg.fillStyle(col,      a * 0.38); fg.fillEllipse(p.x + sway * 0.3, p.y - r * 0.22, r * 0.82, r * 1.55);
-      fg.fillStyle(hot,      a * 0.58); fg.fillEllipse(p.x,              p.y - r * 0.36, r * 0.34, r * 0.85);
+      // 3 warstwy elips — bez szerokiej zewnętrznej (powodowała owalne halo)
+      fg.fillStyle(col, a * 0.18); fg.fillEllipse(p.x + sway * 0.6, p.y - r * 0.05, r * 1.1, r * 1.8);
+      fg.fillStyle(col, a * 0.38); fg.fillEllipse(p.x + sway * 0.3, p.y - r * 0.22, r * 0.65, r * 1.45);
+      fg.fillStyle(hot, a * 0.62); fg.fillEllipse(p.x,              p.y - r * 0.36, r * 0.28, r * 0.80);
     }
     for (const p of this._emberParts) {
       const t  = p.life / p.maxLife;
@@ -1575,28 +1573,6 @@ export class Enemy {
       if (a <= 0.02) continue;
       fg.fillStyle(t < 0.5 ? 0xffee44 : 0xff9900, a);
       fg.fillCircle(p.x, p.y, 1.2 + fl * 0.7);
-    }
-
-    // Ambient glow — ciepłe światło ognia oświetla kadłub i wodę
-    const sources = this._getFireSources();
-    if (sources.length > 0) {
-      const SURF  = this.scene.SURFACE_Y;
-      const total = sources.reduce((acc, src) => acc + src.power, 0);
-      const gi    = Math.min(total * 0.65, 1.0);
-      const pulse = 0.88 + 0.12 * Math.sin(Date.now() * 0.0011);
-
-      fg.fillStyle(0xff6620, gi * 0.12 * pulse);
-      fg.fillEllipse(this.x, SURF - 18, 240, 80);
-
-      for (const src of sources) {
-        fg.fillStyle(0xff8833, src.power * 0.18 * pulse);
-        fg.fillEllipse(this.x + src.dx, SURF + src.dy + 8, 72, 36);
-      }
-
-      fg.fillStyle(0xff7722, gi * 0.08 * pulse);
-      fg.fillEllipse(this.x, SURF + 7, 400, 16);
-      fg.fillStyle(0xff9944, gi * 0.035 * pulse);
-      fg.fillEllipse(this.x, SURF + 15, 560, 9);
     }
   }
 }
