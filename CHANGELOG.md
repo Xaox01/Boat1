@@ -4,6 +4,29 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.51] — 2026-05-20
+
+### Zmieniono — Pełny restart ImpactFX: cząsteczkowy system wybuchu torpedy
+
+**ImpactFX.js — kompletny rewrite wg `torpedo-explosion.js`:**
+
+- **7 typów cząsteczek** na jedną eksplozję: ognista kula (fireball), słup wody + krople, dym, para, odłamki (22szt, 5 kształtów), iskry (embers), morskie iskry wody (seaSparks), płonące plamy oleju (oilFires — 10 szt., po T+1.4s)
+- **Fizyka cząsteczek**: wypornność `vy -= 95*dt`, turbulencja `sin(life*9+seed)*28`, opór powietrza, grawitacja `G=460`, wiatr `WIND=-14`
+- **Additive blending** (`fireGfx`, depth 9) dla ognistej kuli i iskier; normalny canvas (`gfx`, depth 8) dla wody i dymu
+- **`fireColor(t)` / `fireAlpha(t)`** — temperatura wg wieku cząsteczki: biały-żółty → żółty → pomarańczowy → czerwony → ciemnoczerwony
+- **Eliptyczne fale wodne** (4 pierścienie) na powierzchni morza z additive blending (`strokeEllipse`)
+- **Podwodny glow** T+0..0.5s — 3-kołowe narastanie i zanikanie jasności
+- **Flash ekranu** T+0..0.35s — jasna biała nakładka zanikająca
+- **Odłamki** (22 szt.): 5 kształtów (line, tri, box, L, T), obrót, gorący glow na fireGfx gdy `hot===true`
+- **Odbicie ognia oleju na wodzie** — elipsa pod każdą plamą oleju
+- **Wybuchy wtórne** (`secondary`) — 3 opóźnione eksplozje w losowych pozycjach
+- Czyste zarządzanie obiektem: jedno `hit` na `trigger()`, automatyczny czas życia 12s
+
+**ROADMAP — zaktualizowane wiersze:**
+- `Eksplozja na powierzchni` → rozszerzono opis o olej i wybuchy wtórne
+
+---
+
 ## [0.10.50] — 2026-05-20
 
 ### Zmieniono — Jaśniejsza plansza + zegar w HUD

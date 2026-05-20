@@ -1,402 +1,644 @@
-// Animacja wybuchu po trafieniu torpedą w okręt.
-// Wzorowane na projekcie Czerwony Październik — Wystrzał Torpedy.
-// Sekwencja: błysk → fale uderzeniowe → słup wody → odłamki → dym → ogień
+// Animacja wybuchu torpedy — wzorowana na torpedo-explosion.js
+// Cząsteczkowe systemy: fireball, słup wody, para, dym, odłamki, iskry, plama ropy
+// Additive blending (fireGfx) dla bloom/glow; normalny (gfx) dla wody i dymu.
 
 import Phaser from 'phaser';
+
+function rand(a, b) { return a + Math.random() * (b - a); }
+function ranSign()  { return Math.random() < 0.5 ? -1 : 1; }
+const G    = 460;   // grawitacja [px/s²]
+const WIND = -14;   // wiatr [px/s]
+
+// kolor ognia wg wieku cząsteczki (0→1)
+function fireColor(t) {
+  if (t < 0.10) return [255, 252, 228];
+  if (t < 0.26) return [255, 222, 130];
+  if (t < 0.48) return [255, 148,  52];
+  if (t < 0.72) return [222,  74,  28];
+  if (t < 0.90) return [120,  30,  18];
+  return [40, 12, 8];
+}
+function fireAlpha(t) {
+  if (t < 0.07) return (t / 0.07) * 0.88;
+  if (t < 0.70) return 0.88;
+  return Math.max(0, 0.88 * (1 - (t - 0.70) / 0.30));
+}
 
 export class ImpactFX {
   constructor(scene) {
     this.scene   = scene;
     this.gfx     = scene.add.graphics().setDepth(8);
     this.fireGfx = scene.add.graphics().setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
-    this._hits   = [];   // aktywne eksplozje
+    this._hits   = [];
   }
 
-  // ── Wywołane przy trafieniu torpedy ───────────────────────────────────────
+  // ── Wyzwolenie eksplozji ───────────────────────────────────────────────────
 
   trigger(worldX, worldY) {
     const SURF = this.scene.SURFACE_Y;
-    const ix   = worldX;
-    const iy   = SURF;   // eksplozja zawsze na poziomie wody
-
     this._hits.push({
-      ix, iy,          // pozycja eksplozji (world)
-      t:  0,
-      debris:     this._spawnDebris(ix, iy),
-      fireParts:  [],
-      emberParts: [],
-      secondary: [
-        { delay: 2.4, t: 0, done: false, ox: Phaser.Math.Between(-45, 45) },
-        { delay: 5.6, t: 0, done: false, ox: Phaser.Math.Between(-65, 65) },
-        { delay: 9.0, t: 0, done: false, ox: Phaser.Math.Between(-30, 30) },
+      ix:       worldX,
+      iy:       SURF,
+      t:        0,
+      fire:     [],
+      water:    [],
+      smoke:    [],
+      steam:    [],
+      debris:   this._spawnDebris(worldX, SURF),
+      embers:   [],
+      seaSparks:[],
+      oilFires: [],
+      secondary:[
+        { delay: 2.4, done: false, ox: Phaser.Math.Between(-45, 45) },
+        { delay: 5.6, done: false, ox: Phaser.Math.Between(-65, 65) },
+        { delay: 9.0, done: false, ox: Phaser.Math.Between(-30, 30) },
       ],
     });
-
-    // Trzęsienie kamery
     this.scene.cameras.main.shake(820, 0.012);
   }
 
   _spawnDebris(ix, iy) {
     const pieces = [];
-    for (let i = 0; i < 18; i++) {
-      const ang   = (Math.random() - 0.5) * Math.PI * 1.6 - Math.PI * 0.5;
-      const spd   = 90 + Math.random() * 230;
-      const col   = [0x221008, 0x442211, 0xff4400, 0x883300][Math.floor(Math.random() * 4)];
+    for (let i = 0; i < 22; i++) {
+      const ang   = rand(-Math.PI * 0.95, -Math.PI * 0.05);
+      const speed = rand(280, 680);
       pieces.push({
         x:    ix, y: iy,
-        vx:   Math.cos(ang) * spd,
-        vy:   Math.sin(ang) * spd,
-        r:    2.5 + Math.random() * 5,
-        col,
-        angle: Math.random() * Math.PI * 2,
-        angV:  (Math.random() - 0.5) * 9,
-        life:  2.2 + Math.random() * 1.6,
-        age:   0,
-        done:  false,
+        vx:   Math.cos(ang) * speed,
+        vy:   Math.sin(ang) * speed,
+        rot:  Math.random() * Math.PI * 2,
+        vrot: rand(-11, 11),
+        life: 0,
+        maxLife: rand(2.2, 4.2),
+        size:   rand(3, 10),
+        shape:  Math.floor(Math.random() * 5),
+        hot:    Math.random() < 0.38,
+        hotLife:0,
+        landed: false,
       });
+      pieces[pieces.length - 1].hotLife = pieces[pieces.length - 1].hot ? rand(0.4, 1.2) : 0;
     }
     return pieces;
   }
 
-  // ── Aktualizacja (każda klatka) ───────────────────────────────────────────
+  // ── Główna pętla ──────────────────────────────────────────────────────────
 
   update(dt, camX) {
-    const g = this.gfx;
+    const g  = this.gfx;
+    const fg = this.fireGfx;
     g.clear();
-    this.fireGfx.clear();
+    fg.clear();
 
     for (let hi = this._hits.length - 1; hi >= 0; hi--) {
       const h = this._hits[hi];
       h.t += dt;
-      if (h.t > 32) { this._hits.splice(hi, 1); continue; }
+      if (h.t > 34) { this._hits.splice(hi, 1); continue; }
 
-      const t    = h.t;
-      const sx   = h.ix - camX;
-      const sy   = h.iy;
+      const t  = h.t;
+      const sx = h.ix - camX;
+      const sy = h.iy;
 
-      this._drawShockwaves(g, sx, sy, t);
-      this._drawUnderwaterFlash(g, sx, sy, t);
-      this._drawSurfaceBurst(g, sx, sy, t);
-      this._drawWaterColumn(g, sx, sy, t);
+      this._spawn(h, dt, t, camX);
+      this._physics(h, dt, t, sy);
+      this._drawWaterShockwaves(fg, sx, sy, t);
+      this._drawAirShockwaves(g, sx, sy, t);
+      this._drawUnderwaterGlow(fg, sx, sy, t);
       this._drawOilSlick(g, sx, sy, t);
-      this._drawDebris(g, h, dt, camX, t);
-      this._drawSmoke(g, sx, sy, t);
-      this._updateImpactFire(h, dt, t, camX);
-      this._drawSecondary(g, h, sx, sy, dt, t);
+      this._drawSmoke(g, h, camX);
+      this._drawSteam(g, h, camX);
+      this._drawWater(g, h, camX, sy);
+      this._drawFire(fg, h, camX);
+      this._drawOilFires(fg, g, h, camX, sy, t);
+      this._drawDebris(g, fg, h, camX, sy);
+      this._drawEmbers(fg, h, camX);
+      this._drawSeaSparks(fg, h, camX, sy);
+      this._drawSecondary(g, fg, h, sx, sy, dt, t);
+      this._drawScreenFlash(fg, sx, sy, t);
     }
   }
 
-  // ── Fale uderzeniowe ──────────────────────────────────────────────────────
+  // ── Spawn ─────────────────────────────────────────────────────────────────
 
-  _drawShockwaves(g, sx, sy, t) {
+  _spawn(h, dt, t, camX) {
+    const ix = h.ix, iy = h.iy;
+
+    // 1. Fireball
+    if (t < 2.0 && h.fire.length < 220) {
+      const rate = t < 0.05 ? 380 : t < 0.3 ? 150 : t < 0.7 ? 55 : t < 1.2 ? 22 : 8;
+      const n = Math.ceil(rate * dt);
+      for (let i = 0; i < n && h.fire.length < 220; i++) {
+        const ang   = rand(-Math.PI * 0.95, -Math.PI * 0.05);
+        const base  = t < 0.1 ? rand(200, 500) : t < 0.5 ? rand(110, 260) : rand(38, 130);
+        const spike = Math.random() < 0.08 && t < 0.3;
+        const spd   = spike ? base * 2.2 : base;
+        h.fire.push({
+          x: ix + (Math.random() - 0.5) * 18,
+          y: iy - rand(0, 22),
+          vx: Math.cos(ang) * spd + (Math.random() - 0.5) * 55,
+          vy: Math.sin(ang) * spd - rand(18, 70),
+          life: 0,
+          maxLife: spike ? rand(0.3, 0.6) : rand(0.65, 1.5),
+          size: t < 0.1 ? rand(28, 66) : rand(16, 42),
+          seed: Math.random() * 1000,
+        });
+      }
+    }
+
+    // 2. Słup wody
+    if (t > 0.10 && t < 2.5 && h.water.length < 180) {
+      const phase = t < 1.4 ? 'rise' : 'fall';
+      const rate  = phase === 'rise' ? (t < 0.5 ? 110 : 60) : 18;
+      const n     = Math.ceil(rate * dt);
+      for (let i = 0; i < n && h.water.length < 180; i++) {
+        if (phase === 'rise') {
+          const cw  = 1 - Math.min(1, t / 1.4);
+          const up  = rand(350, 680) * (1 - t * 0.28);
+          const isCrown = t > 0.5 && Math.random() < 0.3;
+          h.water.push({
+            x: ix + (Math.random() - 0.5) * 55,
+            y: iy - rand(0, 18),
+            vx: (Math.random() - 0.5) * (36 + (1 - cw) * 70),
+            vy: -up,
+            life: 0, maxLife: rand(1.1, 2.2),
+            size: isCrown ? rand(16, 32) : rand(7, 20),
+            seed: Math.random() * 1000,
+            foam: Math.random() < 0.38,
+            crown: isCrown,
+            landed: false,
+          });
+          if (Math.random() < 0.22) {
+            h.steam.push({
+              x: ix + (Math.random() - 0.5) * 28,
+              y: iy - rand(18, 70),
+              vx: WIND + (Math.random() - 0.5) * 16,
+              vy: -rand(55, 125),
+              life: 0, maxLife: rand(1.4, 3.0),
+              size: rand(12, 24), sizeGrow: rand(38, 75),
+              seed: Math.random() * 1000,
+            });
+          }
+        } else {
+          const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.3;
+          const spd = rand(150, 400);
+          h.water.push({
+            x: ix + (Math.random() - 0.5) * 110,
+            y: iy - rand(360, 550),
+            vx: Math.cos(ang) * spd + WIND * 2,
+            vy: Math.sin(ang) * spd,
+            life: 0, maxLife: rand(0.9, 1.7),
+            size: rand(5, 13),
+            seed: Math.random() * 1000,
+            foam: Math.random() < 0.5,
+            crown: false, landed: false,
+          });
+        }
+      }
+      // Sea sparks — ring rozprysku
+      if (t < 1.2 && h.seaSparks.length < 60) {
+        const rn = Math.ceil(rand(2, 5) * dt * 60);
+        for (let i = 0; i < rn && h.seaSparks.length < 60; i++) {
+          const side = ranSign();
+          h.seaSparks.push({
+            x: ix + side * rand(35, 165 + t * 180),
+            y: iy + rand(-4, 5),
+            vx: side * rand(18, 72),
+            vy: -rand(55, 185),
+            life: 0, maxLife: rand(0.45, 1.0),
+            size: rand(2.5, 7),
+          });
+        }
+      }
+    }
+
+    // 3. Dym
+    if (t > 0.2 && h.smoke.length < 90) {
+      const rate = t < 1.0 ? 14 : t < 3.0 ? 8 : t < 6.0 ? 4 : 1;
+      const n    = Math.ceil(rate * dt);
+      for (let i = 0; i < n && h.smoke.length < 90; i++) {
+        const oily = Math.random() < 0.55;
+        h.smoke.push({
+          x: ix + (Math.random() - 0.5) * 90,
+          y: iy - rand(55, 180),
+          vx: (Math.random() - 0.5) * 14 + WIND * 1.2,
+          vy: -rand(45, 100),
+          life: 0, maxLife: rand(5.5, 10),
+          size: rand(24, 46), sizeGrow: rand(70, 145),
+          seed: Math.random() * 1000,
+          oily, dark: oily ? rand(0.7, 0.94) : rand(0.38, 0.68),
+        });
+      }
+    }
+
+    // 4. Iskry
+    if (t > 0.05 && t < 3.0 && h.embers.length < 100) {
+      const rate = t < 0.5 ? 55 : t < 1.5 ? 20 : 6;
+      const n    = Math.ceil(rate * dt);
+      for (let i = 0; i < n && h.embers.length < 100; i++) {
+        const ang = rand(-Math.PI * 0.95, -Math.PI * 0.05);
+        const spd = rand(200, 500);
+        h.embers.push({
+          x: ix + (Math.random() - 0.5) * 28,
+          y: iy - 9,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          life: 0, maxLife: rand(1.3, 2.8),
+          seed: Math.random() * 1000,
+        });
+      }
+    }
+
+    // 5. Ogniska paliwa — raz, po T+1.4
+    if (t >= 1.4 && h.oilFires.length === 0) {
+      for (let i = 0; i < 10; i++) {
+        const side = ranSign();
+        h.oilFires.push({
+          x: ix + side * rand(55, 340),
+          y: h.iy + rand(-2, 7),
+          size: rand(7, 16),
+          delay: rand(1.5, 3.2),
+          seed: Math.random() * 1000,
+        });
+      }
+    }
+  }
+
+  // ── Fizyka ────────────────────────────────────────────────────────────────
+
+  _physics(h, dt, t, surfY) {
+    // Fire
+    for (let i = h.fire.length - 1; i >= 0; i--) {
+      const p = h.fire[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { h.fire.splice(i, 1); continue; }
+      p.x  += p.vx * dt;
+      p.y  += p.vy * dt;
+      p.vy -= 95 * dt;
+      const sp   = Math.hypot(p.vx, p.vy);
+      const drag = 0.8 + sp * 0.0015;
+      p.vx *= 1 - drag * dt * 0.4;
+      p.vy *= 1 - drag * dt * 0.22;
+      p.vx += Math.sin(p.life * 9 + p.seed) * 28 * dt;
+      p.vy += Math.cos(p.life * 7 + p.seed) * 18 * dt;
+    }
+    // Water
+    for (let i = h.water.length - 1; i >= 0; i--) {
+      const p = h.water[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { h.water.splice(i, 1); continue; }
+      if (p.landed) continue;
+      p.x  += p.vx * dt;
+      p.y  += p.vy * dt;
+      p.vy += G * dt * (p.crown ? 0.6 : 1);
+      p.vx *= 1 - dt * 0.18;
+      if (p.y > surfY + 3 && p.vy > 0) {
+        p.landed = true;
+        if (Math.random() < 0.35 && h.seaSparks.length < 80) {
+          h.seaSparks.push({
+            x: p.x, y: surfY - 2,
+            vx: (Math.random() - 0.5) * 28,
+            vy: -rand(28, 85),
+            life: 0, maxLife: rand(0.28, 0.65),
+            size: rand(1.8, 4.5),
+          });
+        }
+      }
+    }
+    // Smoke
+    for (let i = h.smoke.length - 1; i >= 0; i--) {
+      const p = h.smoke[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { h.smoke.splice(i, 1); continue; }
+      p.x  += p.vx * dt;
+      p.y  += p.vy * dt;
+      p.vy -= 7 * dt;
+      p.vx += WIND * dt * 0.5;
+      p.vx *= 1 - dt * 0.14;
+    }
+    // Steam
+    for (let i = h.steam.length - 1; i >= 0; i--) {
+      const p = h.steam[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { h.steam.splice(i, 1); continue; }
+      p.x  += p.vx * dt;
+      p.y  += p.vy * dt;
+      p.vy -= 13 * dt;
+      p.vx += WIND * dt * 0.7;
+    }
+    // Debris
+    for (let i = h.debris.length - 1; i >= 0; i--) {
+      const p = h.debris[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { h.debris.splice(i, 1); continue; }
+      if (p.landed) continue;
+      p.x  += p.vx * dt;
+      p.y  += p.vy * dt;
+      p.vy += G * dt;
+      p.rot += p.vrot * dt;
+      if (p.y > surfY - 2 && p.vy > 0) {
+        p.landed = true;
+        for (let j = 0; j < 3 && h.seaSparks.length < 80; j++) {
+          h.seaSparks.push({
+            x: p.x + (Math.random() - 0.5) * 6,
+            y: surfY - 2,
+            vx: (Math.random() - 0.5) * 55,
+            vy: -rand(55, 150),
+            life: 0, maxLife: rand(0.35, 0.85),
+            size: rand(2.5, 6.5),
+          });
+        }
+      }
+    }
+    // Embers
+    for (let i = h.embers.length - 1; i >= 0; i--) {
+      const p = h.embers[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { h.embers.splice(i, 1); continue; }
+      p.x  += p.vx * dt + Math.sin(p.life * 12 + p.seed) * 28 * dt;
+      p.y  += p.vy * dt;
+      p.vy += 80 * dt;
+      p.vx *= 1 - dt * 0.55;
+      if (p.y > surfY) p.life = p.maxLife;
+    }
+    // Sea sparks
+    for (let i = h.seaSparks.length - 1; i >= 0; i--) {
+      const p = h.seaSparks[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { h.seaSparks.splice(i, 1); continue; }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += G * 1.4 * dt;
+      if (p.y > surfY) p.life = p.maxLife;
+    }
+  }
+
+  // ── Rysowanie ─────────────────────────────────────────────────────────────
+
+  _drawAirShockwaves(g, sx, sy, t) {
     const waves = [
-      { delay: 0.00, dur: 1.8, maxR: 290, w: 2.5 },
-      { delay: 0.12, dur: 2.2, maxR: 360, w: 1.8 },
-      { delay: 0.28, dur: 2.8, maxR: 430, w: 1.2 },
+      { delay: 0.00, dur: 1.8, maxR: 280, w: 2.5 },
+      { delay: 0.14, dur: 2.2, maxR: 350, w: 1.8 },
+      { delay: 0.30, dur: 2.8, maxR: 420, w: 1.2 },
     ];
     for (const wv of waves) {
       const wt = t - wv.delay;
       if (wt < 0 || wt > wv.dur) continue;
       const prog = wt / wv.dur;
       const r    = prog * wv.maxR;
-      const a    = (1 - prog) * 0.6;
+      const a    = (1 - prog) * 0.52;
       g.lineStyle(wv.w * (1 - prog * 0.5), 0xaaccdd, a);
       g.strokeCircle(sx, sy, r);
-      g.lineStyle(wv.w * 0.5, 0xffffff, a * 0.35);
-      g.strokeCircle(sx, sy, r * 0.72);
+      g.lineStyle(wv.w * 0.45, 0xffffff, a * 0.32);
+      g.strokeCircle(sx, sy, r * 0.74);
     }
   }
 
-  // ── Błysk podwodny ────────────────────────────────────────────────────────
-
-  _drawUnderwaterFlash(g, sx, sy, t) {
-    if (t >= 0.45) return;
-    const prog = t / 0.45;
-    const fade = 1 - prog;
-    const r    = 14 + prog * 95;
-
-    g.fillStyle(0xffffff, fade * 0.85);
-    g.fillCircle(sx, sy + 12, r * 0.35);
-    g.fillStyle(0xffee88, fade * 0.65);
-    g.fillCircle(sx, sy + 12, r * 0.65);
-    g.fillStyle(0xff8800, fade * 0.40);
-    g.fillCircle(sx, sy + 12, r);
-
-    // Rozbłysk na powierzchni
-    g.fillStyle(0xffffff, fade * 0.50);
-    g.fillEllipse(sx, sy, r * 1.6, r * 0.35);
+  _drawWaterShockwaves(fg, sx, sy, t) {
+    if (t > 3.5) return;
+    const waves = [
+      { delay: 0,    speed: 360, life: 2.5, w: 3.5 },
+      { delay: 0.15, speed: 240, life: 2.8, w: 2.8 },
+      { delay: 0.36, speed: 165, life: 3.0, w: 2.0 },
+      { delay: 0.66, speed: 100, life: 3.2, w: 1.4 },
+    ];
+    for (const wv of waves) {
+      const tt = t - wv.delay;
+      if (tt < 0 || tt > wv.life) continue;
+      const r  = tt * wv.speed;
+      const op = Math.pow(1 - tt / wv.life, 1.3) * 0.55;
+      fg.lineStyle(wv.w, 0xffe6b4, op);
+      fg.strokeEllipse(sx, sy + 2, r * 2, r * 0.64);
+      fg.lineStyle(wv.w * 0.45, 0xffdca0, op * 0.38);
+      fg.strokeEllipse(sx, sy + 2, r * 2 * 0.94, r * 0.60);
+    }
   }
 
-  // ── Wybuch na powierzchni (bryzgi) ────────────────────────────────────────
-
-  _drawSurfaceBurst(g, sx, sy, t) {
-    if (t >= 0.75) return;
-    const prog = t / 0.75;
-    const fade = 1 - prog;
-
-    for (let i = 0; i < 20; i++) {
-      const ang   = ((i / 20) * Math.PI) - Math.PI;   // półokrąg w górę
-      const spd   = 90 + ((i * 37) % 130);
-      const bx    = sx + Math.cos(ang) * spd * t * 1.9;
-      const by    = sy + Math.sin(ang) * spd * t * 1.9 - 210 * t * t;
-      if (by > sy + 8) continue;
-      const r  = 4 + ((i * 17) % 9) * (1 - prog * 0.6);
-      g.fillStyle(0xbbddff, fade * 0.72);
-      g.fillCircle(bx, by, r);
-    }
-
-    // Centralna fontanna
-    g.fillStyle(0xddeeff, fade * 0.55);
-    g.fillEllipse(sx, sy - 18 * prog, 28 * prog, 40 * prog);
+  _drawUnderwaterGlow(fg, sx, sy, t) {
+    if (t > 0.5) return;
+    const op = t < 0.05 ? t / 0.05 : Math.max(0, 1 - (t - 0.05) / 0.45);
+    if (op <= 0.01) return;
+    const r  = 80 + t * 750;
+    // aproksymacja gradientu radialnego — 3 koncentryczne kółka
+    fg.fillStyle(0xffe680, op * 0.88);
+    fg.fillCircle(sx, sy + 28, r * 0.28);
+    fg.fillStyle(0xff8c32, op * 0.55);
+    fg.fillCircle(sx, sy + 28, r * 0.60);
+    fg.fillStyle(0xff501e, op * 0.22);
+    fg.fillCircle(sx, sy + 28, r);
   }
 
-  // ── Słup wody ─────────────────────────────────────────────────────────────
+  _drawScreenFlash(fg, sx, sy, t) {
+    if (t > 0.35) return;
+    let op;
+    if (t < 0.04) op = (t / 0.04) * 0.65;
+    else          op = Math.max(0, 0.65 * (1 - (t - 0.04) / 0.31));
+    if (op <= 0.01) return;
+    const W = this.scene.scale.width;
+    const H = this.scene.scale.height;
+    fg.fillStyle(0xfff5dc, op);
+    fg.fillRect(0, 0, W, H);
+  }
 
-  _drawWaterColumn(g, sx, sy, t) {
-    const start = 0.05;
-    const end   = 4.6;
-    if (t < start || t > end) return;
+  _drawOilSlick(g, sx, sy, t) {
+    if (t < 0.25) return;
+    const age    = Math.min(t - 0.25, 18);
+    const slickR = 30 + age * 19;
+    const alpha  = Math.min(age * 0.35, 0.62);
+    g.fillStyle(0x100602, alpha * 0.78);
+    g.fillEllipse(sx, sy + 3, slickR * 2.4, slickR * 0.42);
+    g.fillStyle(0x334455, alpha * 0.20);
+    g.fillEllipse(sx - slickR * 0.2, sy + 3, slickR * 1.1, slickR * 0.22);
+    g.fillStyle(0x553344, alpha * 0.13);
+    g.fillEllipse(sx + slickR * 0.15, sy + 3, slickR * 0.80, slickR * 0.16);
+  }
 
-    const ct      = t - start;
-    const RISE    = 0.85;
-    const HOLD    = 1.30;
-    const FALL    = 2.40;
-
-    let colH, colW, alpha;
-    if (ct < RISE) {
-      const p = ct / RISE;
-      colH  = p * p * 138;
-      colW  = 16 + p * 14;
-      alpha = Math.min(p * 2.5, 1) * 0.75;
-    } else if (ct < RISE + HOLD) {
-      const p = (ct - RISE) / HOLD;
-      colH  = 138 - p * 28;
-      colW  = 30 - p * 6;
-      alpha = 0.68 - p * 0.12;
-    } else {
-      const p = (ct - RISE - HOLD) / FALL;
-      colH  = 110 * (1 - p * p);
-      colW  = 24 * (1 - p);
-      alpha = (1 - p) * 0.48;
+  _drawSmoke(g, h, camX) {
+    for (const p of h.smoke) {
+      const lt    = p.life / p.maxLife;
+      const r     = p.size + lt * p.sizeGrow;
+      const alpha = Math.sin(lt * Math.PI) * 0.36 * p.dark;
+      if (alpha <= 0.01) continue;
+      const grey = p.oily ? Math.floor(16 + (1 - lt) * 14) : Math.floor(26 + (1 - lt) * 22);
+      const warm = p.oily ? Math.floor(grey * 0.7) : grey;
+      // Phaser hex z r,g,b
+      const col  = (grey << 16) | (warm << 8) | warm;
+      g.fillStyle(col, alpha);
+      g.fillCircle(p.x - camX, p.y, r);
     }
+  }
 
-    if (colH <= 0 || alpha <= 0) return;
+  _drawSteam(g, h, camX) {
+    for (const p of h.steam) {
+      const lt    = p.life / p.maxLife;
+      const r     = p.size + lt * p.sizeGrow;
+      const alpha = Math.sin(lt * Math.PI) * 0.28;
+      if (alpha <= 0.01) continue;
+      g.fillStyle(0xd4e2ea, alpha);
+      g.fillCircle(p.x - camX, p.y, r);
+      g.fillStyle(0xa8bec8, alpha * 0.42);
+      g.fillCircle(p.x - camX, p.y, r * 0.58);
+    }
+  }
 
-    // Trzon kolumny
-    g.fillStyle(0x99bbcc, alpha * 0.75);
-    g.fillRect(sx - colW / 2, sy - colH, colW, colH);
-
-    // Głowica
-    const headW = colW * 1.8 + Math.sin(ct * 9) * 3;
-    g.fillStyle(0xccddee, alpha * 0.60);
-    g.fillEllipse(sx, sy - colH, headW, headW * 0.5);
-
-    // Opadające strumienie wody (po fazie wzrostu)
-    if (ct > 0.7) {
-      const fp = Math.min((ct - 0.7) / 1.5, 1);
-      for (let i = 0; i < 7; i++) {
-        const side  = (i % 2 === 0 ? 1 : -1);
-        const offX  = side * (colW * 0.5 + i * 5);
-        const dropY = sy - colH * (0.15 + (i * 0.11)) + fp * 55;
-        const dr    = 3 + (i % 3);
-        g.fillStyle(0x88aacc, alpha * 0.5 * (1 - fp));
-        g.fillEllipse(sx + offX, dropY, dr * 1.4, dr * 2.2);
+  _drawWater(g, h, camX, surfY) {
+    for (const p of h.water) {
+      if (p.landed) continue;
+      const lt     = p.life / p.maxLife;
+      const fadeIn = Math.min(1, p.life / 0.05);
+      let alpha;
+      if (lt < 0.7) alpha = 0.82 * fadeIn;
+      else          alpha = 0.82 * (1 - (lt - 0.7) / 0.30) * fadeIn;
+      if (alpha <= 0.01) continue;
+      const r  = p.size;
+      const sx = p.x - camX;
+      if (p.foam) {
+        g.fillStyle(0xdff0fc, alpha);
+        g.fillCircle(sx, p.y, r);
+        g.fillStyle(0xb0d0e0, alpha * 0.65);
+        g.fillCircle(sx, p.y, r * 0.58);
+      } else {
+        g.fillStyle(0x7090a5, alpha);
+        g.fillCircle(sx, p.y, r);
+        g.fillStyle(0x4a6878, alpha * 0.55);
+        g.fillCircle(sx, p.y, r * 0.58);
+      }
+      // smuga dla szybkich kropli
+      if (Math.abs(p.vy) > 180) {
+        const tl = Math.min(38, Math.abs(p.vy) * 0.038);
+        g.lineStyle(Math.max(1, r * 0.38), p.foam ? 0xdff0fc : 0x7090a5, alpha * 0.40);
+        g.strokeLineShape(new Phaser.Geom.Line(
+          sx - p.vx * 0.024, p.y - p.vy * 0.024, sx, p.y
+        ));
       }
     }
   }
 
-  // ── Plama oleju ───────────────────────────────────────────────────────────
-
-  _drawOilSlick(g, sx, sy, t) {
-    if (t < 0.25) return;
-    const age   = Math.min(t - 0.25, 18);
-    const slickR = 30 + age * 19;
-    const alpha  = Math.min(age * 0.35, 0.65);
-
-    g.fillStyle(0x100602, alpha * 0.80);
-    g.fillEllipse(sx, sy + 3, slickR * 2.4, slickR * 0.42);
-
-    // Tęczowe odbicia (olej)
-    g.fillStyle(0x334455, alpha * 0.20);
-    g.fillEllipse(sx - slickR * 0.2, sy + 3, slickR * 1.1, slickR * 0.22);
-    g.fillStyle(0x553344, alpha * 0.14);
-    g.fillEllipse(sx + slickR * 0.15, sy + 3, slickR * 0.80, slickR * 0.16);
+  _drawFire(fg, h, camX) {
+    for (const p of h.fire) {
+      const lt     = p.life / p.maxLife;
+      const [r, gv, b] = fireColor(lt);
+      const a      = fireAlpha(lt);
+      if (a <= 0.01) continue;
+      const rad = p.size * (1 + lt * 0.6);
+      const sx  = p.x - camX;
+      // 3 koncentryczne kółka ≈ gradient radialny
+      const col = (r << 16) | (gv << 8) | b;
+      fg.fillStyle(col, a * 0.18); fg.fillCircle(sx, p.y, rad);
+      fg.fillStyle(col, a * 0.42); fg.fillCircle(sx, p.y, rad * 0.62);
+      fg.fillStyle(col, a * 0.72); fg.fillCircle(sx, p.y, rad * 0.35);
+    }
   }
 
-  // ── Odłamki (debris) ──────────────────────────────────────────────────────
+  _drawOilFires(fg, g, h, camX, surfY, t) {
+    for (const f of h.oilFires) {
+      if (t < f.delay) continue;
+      const age = t - f.delay;
+      const op  = Math.min(1, age / 0.4) * Math.max(0, 1 - (age - 8) / 5);
+      if (op <= 0.01) continue;
+      const flick = 0.75 + Math.sin(age * 11 + f.seed) * 0.25;
+      const sz    = f.size * flick;
+      const sx    = f.x - camX;
+      const sy    = f.y;
+      // glow
+      fg.fillStyle(0xff9c3c, op * 0.55); fg.fillCircle(sx, sy - sz * 0.4, sz * 3.5);
+      fg.fillStyle(0xff641e, op * 0.25); fg.fillCircle(sx, sy - sz * 0.4, sz * 5.5);
+      // płomień — 4 warstwy
+      fg.fillStyle(0x781e12, op * 0.82); fg.fillEllipse(sx, sy - sz * 0.5, sz * 1.4, sz * 2.2);
+      fg.fillStyle(0xde4e1e, op * 0.92); fg.fillEllipse(sx, sy - sz * 0.6, sz * 1.0, sz * 1.9);
+      fg.fillStyle(0xff9838, op);        fg.fillEllipse(sx, sy - sz * 0.7, sz * 0.6, sz * 1.4);
+      fg.fillStyle(0xffdc82, op);        fg.fillEllipse(sx, sy - sz * 0.8, sz * 0.3, sz * 0.9);
+      // odbicie na wodzie
+      fg.fillStyle(0xff9632, op * 0.30); fg.fillEllipse(sx, sy + sz * 0.3, sz * 3.0, sz * 0.6);
+    }
+  }
 
-  _drawDebris(g, h, dt, camX, t) {
-    for (const d of h.debris) {
-      if (d.done) continue;
-      d.age += dt;
-      if (d.age >= d.life) { d.done = true; continue; }
+  _drawDebris(g, fg, h, camX, surfY) {
+    for (const p of h.debris) {
+      if (p.landed && p.life > p.maxLife * 0.3) continue;
+      const lt = p.life / p.maxLife;
+      const op = p.landed ? Math.max(0, 1 - (lt - 0.3) / 0.7) : 1;
+      if (op <= 0) continue;
 
-      d.vy    += 200 * dt;   // grawitacja
-      d.x     += d.vx * dt;
-      d.y     += d.vy * dt;
-      d.angle += d.angV * dt;
-
-      const sy2 = this.scene.SURFACE_Y;
-      if (d.y > sy2 + 10) { d.done = true; continue; }
-
-      const frac = 1 - d.age / d.life;
-      const dx   = d.x - camX;
-      const dy   = d.y;
-
+      const sx = p.x - camX;
+      // gorący glow
+      if (p.hot && p.life < p.hotLife) {
+        const hf = (1 - p.life / p.hotLife) * 0.82;
+        fg.fillStyle(0xffdc78, hf * op); fg.fillCircle(sx, p.y, p.size * 2.2);
+        fg.fillStyle(0xff7828, hf * op * 0.55); fg.fillCircle(sx, p.y, p.size * 4.0);
+      }
+      // kształt odłamka
+      const col = (p.hot && p.life < p.hotLife * 0.5) ? 0xcc3333 : 0x0a0d12;
+      g.fillStyle(col, op * 0.92);
       g.save();
-      g.translateCanvas(dx, dy);
-      g.rotateCanvas(d.angle);
-      g.fillStyle(d.col, frac * 0.90);
-      g.fillRect(-d.r, -d.r * 0.5, d.r * 2, d.r);
+      g.translateCanvas(sx, p.y);
+      g.rotateCanvas(p.rot);
+      switch (p.shape) {
+        case 0: g.fillRect(-p.size / 2, -p.size / 4, p.size, p.size * 0.5); break;
+        case 1: g.fillTriangle(0, -p.size * 0.8, p.size * 0.6, p.size * 0.5, -p.size * 0.6, p.size * 0.5); break;
+        case 2: g.fillRect(-p.size, -1, p.size * 2, 2); break;
+        case 3: g.fillCircle(0, 0, p.size * 0.44); break;
+        case 4: g.fillTriangle(-p.size, 0, p.size * 1.2, 0, 0, -p.size * 0.5); break;
+      }
       g.restore();
     }
   }
 
-  // ── Kolumna dymu ──────────────────────────────────────────────────────────
-
-  _drawSmoke(g, sx, sy, t) {
-    if (t < 0.25) return;
-    const smokeT = t - 0.25;
-    const count  = Math.min(Math.floor(smokeT / 0.32) + 2, 14);
-
-    for (let i = 0; i < count; i++) {
-      const age  = smokeT - i * 0.32;
-      if (age < 0) continue;
-
-      const jx  = Math.sin(i * 2.71 + 0.5) * 14;
-      const fy  = sy - 38 - age * 30 - i * 16;
-      const fr  = 12 + age * 9 + i * 5;
-      const fa  = Math.max(0, 0.55 - age * 0.055) * Math.min(age * 2, 1);
-      if (fa <= 0) continue;
-
-      const col = i < 3 ? 0x080808 : (i < 7 ? 0x181210 : 0x251d14);
-      g.fillStyle(col, fa);
-      g.fillCircle(sx + jx, fy, fr);
-    }
-  }
-
-  // ── Ogień (cząsteczkowy, additive blending) ───────────────────────────────
-
-  _updateImpactFire(h, dt, t, camX) {
-    if (t < 0.85) return;
-    const fg     = this.fireGfx;
-    const fireT  = t - 0.85;
-    const slickR = 30 + (t - 0.25) * 19;
-    const fade   = Math.max(0, 1 - fireT / 21.0) * Math.min(fireT * 0.75, 1);
-    if (fade <= 0) { h.fireParts = []; h.emberParts = []; return; }
-
-    // 3 źródła ognia wzdłuż plamy oleju
-    const pools = [
-      { ox: -slickR * 0.43, power: 0.90 },
-      { ox: 0,              power: 1.25 },
-      { ox:  slickR * 0.40, power: 0.80 },
-    ];
-    for (const pool of pools) {
-      const n = Math.round(pool.power * 3 * dt * 60);
-      for (let i = 0; i < n && h.fireParts.length < 140; i++) {
-        h.fireParts.push({
-          x:       h.ix + pool.ox + (Math.random() - 0.5) * 22,
-          y:       h.iy - 4 + (Math.random() - 0.5) * 4,
-          vx:      (Math.random() - 0.5) * 20,
-          vy:      -(50 + Math.random() * 70) * pool.power,
-          life:    0,
-          maxLife: 0.8 + Math.random() * 1.0,
-          size:    6 + Math.random() * 10 * pool.power,
-          seed:    Math.random() * 1000,
-        });
-      }
-      if (Math.random() < pool.power * 0.3 * dt && h.emberParts.length < 45) {
-        h.emberParts.push({
-          x:       h.ix + pool.ox + (Math.random() - 0.5) * 22,
-          y:       h.iy - 8,
-          vx:      (Math.random() - 0.5) * 52,
-          vy:      -(100 + Math.random() * 80),
-          life:    0,
-          maxLife: 1.2 + Math.random() * 1.2,
-          seed:    Math.random() * 1000,
-        });
-      }
-    }
-
-    // Fizyka + rysowanie cząsteczek ognia
-    for (let i = h.fireParts.length - 1; i >= 0; i--) {
-      const p = h.fireParts[i];
-      p.life += dt;
-      if (p.life >= p.maxLife) { h.fireParts.splice(i, 1); continue; }
-      p.x  += p.vx * dt;
-      p.y  += p.vy * dt;
-      p.vy -= 60 * dt;
-      p.vx += Math.sin(p.life * 7.2 + p.seed) * 15 * dt;
-      p.vx *= 1 - dt * 0.10;
-
-      const tk = p.life / p.maxLife;
-      let a;
-      if      (tk < 0.08) a = (tk / 0.08) * 0.65;
-      else if (tk < 0.70) a = 0.65;
-      else                a = Math.max(0, 0.65 * (1 - (tk - 0.70) / 0.30));
-      a *= fade;
-      if (a <= 0.01) continue;
-      const sx = p.x - camX;
-      const r  = p.size * (1 + tk * 0.45);
-      fg.fillStyle(0xde4e1e, a * 0.14); fg.fillCircle(sx, p.y, r * 2.0);
-      fg.fillStyle(0xff9838, a * 0.32); fg.fillCircle(sx, p.y, r * 1.3);
-      const core = tk < 0.25 ? 0xfffce4 : (tk < 0.55 ? 0xffde82 : (tk < 0.80 ? 0xff9838 : 0xde4e1e));
-      fg.fillStyle(core,    a * 0.55); fg.fillCircle(sx, p.y, r * 0.65);
-    }
-
-    // Fizyka + rysowanie iskier
-    for (let i = h.emberParts.length - 1; i >= 0; i--) {
-      const p = h.emberParts[i];
-      p.life += dt;
-      if (p.life >= p.maxLife) { h.emberParts.splice(i, 1); continue; }
-      p.x += p.vx * dt + Math.sin(p.life * 11 + p.seed) * 20 * dt;
-      p.y += p.vy * dt;
-      p.vy += 45 * dt;
-      p.vx *= 1 - dt * 0.50;
-
-      const tk = p.life / p.maxLife;
-      const fl = 0.55 + Math.sin(p.life * 22 + p.seed) * 0.45;
-      const a  = (1 - tk) * fl * fade;
+  _drawEmbers(fg, h, camX) {
+    for (const p of h.embers) {
+      const lt   = p.life / p.maxLife;
+      const fl   = 0.55 + Math.sin(p.life * 24 + p.seed) * 0.45;
+      const a    = (1 - lt) * fl;
       if (a <= 0.02) continue;
-      fg.fillStyle(tk < 0.5 ? 0xffee44 : 0xff9900, a * 0.88);
-      fg.fillCircle(p.x - camX, p.y, 1.4 + fl * 0.9);
+      const yel  = Math.floor(220 - lt * 120);
+      const orn  = Math.floor(120 - lt * 80);
+      const col  = (255 << 16) | (yel << 8) | orn;
+      const sx   = p.x - camX;
+      const sz   = 1.4 + fl * 0.8;
+      fg.fillStyle(col, a); fg.fillCircle(sx, p.y, sz);
+      // smuga
+      fg.lineStyle(sz * 0.5, col, a * 0.38);
+      fg.strokeLineShape(new Phaser.Geom.Line(
+        sx - p.vx * 0.028, p.y - p.vy * 0.028, sx, p.y
+      ));
     }
   }
 
-  // ── Wtórne eksplozje ──────────────────────────────────────────────────────
+  _drawSeaSparks(fg, h, camX, surfY) {
+    for (const p of h.seaSparks) {
+      const lt = p.life / p.maxLife;
+      const a  = Math.max(0, 1 - lt) * 0.88;
+      if (a <= 0.02) continue;
+      fg.fillStyle(0xe8f8fc, a);
+      fg.fillCircle(p.x - camX, p.y, p.size);
+    }
+  }
 
-  _drawSecondary(g, h, sx, sy, dt, t) {
+  _drawSecondary(g, fg, h, sx, sy, dt, t) {
     for (const sb of h.secondary) {
       if (sb.done || t < sb.delay) continue;
-      const st   = t - sb.delay;
+      const st = t - sb.delay;
       if (st > 0.85) { sb.done = true; continue; }
 
       const prog = st / 0.85;
-      const r    = 8 + prog * 58;
+      const r    = 8 + prog * 56;
       const bx   = sx + sb.ox;
 
-      // Błysk
       if (prog < 0.25) {
         const ff = (0.25 - prog) / 0.25;
-        g.fillStyle(0xffffff, ff * 0.75);
-        g.fillCircle(bx, sy, r * 0.3);
+        fg.fillStyle(0xffffff, ff * 0.70);
+        fg.fillCircle(bx, sy, r * 0.28);
       }
+      fg.fillStyle(0xffaa00, (1 - prog) * 0.62); fg.fillCircle(bx, sy, r * 0.5);
+      fg.fillStyle(0xff5500, (1 - prog) * 0.38); fg.fillCircle(bx, sy, r);
+      fg.lineStyle(1.4, 0xff8800, (1 - prog) * 0.45);
+      fg.strokeCircle(bx, sy, r * 1.45);
 
-      g.fillStyle(0xffaa00, (1 - prog) * 0.65);
-      g.fillCircle(bx, sy, r * 0.5);
-      g.fillStyle(0xff5500, (1 - prog) * 0.40);
-      g.fillCircle(bx, sy, r);
-      g.lineStyle(1.5, 0xff8800, (1 - prog) * 0.50);
-      g.strokeCircle(bx, sy, r * 1.5);
-
-      // Małe bryzgi
-      for (let i = 0; i < 7; i++) {
-        const ang = (i / 7) * Math.PI - Math.PI * 0.5;
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * Math.PI - Math.PI * 0.5;
         const bxd = bx + Math.cos(ang) * r * 0.9;
-        const byd = sy + Math.sin(ang) * r * 0.9 - 55 * st;
+        const byd = sy + Math.sin(ang) * r * 0.9 - 50 * st;
         if (byd > sy) continue;
-        g.fillStyle(0xbbddff, (1 - prog) * 0.52);
-        g.fillCircle(bxd, byd, 3 + prog * 4);
+        g.fillStyle(0xbbddff, (1 - prog) * 0.50);
+        g.fillCircle(bxd, byd, 2.5 + prog * 3.5);
       }
     }
   }

@@ -249,4 +249,4 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 
 ---
 
-*Ostatnia aktualizacja: 2026-05-15 — panel AWARIE (F6): śledzenie 8 systemów, applyDamage(), dziennik zdarzeń*
+*Ostatnia aktualizacja: 2026-05-20 — ImpactFX rewrite: 7-typowy system cząsteczkowy wybuchu torpedy (fireball, woda, dym, para, odłamki, iskry, olej)*
