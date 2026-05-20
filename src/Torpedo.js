@@ -156,40 +156,7 @@ export class Torpedo {
     const g = this.gfx;
     g.clear();
 
-    // ── Wybuch ────────────────────────────────────────────────────────────────
-    if (this.exploded) {
-      const dur  = this._explodeDur || 0.65;
-      const frac = Phaser.Math.Clamp(this.explodeTimer / dur, 0, 1);
-      const r    = (1 - frac) * BLAST_R * 2.4;
-
-      // Flash centralny (bardzo krótki)
-      if (frac > 0.82) {
-        g.fillStyle(0xffffff, (frac - 0.82) / 0.18 * 0.9);
-        g.fillCircle(this.x, this.y, r * 0.5 + 8);
-      }
-      // Kula ognia
-      g.fillStyle(0xff8800, frac * 0.70);
-      g.fillCircle(this.x, this.y, r * 0.45);
-      g.fillStyle(0xffdd44, frac * 0.55);
-      g.fillCircle(this.x, this.y, r * 0.25);
-
-      // Główna fala uderzeniowa
-      g.lineStyle(2.5, 0xff7700, frac * 0.80);
-      g.strokeCircle(this.x, this.y, r);
-
-      // Zewnętrzna fala (szybsza)
-      g.lineStyle(1.2, 0xff4400, frac * 0.40);
-      g.strokeCircle(this.x, this.y, r * 1.55);
-
-      // Bąble powietrza (podwodna eksplozja)
-      for (let i = 0; i < 6; i++) {
-        const a  = (i / 6) * Math.PI * 2;
-        const dr = r * (0.6 + (i % 2) * 0.3);
-        g.fillStyle(0xaaddff, frac * 0.45);
-        g.fillCircle(this.x + Math.cos(a) * dr, this.y + Math.sin(a) * dr, 3 + frac * 3);
-      }
-      return;
-    }
+    if (this.exploded) return;  // ImpactFX przejął animację wybuchu
 
     // ── Ślad torpedy (wstęga piany + bąble) ──────────────────────────────────
     const WAKE_LIFE = 2.8;

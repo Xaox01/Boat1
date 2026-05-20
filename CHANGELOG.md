@@ -4,6 +4,20 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.54] — 2026-05-20
+
+### Zmieniono — ImpactFX przy chybieniu torpedy (tafla / dno)
+
+**GameScene.js:**
+- Po każdej klatce sprawdzana flaga `torpedo.recentExplosion && !torpedo.recentHit` — gdy torpeda uderza w taflę wody lub dno (chybienie), wyzwalane jest `impactFX.trigger(t.x, t.y)` z lekkim screen shake 180ms
+- Dotyczy wszystkich przypadków wygaśnięcia torpedy: uderzenie w powierzchnię, w dno, przekroczenie zasięgu MAX_RANGE
+
+**Torpedo.js:**
+- Usunięto własny blok rysowania wybuchu w `_draw()` (proste kółka i fale) — ImpactFX całkowicie zastępuje animację
+- Podczas `exploded === true` torpeda od razu zwraca bez rysowania czegokolwiek
+
+---
+
 ## [0.10.53] — 2026-05-20
 
 ### Dodano — Ogień przy tafli wody po wybuchu torpedy

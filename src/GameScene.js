@@ -608,6 +608,14 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // Torpedy chybione — eksplozja przy uderzeniu w taflę lub dno
+    for (const t of this.sub.torpedoes) {
+      if (t.recentExplosion && !t.recentHit) {
+        this._impactFX.trigger(t.x, t.y);
+        this.cameras.main.shake(180, 0.005);
+      }
+    }
+
     // Usuń zatopione merchanty — wyczyść też zaznaczenie i triangulację
     for (const m of this.merchants.filter(m => m.destroyed)) {
       m.gfx.destroy();
