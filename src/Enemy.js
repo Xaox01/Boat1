@@ -1501,16 +1501,16 @@ export class Enemy {
     const SURF = this.scene.SURFACE_Y;
     if (!this._sinking && !this.destroyed) {
       for (const src of this._getFireSources()) {
-        const n = Math.round(src.power * 5 * dt * 60);
-        for (let i = 0; i < n && this._fireParts.length < 200; i++) {
+        const n = Math.round(src.power * 18 * dt * 60);
+        for (let i = 0; i < n && this._fireParts.length < 280; i++) {
           this._fireParts.push({
             x:       this.x + src.dx + (Math.random() - 0.5) * src.spread,
             y:       SURF + src.dy,
             vx:      (Math.random() - 0.5) * 22,
-            vy:      -(65 + Math.random() * 85) * (0.7 + src.power * 0.3),
+            vy:      -(55 + Math.random() * 80) * (0.7 + src.power * 0.3),
             life:    0,
-            maxLife: 0.9 + Math.random() * 1.1,
-            size:    7 + Math.random() * 11 * src.power,
+            maxLife: 0.75 + Math.random() * 0.9,
+            size:    3 + Math.random() * 8 * src.power,
             seed:    Math.random() * 1000,
           });
         }
@@ -1553,23 +1553,28 @@ export class Enemy {
     for (const p of this._fireParts) {
       const t = p.life / p.maxLife;
       let a;
-      if      (t < 0.08) a = (t / 0.08) * 0.65;
-      else if (t < 0.70) a = 0.65;
-      else               a = Math.max(0, 0.65 * (1 - (t - 0.70) / 0.30));
+      if      (t < 0.08) a = (t / 0.08) * 0.58;
+      else if (t < 0.65) a = 0.58;
+      else               a = Math.max(0, 0.58 * (1 - (t - 0.65) / 0.35));
       if (a <= 0.01) continue;
-      const r = p.size * (1 + t * 0.45);
-      fg.fillStyle(0xde4e1e, a * 0.14); fg.fillCircle(p.x, p.y, r * 2.0);
-      fg.fillStyle(0xff9838, a * 0.32); fg.fillCircle(p.x, p.y, r * 1.3);
-      const core = t < 0.25 ? 0xfffce4 : (t < 0.55 ? 0xffde82 : (t < 0.80 ? 0xff9838 : 0xde4e1e));
-      fg.fillStyle(core,    a * 0.55); fg.fillCircle(p.x, p.y, r * 0.65);
+      const r    = p.size * (1 + t * 0.5);
+      const sway = Math.sin(p.life * 3.8 + p.seed) * r * 0.22;
+      // Kolor: biały-żółty na początku, pomarańczowy środek, czerwony koniec
+      const col  = t < 0.22 ? 0xfffce4 : (t < 0.52 ? 0xffb040 : (t < 0.78 ? 0xff6018 : 0xcc2a08));
+      const hot  = t < 0.22 ? 0xffee88 : 0xff8830;
+      // 4 warstwy elips — kształt języka ognia (wyższy niż szeroki)
+      fg.fillStyle(0xcc2a08, a * 0.10); fg.fillEllipse(p.x + sway,       p.y + r * 0.15, r * 2.6, r * 1.4);
+      fg.fillStyle(col,      a * 0.20); fg.fillEllipse(p.x + sway * 0.6, p.y - r * 0.05, r * 1.5, r * 2.0);
+      fg.fillStyle(col,      a * 0.38); fg.fillEllipse(p.x + sway * 0.3, p.y - r * 0.22, r * 0.82, r * 1.55);
+      fg.fillStyle(hot,      a * 0.58); fg.fillEllipse(p.x,              p.y - r * 0.36, r * 0.34, r * 0.85);
     }
     for (const p of this._emberParts) {
       const t  = p.life / p.maxLife;
-      const fl = 0.55 + Math.sin(p.life * 22 + p.seed) * 0.45;
-      const a  = (1 - t) * fl;
+      const fl = 0.72 + Math.sin(p.life * 6.5 + p.seed) * 0.28;
+      const a  = (1 - t) * fl * 0.85;
       if (a <= 0.02) continue;
-      fg.fillStyle(t < 0.5 ? 0xffee44 : 0xff9900, a * 0.88);
-      fg.fillCircle(p.x, p.y, 1.4 + fl * 0.9);
+      fg.fillStyle(t < 0.5 ? 0xffee44 : 0xff9900, a);
+      fg.fillCircle(p.x, p.y, 1.2 + fl * 0.7);
     }
 
     // Ambient glow — ciepłe światło ognia oświetla kadłub i wodę
@@ -1578,22 +1583,19 @@ export class Enemy {
       const SURF  = this.scene.SURFACE_Y;
       const total = sources.reduce((acc, src) => acc + src.power, 0);
       const gi    = Math.min(total * 0.65, 1.0);
-      const pulse = 0.84 + 0.16 * Math.sin(Date.now() * 0.0028);
+      const pulse = 0.88 + 0.12 * Math.sin(Date.now() * 0.0011);
 
-      // Duży glow wokół kadłuba i nadbudówki
-      fg.fillStyle(0xff6620, gi * 0.14 * pulse);
+      fg.fillStyle(0xff6620, gi * 0.12 * pulse);
       fg.fillEllipse(this.x, SURF - 18, 240, 80);
 
-      // Intensywny glow przy każdym aktywnym ognisku
       for (const src of sources) {
-        fg.fillStyle(0xff8833, src.power * 0.22 * pulse);
+        fg.fillStyle(0xff8833, src.power * 0.18 * pulse);
         fg.fillEllipse(this.x + src.dx, SURF + src.dy + 8, 72, 36);
       }
 
-      // Odbicie ognia na powierzchni wody (szerokie, płaskie)
-      fg.fillStyle(0xff7722, gi * 0.09 * pulse);
+      fg.fillStyle(0xff7722, gi * 0.08 * pulse);
       fg.fillEllipse(this.x, SURF + 7, 400, 16);
-      fg.fillStyle(0xff9944, gi * 0.04 * pulse);
+      fg.fillStyle(0xff9944, gi * 0.035 * pulse);
       fg.fillEllipse(this.x, SURF + 15, 560, 9);
     }
   }

@@ -4,6 +4,24 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.52] — 2026-05-20
+
+### Zmieniono — Organiczny kształt ognia + redukcja migania
+
+**Enemy.js — ogień na okrętach:**
+- 3× więcej cząsteczek (spawn rate `*5` → `*18`), mniejszy rozmiar (`7+11` → `3+8`) — gęstsza masa bez widocznych pojedynczych kółek
+- `_drawFireAdditive`: 3 kółka → 4 warstwy elips (szeroka podstawa → wąski czubek), sway `sin(life*3.8)` dla kołysania
+- Iskry: sin-flicker zredukowany z 22 Hz do 6.5 Hz — brak szybkiego migania
+- Ambient pulse: `Date.now()*0.0028` → `*0.0011` (wolniejsze, spokojniejsze tętnienie)
+
+**ImpactFX.js — wybuch torpedy:**
+- `_drawFire`: 3 kółka → 5 warstw elips z kształtem języka ognia i sway `sin(life*3.5+seed)`
+- `_drawEmbers`: sin 24 Hz → 7.2 Hz, smuga nieznacznie krótsza
+- `_drawOilFires`: sin 11 Hz → 4.2 Hz; kółka glow → elipsy; 4 → 5 warstw elips dla płomienia
+- `_drawSecondary`: kule ognia → elipsy z falą uderzeniową `strokeEllipse`, czas trwania 0.85→1.0s
+
+---
+
 ## [0.10.51] — 2026-05-20
 
 ### Zmieniono — Pełny restart ImpactFX: cząsteczkowy system wybuchu torpedy

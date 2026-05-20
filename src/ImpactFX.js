@@ -514,40 +514,45 @@ export class ImpactFX {
 
   _drawFire(fg, h, camX) {
     for (const p of h.fire) {
-      const lt     = p.life / p.maxLife;
-      const [r, gv, b] = fireColor(lt);
-      const a      = fireAlpha(lt);
+      const lt  = p.life / p.maxLife;
+      const [rv, gv, bv] = fireColor(lt);
+      const a   = fireAlpha(lt);
       if (a <= 0.01) continue;
-      const rad = p.size * (1 + lt * 0.6);
-      const sx  = p.x - camX;
-      // 3 koncentryczne kółka ≈ gradient radialny
-      const col = (r << 16) | (gv << 8) | b;
-      fg.fillStyle(col, a * 0.18); fg.fillCircle(sx, p.y, rad);
-      fg.fillStyle(col, a * 0.42); fg.fillCircle(sx, p.y, rad * 0.62);
-      fg.fillStyle(col, a * 0.72); fg.fillCircle(sx, p.y, rad * 0.35);
+      const rad  = p.size * (1 + lt * 0.55);
+      const sx   = p.x - camX;
+      const sway = Math.sin(p.life * 3.5 + p.seed) * rad * 0.20;
+      const col  = (rv << 16) | (gv << 8) | bv;
+      // 5 warstw elips: szeroka podstawa → wąski czubek — kształt języka ognia
+      fg.fillStyle(col, a * 0.08); fg.fillEllipse(sx + sway,        p.y + rad * 0.18, rad * 2.8, rad * 1.3);
+      fg.fillStyle(col, a * 0.17); fg.fillEllipse(sx + sway * 0.65, p.y,              rad * 1.8, rad * 1.9);
+      fg.fillStyle(col, a * 0.30); fg.fillEllipse(sx + sway * 0.35, p.y - rad * 0.14, rad * 1.0, rad * 1.65);
+      fg.fillStyle(col, a * 0.48); fg.fillEllipse(sx + sway * 0.15, p.y - rad * 0.28, rad * 0.50, rad * 1.10);
+      fg.fillStyle(col, a * 0.68); fg.fillEllipse(sx,               p.y - rad * 0.40, rad * 0.20, rad * 0.58);
     }
   }
 
   _drawOilFires(fg, g, h, camX, surfY, t) {
     for (const f of h.oilFires) {
       if (t < f.delay) continue;
-      const age = t - f.delay;
-      const op  = Math.min(1, age / 0.4) * Math.max(0, 1 - (age - 8) / 5);
+      const age   = t - f.delay;
+      const op    = Math.min(1, age / 0.4) * Math.max(0, 1 - (age - 8) / 5);
       if (op <= 0.01) continue;
-      const flick = 0.75 + Math.sin(age * 11 + f.seed) * 0.25;
+      const flick = 0.82 + Math.sin(age * 4.2 + f.seed) * 0.18;
       const sz    = f.size * flick;
       const sx    = f.x - camX;
       const sy    = f.y;
-      // glow
-      fg.fillStyle(0xff9c3c, op * 0.55); fg.fillCircle(sx, sy - sz * 0.4, sz * 3.5);
-      fg.fillStyle(0xff641e, op * 0.25); fg.fillCircle(sx, sy - sz * 0.4, sz * 5.5);
-      // płomień — 4 warstwy
-      fg.fillStyle(0x781e12, op * 0.82); fg.fillEllipse(sx, sy - sz * 0.5, sz * 1.4, sz * 2.2);
-      fg.fillStyle(0xde4e1e, op * 0.92); fg.fillEllipse(sx, sy - sz * 0.6, sz * 1.0, sz * 1.9);
-      fg.fillStyle(0xff9838, op);        fg.fillEllipse(sx, sy - sz * 0.7, sz * 0.6, sz * 1.4);
-      fg.fillStyle(0xffdc82, op);        fg.fillEllipse(sx, sy - sz * 0.8, sz * 0.3, sz * 0.9);
+      const sway  = Math.sin(age * 3.1 + f.seed + 1.2) * sz * 0.18;
+      // glow pod płomieniem — elipsy zamiast kółek
+      fg.fillStyle(0xff8830, op * 0.40); fg.fillEllipse(sx, sy - sz * 0.3, sz * 5.5, sz * 2.2);
+      fg.fillStyle(0xff6020, op * 0.20); fg.fillEllipse(sx, sy - sz * 0.3, sz * 8.0, sz * 3.0);
+      // płomień — 5 warstw elips: kształt języka
+      fg.fillStyle(0x6e1a0e, op * 0.82); fg.fillEllipse(sx + sway,        sy - sz * 0.55, sz * 1.5, sz * 2.4);
+      fg.fillStyle(0xcc3c18, op * 0.88); fg.fillEllipse(sx + sway * 0.65, sy - sz * 0.70, sz * 1.05, sz * 2.0);
+      fg.fillStyle(0xff7830, op * 0.95); fg.fillEllipse(sx + sway * 0.35, sy - sz * 0.84, sz * 0.62, sz * 1.50);
+      fg.fillStyle(0xffb848, op);        fg.fillEllipse(sx + sway * 0.15, sy - sz * 0.96, sz * 0.32, sz * 0.95);
+      fg.fillStyle(0xffee88, op * 0.90); fg.fillEllipse(sx,               sy - sz * 1.05, sz * 0.14, sz * 0.42);
       // odbicie na wodzie
-      fg.fillStyle(0xff9632, op * 0.30); fg.fillEllipse(sx, sy + sz * 0.3, sz * 3.0, sz * 0.6);
+      fg.fillStyle(0xff8030, op * 0.28); fg.fillEllipse(sx, sy + sz * 0.35, sz * 3.2, sz * 0.55);
     }
   }
 
@@ -584,20 +589,19 @@ export class ImpactFX {
 
   _drawEmbers(fg, h, camX) {
     for (const p of h.embers) {
-      const lt   = p.life / p.maxLife;
-      const fl   = 0.55 + Math.sin(p.life * 24 + p.seed) * 0.45;
-      const a    = (1 - lt) * fl;
+      const lt  = p.life / p.maxLife;
+      const fl  = 0.72 + Math.sin(p.life * 7.2 + p.seed) * 0.28;
+      const a   = (1 - lt) * fl * 0.90;
       if (a <= 0.02) continue;
-      const yel  = Math.floor(220 - lt * 120);
-      const orn  = Math.floor(120 - lt * 80);
-      const col  = (255 << 16) | (yel << 8) | orn;
-      const sx   = p.x - camX;
-      const sz   = 1.4 + fl * 0.8;
+      const yel = Math.floor(220 - lt * 120);
+      const orn = Math.floor(120 - lt * 80);
+      const col = (255 << 16) | (yel << 8) | orn;
+      const sx  = p.x - camX;
+      const sz  = 1.3 + fl * 0.7;
       fg.fillStyle(col, a); fg.fillCircle(sx, p.y, sz);
-      // smuga
-      fg.lineStyle(sz * 0.5, col, a * 0.38);
+      fg.lineStyle(sz * 0.5, col, a * 0.32);
       fg.strokeLineShape(new Phaser.Geom.Line(
-        sx - p.vx * 0.028, p.y - p.vy * 0.028, sx, p.y
+        sx - p.vx * 0.022, p.y - p.vy * 0.022, sx, p.y
       ));
     }
   }
@@ -616,29 +620,37 @@ export class ImpactFX {
     for (const sb of h.secondary) {
       if (sb.done || t < sb.delay) continue;
       const st = t - sb.delay;
-      if (st > 0.85) { sb.done = true; continue; }
+      if (st > 1.0) { sb.done = true; continue; }
 
-      const prog = st / 0.85;
-      const r    = 8 + prog * 56;
+      const prog = st / 1.0;
+      const fade = 1 - prog;
+      const r    = 10 + prog * 62;
       const bx   = sx + sb.ox;
+      const sway = Math.sin(st * 4.5 + sb.ox) * r * 0.10;
 
-      if (prog < 0.25) {
-        const ff = (0.25 - prog) / 0.25;
-        fg.fillStyle(0xffffff, ff * 0.70);
-        fg.fillCircle(bx, sy, r * 0.28);
+      // Flash na początku
+      if (prog < 0.18) {
+        const ff = (0.18 - prog) / 0.18;
+        fg.fillStyle(0xfffbe0, ff * 0.65); fg.fillEllipse(bx, sy, r * 0.80, r * 0.50);
       }
-      fg.fillStyle(0xffaa00, (1 - prog) * 0.62); fg.fillCircle(bx, sy, r * 0.5);
-      fg.fillStyle(0xff5500, (1 - prog) * 0.38); fg.fillCircle(bx, sy, r);
-      fg.lineStyle(1.4, 0xff8800, (1 - prog) * 0.45);
-      fg.strokeCircle(bx, sy, r * 1.45);
-
-      for (let i = 0; i < 6; i++) {
-        const ang = (i / 6) * Math.PI - Math.PI * 0.5;
-        const bxd = bx + Math.cos(ang) * r * 0.9;
-        const byd = sy + Math.sin(ang) * r * 0.9 - 50 * st;
+      // Kula ognia — elipsy, nie kółka
+      fg.fillStyle(0xff6600, fade * 0.55); fg.fillEllipse(bx + sway,       sy - r * 0.12, r * 1.3, r * 1.1);
+      fg.fillStyle(0xff9900, fade * 0.75); fg.fillEllipse(bx + sway * 0.5, sy - r * 0.22, r * 0.75, r * 0.90);
+      fg.fillStyle(0xffcc44, fade * 0.55); fg.fillEllipse(bx,              sy - r * 0.32, r * 0.32, r * 0.50);
+      // Fala uderzeniowa — pierścień eliptyczny
+      if (prog < 0.75) {
+        const rp = prog / 0.75;
+        fg.lineStyle(1.6 * (1 - rp), 0xffbb66, (1 - rp) * 0.40);
+        fg.strokeEllipse(bx, sy, r * 2.4, r * 1.0);
+      }
+      // Bąble wody przy wejściu uderzenia
+      for (let i = 0; i < 5; i++) {
+        const ang = (i / 5) * Math.PI - Math.PI * 0.5 + (sb.ox * 0.01);
+        const bxd = bx + Math.cos(ang) * r * 0.85;
+        const byd = sy + Math.sin(ang) * r * 0.55 - 44 * st;
         if (byd > sy) continue;
-        g.fillStyle(0xbbddff, (1 - prog) * 0.50);
-        g.fillCircle(bxd, byd, 2.5 + prog * 3.5);
+        g.fillStyle(0xaaccdd, fade * 0.45);
+        g.fillCircle(bxd, byd, 2.0 + prog * 4.0);
       }
     }
   }
