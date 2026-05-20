@@ -4,6 +4,19 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.53] — 2026-05-20
+
+### Dodano — Ogień przy tafli wody po wybuchu torpedy
+
+**ImpactFX.js — `surfaceFire` pool:**
+- Po 0.28s od wybuchu pojawia się persystentny ogień przy tafli wody — pali się przez 3.5s
+- Cząsteczki startują przy `surfY`, renderowane identycznie jak ogień na okrętach (3-warstwowe elipsy z sway)
+- Zasięg ognia rozszerza się z czasem: `spread = 22 + min(t*28, 90)` — coraz szersza plama paliwa
+- Fisica: unoszenie `vy -= 58*dt`, turbulencja `sin(life*7.2+seed)*14` — organiczny ruch
+- `trigger(worldX, worldY)` używa teraz `worldY` — eksplozja przy dnie działa od właściwej głębokości, ogień i tak pojawia się przy tafli (palące się paliwo wypływa)
+
+---
+
 ## [0.10.52] — 2026-05-20
 
 ### Zmieniono — Organiczny kształt ognia + redukcja migania

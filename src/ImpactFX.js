@@ -36,18 +36,21 @@ export class ImpactFX {
 
   trigger(worldX, worldY) {
     const SURF = this.scene.SURFACE_Y;
+    const iy   = (worldY !== undefined && worldY > SURF + 10) ? worldY : SURF;
     this._hits.push({
-      ix:       worldX,
-      iy:       SURF,
-      t:        0,
-      fire:     [],
-      water:    [],
-      smoke:    [],
-      steam:    [],
-      debris:   this._spawnDebris(worldX, SURF),
-      embers:   [],
-      seaSparks:[],
-      oilFires: [],
+      ix:          worldX,
+      iy,
+      surfY:       SURF,
+      t:           0,
+      fire:        [],
+      surfaceFire: [],
+      water:       [],
+      smoke:       [],
+      steam:       [],
+      debris:      this._spawnDebris(worldX, iy),
+      embers:      [],
+      seaSparks:   [],
+      oilFires:    [],
       secondary:[
         { delay: 2.4, done: false, ox: Phaser.Math.Between(-45, 45) },
         { delay: 5.6, done: false, ox: Phaser.Math.Between(-65, 65) },
@@ -108,6 +111,7 @@ export class ImpactFX {
       this._drawSteam(g, h, camX);
       this._drawWater(g, h, camX, sy);
       this._drawFire(fg, h, camX);
+      this._drawSurfaceFire(fg, h, camX);
       this._drawOilFires(fg, g, h, camX, sy, t);
       this._drawDebris(g, fg, h, camX, sy);
       this._drawEmbers(fg, h, camX);
@@ -260,6 +264,26 @@ export class ImpactFX {
         });
       }
     }
+
+    // 6. Ogień przy tafli — persystentny płomień paliwowy przy powierzchni wody
+    const surfY = h.surfY;
+    if (t > 0.28 && t < 3.5 && h.surfaceFire.length < 200) {
+      const rate = t < 0.6 ? 110 : t < 1.2 ? 75 : t < 2.2 ? 45 : 20;
+      const n    = Math.ceil(rate * dt);
+      const spread = 22 + Math.min(t * 28, 90);
+      for (let i = 0; i < n && h.surfaceFire.length < 200; i++) {
+        h.surfaceFire.push({
+          x:       ix + (Math.random() - 0.5) * spread * 2,
+          y:       surfY + rand(-4, 3),
+          vx:      (Math.random() - 0.5) * 20,
+          vy:      -(42 + Math.random() * 72),
+          life:    0,
+          maxLife: 0.65 + Math.random() * 0.85,
+          size:    3 + Math.random() * 10,
+          seed:    Math.random() * 1000,
+        });
+      }
+    }
   }
 
   // ── Fizyka ────────────────────────────────────────────────────────────────
@@ -279,6 +303,17 @@ export class ImpactFX {
       p.vy *= 1 - drag * dt * 0.22;
       p.vx += Math.sin(p.life * 9 + p.seed) * 28 * dt;
       p.vy += Math.cos(p.life * 7 + p.seed) * 18 * dt;
+    }
+    // Surface fire
+    for (let i = h.surfaceFire.length - 1; i >= 0; i--) {
+      const p = h.surfaceFire[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { h.surfaceFire.splice(i, 1); continue; }
+      p.x  += p.vx * dt;
+      p.y  += p.vy * dt;
+      p.vy -= 58 * dt;
+      p.vx += Math.sin(p.life * 7.2 + p.seed) * 14 * dt;
+      p.vx *= 1 - dt * 0.12;
     }
     // Water
     for (let i = h.water.length - 1; i >= 0; i--) {
@@ -528,6 +563,25 @@ export class ImpactFX {
       fg.fillStyle(col, a * 0.30); fg.fillEllipse(sx + sway * 0.35, p.y - rad * 0.14, rad * 1.0, rad * 1.65);
       fg.fillStyle(col, a * 0.48); fg.fillEllipse(sx + sway * 0.15, p.y - rad * 0.28, rad * 0.50, rad * 1.10);
       fg.fillStyle(col, a * 0.68); fg.fillEllipse(sx,               p.y - rad * 0.40, rad * 0.20, rad * 0.58);
+    }
+  }
+
+  _drawSurfaceFire(fg, h, camX) {
+    for (const p of h.surfaceFire) {
+      const t = p.life / p.maxLife;
+      let a;
+      if      (t < 0.08) a = (t / 0.08) * 0.58;
+      else if (t < 0.62) a = 0.58;
+      else               a = Math.max(0, 0.58 * (1 - (t - 0.62) / 0.38));
+      if (a <= 0.01) continue;
+      const r    = p.size * (1 + t * 0.5);
+      const sx   = p.x - camX;
+      const sway = Math.sin(p.life * 3.8 + p.seed) * r * 0.22;
+      const col  = t < 0.22 ? 0xfffce4 : (t < 0.52 ? 0xffb040 : (t < 0.78 ? 0xff6018 : 0xcc2a08));
+      const hot  = t < 0.22 ? 0xffee88 : 0xff8830;
+      fg.fillStyle(col, a * 0.18); fg.fillEllipse(sx + sway * 0.6, p.y - r * 0.05, r * 1.1, r * 1.8);
+      fg.fillStyle(col, a * 0.38); fg.fillEllipse(sx + sway * 0.3, p.y - r * 0.22, r * 0.65, r * 1.45);
+      fg.fillStyle(hot, a * 0.62); fg.fillEllipse(sx,              p.y - r * 0.36, r * 0.28, r * 0.80);
     }
   }
 
