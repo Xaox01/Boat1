@@ -448,6 +448,7 @@ export class DevConsole {
           this._print('  repair [system|all]          — napraw system(y)');
           this._print('  sim <asroc|barrage|depth|stress|critical> — scenariusz ataku');
           this._print('── EFEKTY WIZUALNE ──────────────────────────────────────', DIM_CLR);
+          this._print('  firetest [n]                 — spawnuj N palących się okrętów do obserwacji');
           this._print('  fire [0.4|0.3|0.1|off]       — ustaw poziom pożaru (hull wroga)');
           this._print('    0.4 = dziób  0.3 = dziób+rufa  0.1 = pełny inferno  off = gasi');
           this._print('  boom [n] [spread]            — wyzwól N eksplozji ImpactFX');
@@ -588,6 +589,7 @@ export class DevConsole {
           // Zniszcz wszystkie obecne jednostki
           for (const e of s.enemies) {
             if (e.gfx)     e.gfx.destroy();
+            if (e.fireGfx) e.fireGfx.destroy();
             if (e._sprite) e._sprite.destroy();
           }
           for (const m of (s.merchants ?? [])) { if (m.gfx) m.gfx.destroy(); }
@@ -831,6 +833,51 @@ export class DevConsole {
           } else {
             this._print('Błąd: sim <asroc|barrage|depth|stress|critical>', DANGER_CLR);
           }
+          break;
+        }
+
+        case 'firetest': {
+          const n       = Math.max(1, Math.min(4, parseInt(args[0]) || 1));
+          const WORLD_W = s.WORLD_W ?? 12000;
+          const { Enemy: EnemyCls } = await import('./Enemy.js');
+
+          // Wyczyść wszystkich aktualnych wrogów
+          for (const e of s.enemies) {
+            if (e.gfx)     e.gfx.destroy();
+            if (e.fireGfx) e.fireGfx.destroy();
+            if (e._sprite) e._sprite.destroy();
+          }
+          s.enemies = [];
+
+          // Sub tuż pod powierzchnią — widok z peryskopu, widać okręty
+          sub.y  = s.SURFACE_Y - 3;
+          sub.vx = 0; sub.vy = 0;
+
+          const baseX = Math.max(500, Math.min(WORLD_W - 1400, sub.x));
+          if (!s._prevEnemyState) s._prevEnemyState = new Map();
+
+          for (let i = 0; i < n; i++) {
+            const cx = Math.max(200, Math.min(WORLD_W - 200, baseX + 360 + i * 320));
+            const e  = new EnemyCls(s, cx, cx - 20, cx + 20, `BURN-${i + 1}`);
+            e.hull        = 0.08;     // pełne inferno (wszystkie 3 strefy ognia)
+            e.revealTimer = 999999;
+            e.dir         = -1;       // skierowany w stronę gracza
+            s.enemies.push(e);
+            s._prevEnemyState.set(e, 0);
+            this._print(`  BURN-${i + 1}  x=${Math.round(cx)}px  hull=8%  🔥🔥🔥`, WARN_CLR);
+          }
+
+          if (!this._godMode) {
+            this._godMode = s._godMode = true;
+            this._print('  God mode włączony', DIM_CLR);
+          }
+
+          this._print('─── FIRETEST ───────────────────────────────────────────', HDR_CLR);
+          this._print(`  ${n} okrętów w pełnym inferno — obserwuj bez walki`, VAL_CLR);
+          this._print('  speed 0.3   — zwolnij czas do obserwacji', DIM_CLR);
+          this._print('  boom 3 200  — eksplozje w pobliżu', DIM_CLR);
+          this._print('  fire off    — zgaś pożary', DIM_CLR);
+          this._print('  fire 0.4    — tylko ogień dziobowy', DIM_CLR);
           break;
         }
 

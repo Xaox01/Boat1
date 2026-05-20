@@ -1571,5 +1571,30 @@ export class Enemy {
       fg.fillStyle(t < 0.5 ? 0xffee44 : 0xff9900, a * 0.88);
       fg.fillCircle(p.x, p.y, 1.4 + fl * 0.9);
     }
+
+    // Ambient glow — ciepłe światło ognia oświetla kadłub i wodę
+    const sources = this._getFireSources();
+    if (sources.length > 0) {
+      const SURF  = this.scene.SURFACE_Y;
+      const total = sources.reduce((acc, src) => acc + src.power, 0);
+      const gi    = Math.min(total * 0.65, 1.0);
+      const pulse = 0.84 + 0.16 * Math.sin(Date.now() * 0.0028);
+
+      // Duży glow wokół kadłuba i nadbudówki
+      fg.fillStyle(0xff6620, gi * 0.14 * pulse);
+      fg.fillEllipse(this.x, SURF - 18, 240, 80);
+
+      // Intensywny glow przy każdym aktywnym ognisku
+      for (const src of sources) {
+        fg.fillStyle(0xff8833, src.power * 0.22 * pulse);
+        fg.fillEllipse(this.x + src.dx, SURF + src.dy + 8, 72, 36);
+      }
+
+      // Odbicie ognia na powierzchni wody (szerokie, płaskie)
+      fg.fillStyle(0xff7722, gi * 0.09 * pulse);
+      fg.fillEllipse(this.x, SURF + 7, 400, 16);
+      fg.fillStyle(0xff9944, gi * 0.04 * pulse);
+      fg.fillEllipse(this.x, SURF + 15, 560, 9);
+    }
   }
 }

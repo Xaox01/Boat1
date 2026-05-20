@@ -566,6 +566,7 @@ export class GameScene extends Phaser.Scene {
     // Remove destroyed enemies — wyczyść też zaznaczenie i triangulację
     for (const e of this.enemies.filter(e => e.destroyed)) {
       e.gfx.destroy();
+      e.fireGfx?.destroy();
       e._sprite?.destroy();
       this._triangulated?.delete(e);
       if (this._selectedEnemy === e) {

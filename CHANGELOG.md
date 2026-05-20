@@ -4,6 +4,30 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.49] — 2026-05-20
+
+### Dodano — Ambient glow ognia + komenda `firetest`
+
+**Enemy.js — ambient glow:**
+- Ogień oświetla teraz otoczenie: duży pomarańczowy glow wokół kadłuba (240×80px)
+- Intensywny glow przy każdym aktywnym ognisku (dziób/rufa/mostek) — skaluje się z `src.power`
+- Dwa poziomy odbicia na wodzie: 400×16px i 560×9px — ciepła poświata na powierzchni
+- Wszystko na additive `fireGfx` → naturalne sumowanie jasności z innymi efektami
+- Glow pulsuje z czasem (`sin(Date.now() * 0.0028)`)
+
+**DevConsole — `firetest [n]`:**
+- Czyści wszystkich wrogów, spawuje N palących się okrętów (domyślnie 1, max 4)
+- Każdy okręt: hull=8% (pełne inferno — aktywne wszystkie 3 strefy ognia)
+- Wąski patrol (cx ±20px) — stationary, nie odpływają
+- Sub tuż pod powierzchnią, god mode auto-on
+- Wskazówki: `speed 0.3`, `boom 3 200`, `fire off`, `fire 0.4`
+
+**Bugfix — wyciek pamięci przy niszczeniu Enemy:**
+- `GameScene`: dodano `e.fireGfx?.destroy()` przy usuwaniu zniszczonych jednostek
+- `DevConsole` `testmap` i `firetest`: również czyszczą `fireGfx`
+
+---
+
 ## [0.10.48] — 2026-05-20
 
 ### Dodano — DevConsole: komendy OGIEŃ i BOOM
