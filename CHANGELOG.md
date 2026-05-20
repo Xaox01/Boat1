@@ -4,6 +4,27 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.55] — 2026-05-20
+
+### Zmieniono — Podwodna fizyka wybuchu (dwa tryby ImpactFX)
+
+**ImpactFX.js — kompletny rewrite logiki dwutryboowej:**
+
+**Tryb `surface`** (wybuch przy tafli, bez zmian wizualnych):
+- Fireball, słup wody, dym, para, iskry, oil fires, ogień przy tafli
+
+**Tryb `underwater`** (wybuch pod wodą lub przy dnie — nowa logika):
+- **Brak kuli ognia** — pod wodą nie ma tlenu do spalania
+- **Fala ciśnienia** (`_drawUnderwaterPressureWave`): niebieskie pierścienie rozchodzące się od punktu wybuchu przez wodę (prędkość 520/330/190 px/s)
+- **Bąble gazowe** (`bubbles`): 80 cząsteczek unoszących się z dna ku tafli; gorące tuż po wybuchu (żółte, additive), potem przezroczyste niebiesko-białe z konturem
+- **Osad denny** (`sediment`): 100 cząsteczek brunatno-szarego mułu rozchodzących się poziomo przy dnie (grzybek eksplozji)
+- **Opóźnienie tafli** (`surfDelay = depth/130s`): efekty na powierzchni (fale eliptyczne, ogień paliwowy, dym, iskry) pojawiają się dopiero gdy bąble dobijają do tafli
+- **Mniejszy ogień na tafli** — paliwowy, nie wybuchowy; brak oil fires przy eksplozjach podwodnych
+- **Odłamki** z mniejszą grawitacją efektywną (wypornność wody spowalnia opadanie)
+- Mocniejszy screen shake (`0.018` vs `0.012`) — podwodny wybuch jest głuchszy ale mocniejszy
+
+---
+
 ## [0.10.54] — 2026-05-20
 
 ### Zmieniono — ImpactFX przy chybieniu torpedy (tafla / dno)
