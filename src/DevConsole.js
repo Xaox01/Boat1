@@ -447,6 +447,11 @@ export class DevConsole {
           this._print('  dmg <system> [0-1]           — ustaw zdrowie systemu');
           this._print('  repair [system|all]          — napraw system(y)');
           this._print('  sim <asroc|barrage|depth|stress|critical> — scenariusz ataku');
+          this._print('── EFEKTY WIZUALNE ──────────────────────────────────────', DIM_CLR);
+          this._print('  fire [0.4|0.3|0.1|off]       — ustaw poziom pożaru (hull wroga)');
+          this._print('    0.4 = dziób  0.3 = dziób+rufa  0.1 = pełny inferno  off = gasi');
+          this._print('  boom [n] [spread]            — wyzwól N eksplozji ImpactFX');
+          this._print('    boom      = 1 wybuch w centrum  boom 5 = 5 wybuchów');
           break;
 
         case 'time': {
@@ -826,6 +831,51 @@ export class DevConsole {
           } else {
             this._print('Błąd: sim <asroc|barrage|depth|stress|critical>', DANGER_CLR);
           }
+          break;
+        }
+
+        case 'fire': {
+          const arg = (args[0] ?? '0.1').toLowerCase();
+          const alive = s.enemies.filter(e => !e.destroyed && !e._sinking);
+          if (!alive.length) {
+            this._print('Brak żywych wrogów — użyj "ship" żeby spawnować', WARN_CLR);
+            break;
+          }
+          if (arg === 'off') {
+            for (const e of alive) {
+              e.hull = 1.0;
+              e._fireParts  = [];
+              e._emberParts = [];
+            }
+            this._print(`Pożar ugaszony — ${alive.length} okrętów przywrócono do hull 100%`, VAL_CLR);
+            break;
+          }
+          const hullVal = parseFloat(arg);
+          if (isNaN(hullVal) || hullVal < 0 || hullVal > 1) {
+            this._print('Błąd: fire <0.0–1.0 | off>', DANGER_CLR);
+            break;
+          }
+          const lvl = hullVal <= 0.20 ? '🔥🔥🔥 INFERNO (dziób+rufa+mostek)'
+                    : hullVal <= 0.35 ? '🔥🔥 CIĘŻKI (dziób+rufa)'
+                    : hullVal <= 0.50 ? '🔥 LEKKI (dziób)'
+                    :                   '— brak (hull > 50%)';
+          for (const e of alive) e.hull = hullVal;
+          this._print(`Ogień: hull=${(hullVal*100).toFixed(0)}%  ${lvl}  [${alive.length} okrętów]`, WARN_CLR);
+          break;
+        }
+
+        case 'boom': {
+          const n      = Math.max(1, Math.min(20, parseInt(args[0]) || 1));
+          const spread = Math.max(0, parseInt(args[1]) || 180);
+          const centerX = s.camX + (s.scale?.width ?? 1200) / 2;
+          const SURF    = s.SURFACE_Y;
+          for (let i = 0; i < n; i++) {
+            const ox = n === 1 ? 0 : (Math.random() - 0.5) * spread * 2;
+            s._impactFX.trigger(centerX + ox, SURF);
+          }
+          const label = n === 1 ? 'Eksplozja' : `${n} eksplozji`;
+          const spreadLabel = spread > 0 && n > 1 ? ` (spread ±${spread}px)` : '';
+          this._print(`${label} wyzwolona w centrum sceny${spreadLabel}`, WARN_CLR);
           break;
         }
 

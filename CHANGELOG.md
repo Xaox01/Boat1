@@ -4,6 +4,25 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.48] — 2026-05-20
+
+### Dodano — DevConsole: komendy OGIEŃ i BOOM
+
+**`fire [0.4|0.3|0.1|off]`** — kontrola pożaru na wszystkich żywych wrogach:
+- `fire 0.4` → hull 40% — lekki ogień (tylko dziób)
+- `fire 0.3` → hull 30% — ciężki (dziób + rufa)
+- `fire 0.1` → hull 10% — pełne inferno (dziób + rufa + mostek) *(domyślne)*
+- `fire off` → hull 100%, czyści cząsteczki — gasi wszystkie pożary
+
+**`boom [n] [spread]`** — wyzwala eksplozje ImpactFX w centrum sceny:
+- `boom` → 1 wybuch centralnie
+- `boom 5` → 5 wybuchów (spread ±180px)
+- `boom 3 400` → 3 wybuchy z własnym spread ±400px
+
+Sekcja `── EFEKTY WIZUALNE ──` dodana do `help`.
+
+---
+
 ## [0.10.47] — 2026-05-20
 
 ### Zmieniono — Animacja ognia: cząsteczkowy system z additive blending
