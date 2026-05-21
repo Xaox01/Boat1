@@ -307,6 +307,47 @@
 
     #ps-esm-panel { flex-shrink: 0; }
 
+    /* TDC panel */
+    #ps-tdc-panel { flex-shrink: 0; }
+    .ps-tdc-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1px; padding: 6px 10px;
+    }
+    .ps-tdc-cell { padding: 5px 6px; }
+    .ps-tdc-lbl { font-size: 8px; letter-spacing: 1.8px; color: var(--ink-faint); margin-bottom: 2px; }
+    .ps-tdc-val { font-family: var(--fd); font-size: 17px; letter-spacing: 1px; color: var(--ink); }
+    .ps-tdc-val.ok   { color: var(--green); }
+    .ps-tdc-val.warn { color: var(--amber); }
+    .ps-tdc-val.na   { color: var(--ink-dim); font-size: 13px; }
+    #ps-tdc-sol-row {
+      padding: 5px 10px 8px; border-top: 1px solid var(--ink-faint);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .ps-tdc-sol-lbl { font-size: 8px; letter-spacing: 2px; color: var(--ink-faint); }
+    #ps-tdc-sol { font-family: var(--fd); font-size: 22px; letter-spacing: 2px; color: var(--amber); }
+
+    /* ESM rows */
+    .ps-esm-row {
+      display: grid;
+      grid-template-columns: 34px 1fr 52px 44px;
+      align-items: center; gap: 4px; padding: 4px 10px;
+      border-left: 3px solid transparent;
+    }
+    .ps-esm-id  { font-family: var(--fm); font-size: 10px; font-weight: 600; }
+    .ps-esm-sig { font-family: var(--fm); font-size: 8px; color: var(--ink-dim); letter-spacing: 0.5px; }
+    .ps-esm-bar { font-family: var(--fm); font-size: 9px; letter-spacing: -0.5px; }
+    .ps-esm-dst { font-family: var(--fm); font-size: 9px; color: var(--ink-faint); }
+
+    /* Night mode button */
+    #ps-night-btn {
+      font-family: var(--fm); font-size: 9px; letter-spacing: 1.5px;
+      background: transparent; border: 1px solid var(--ink-faint);
+      color: var(--ink-dim); padding: 2px 7px; cursor: pointer;
+      transition: all 120ms; vertical-align: middle;
+    }
+    #ps-night-btn:hover { border-color: var(--green); color: var(--green); }
+    #ps-night-btn.on    { border-color: var(--green); color: var(--green); background: rgba(0,200,100,0.08); }
+
     /* ══ WEAPON STATION ══════════════════════════════════ */
     #weapon-station {
       display: none;
@@ -1228,7 +1269,10 @@
         <div id="ps-left">
           <div id="ps-header-row">
             <span class="ss-label">OPTYKA · PERYSKOP OBSERWACYJNY MK.18</span>
-            <span id="ps-depth-badge" class="ss-label" style="color:var(--green)">GŁ: ---</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button id="ps-night-btn" title="Tryb nocny (N)">NOC</button>
+              <span id="ps-depth-badge" class="ss-label" style="color:var(--green)">GŁ: ---</span>
+            </div>
           </div>
           <div id="ps-optic-wrap">
             <canvas id="ps-optic"></canvas>
@@ -1269,16 +1313,44 @@
             </div>
           </div>
 
+          <!-- TDC -->
+          <div id="ps-tdc-panel" class="ss-panel">
+            <div class="ss-panel-header">
+              <span>TDC · KOMPUTER DANYCH CELU</span>
+              <span id="ps-tdc-sel" style="color:var(--ink-faint)">BRAK CELU</span>
+            </div>
+            <div class="ps-tdc-grid">
+              <div class="ps-tdc-cell">
+                <div class="ps-tdc-lbl">NAMIAR (BRG)</div>
+                <div id="ps-tdc-brg" class="ps-tdc-val na">---°</div>
+              </div>
+              <div class="ps-tdc-cell">
+                <div class="ps-tdc-lbl">PRĘDKOŚĆ</div>
+                <div id="ps-tdc-spd" class="ps-tdc-val na">-- w</div>
+              </div>
+              <div class="ps-tdc-cell">
+                <div class="ps-tdc-lbl">KĄT NAT. (AOB)</div>
+                <div id="ps-tdc-aob" class="ps-tdc-val na">--°</div>
+              </div>
+              <div class="ps-tdc-cell">
+                <div class="ps-tdc-lbl">ZASIĘG</div>
+                <div id="ps-tdc-rng" class="ps-tdc-val na">---</div>
+              </div>
+            </div>
+            <div id="ps-tdc-sol-row">
+              <span class="ps-tdc-sol-lbl">NAMIAR STRZAŁU</span>
+              <span id="ps-tdc-sol">---°</span>
+            </div>
+          </div>
+
           <!-- ESM -->
           <div id="ps-esm-panel" class="ss-panel">
             <div class="ss-panel-header">
-              <span>ESM · EMISJE ELEKTROMAGNETYCZNE</span>
-              <span style="color:var(--ink-faint)">PROTOTYP</span>
+              <span>ESM · EMISJE EM</span>
+              <span id="ps-esm-status" style="color:var(--green);font-size:9px;letter-spacing:1.5px;">NASŁUCH</span>
             </div>
-            <div style="padding:8px 12px; font-size:9px; letter-spacing:1.5px; color:var(--ink-faint); line-height:2.1;">
-              SCROLL · ← → &nbsp;—&nbsp; OBRÓT PERYSKOPEM<br>
-              Z &nbsp;—&nbsp; PRZEŁĄCZ POWIĘKSZENIE<br>
-              ESC &nbsp;—&nbsp; POWRÓT DO CONN
+            <div id="ps-esm-list">
+              <div class="ss-empty">BRAK EMISJI W ZASIĘGU</div>
             </div>
           </div>
 
@@ -1996,6 +2068,11 @@
         _pZoom = _pZoom === 1.5 ? 3.0 : 1.5;
         document.getElementById('ps-s-zoom').textContent = `×${_pZoom.toFixed(1)}`;
       }
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        _pNightMode = !_pNightMode;
+        _psNightBtn.classList.toggle('on', _pNightMode);
+      }
     }
   });
 
@@ -2541,10 +2618,13 @@
   // ══════════════════════════════════════════════════════
   // ── PERISCOPE STATION ─────────────────────────────────
   // ══════════════════════════════════════════════════════
-  let _pActive   = false;
-  let _pBearing  = 0;     // 0–360, kurs obserwacji
-  let _pZoom     = 1.5;   // ×1.5 obs | ×3.0 zoom
-  let _pClassifyFlash = {}; // id → timestamp ostatniej klasyfikacji
+  let _pActive        = false;
+  let _pBearing       = 0;     // 0–360, kurs obserwacji
+  let _pZoom          = 1.5;   // ×1.5 obs | ×3.0 zoom
+  let _pNightMode     = false;
+  let _pClassifyFlash = {};    // id → timestamp ostatniej klasyfikacji
+  let _pBrgHistory    = {};    // id → [{brg, t, distFrac, dir, spd}] max 12
+  let _pBrgHistTick   = 0;     // ms ostatniego zapisu historii
 
   const _psOptic      = document.getElementById('ps-optic');
   const _psCtx        = _psOptic.getContext('2d');
@@ -2555,6 +2635,16 @@
   const _psDepthBadge = document.getElementById('ps-depth-badge');
   const _psCvCount    = document.getElementById('ps-cv-count');
   const _psCvList     = document.getElementById('ps-contact-list');
+  const _psEsmList    = document.getElementById('ps-esm-list');
+  const _psNightBtn   = document.getElementById('ps-night-btn');
+  const _psTDC = {
+    sel: document.getElementById('ps-tdc-sel'),
+    brg: document.getElementById('ps-tdc-brg'),
+    spd: document.getElementById('ps-tdc-spd'),
+    aob: document.getElementById('ps-tdc-aob'),
+    rng: document.getElementById('ps-tdc-rng'),
+    sol: document.getElementById('ps-tdc-sol'),
+  };
 
   // Obrót kółkiem myszy
   _psOptic.addEventListener('wheel', (e) => {
@@ -2562,12 +2652,21 @@
     _pBearing = (_pBearing + (e.deltaY > 0 ? 1.8 : -1.8) + 360) % 360;
   }, { passive: false });
 
+  _psNightBtn.addEventListener('click', () => {
+    _pNightMode = !_pNightMode;
+    _psNightBtn.classList.toggle('on', _pNightMode);
+  });
+
   // ── Główna funkcja rysowania optyki ───────────────────
   function _psDrawOptic(depth, contactsInView, FOV) {
     const wrap = _psOptic.parentElement;
     const size = Math.min(wrap.clientWidth, wrap.clientHeight) - 4;
     if (_psOptic.width !== size || _psOptic.height !== size)
       _psOptic.width = _psOptic.height = size;
+
+    _psOptic.style.filter = _pNightMode
+      ? 'sepia(1) hue-rotate(90deg) saturate(2.8) brightness(0.72)'
+      : '';
 
     const ctx = _psCtx;
     const W = size, H = size, cx = W / 2, cy = H / 2, R = W / 2 - 2;
@@ -2577,114 +2676,102 @@
 
     ctx.clearRect(0, 0, W, H);
 
-    // ── Kołowe obcięcie ──────────────────────────────────
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
 
-    // ── Niebo ────────────────────────────────────────────
+    // Niebo
     const skyG = ctx.createLinearGradient(0, 0, 0, cy);
-    skyG.addColorStop(0, '#0a1a24'); skyG.addColorStop(1, '#13293a');
+    skyG.addColorStop(0, '#061520'); skyG.addColorStop(1, '#102436');
     ctx.fillStyle = skyG; ctx.fillRect(0, 0, W, cy);
 
-    // ── Morze ────────────────────────────────────────────
+    // Morze
     const seaG = ctx.createLinearGradient(0, cy, 0, H);
-    seaG.addColorStop(0, '#0d2230'); seaG.addColorStop(1, '#020c14');
+    seaG.addColorStop(0, '#0c1e2c'); seaG.addColorStop(1, '#020c14');
     ctx.fillStyle = seaG; ctx.fillRect(0, cy, W, H);
 
-    // ── Fala horyzontu ───────────────────────────────────
+    // Fala horyzontu
     ctx.beginPath(); ctx.moveTo(0, cy);
     for (let x = 0; x <= W; x += 3) {
       const w = Math.sin(x * 0.016 + t) * 2.2 + Math.sin(x * 0.029 - t * 1.4) * 1.4;
       ctx.lineTo(x, cy + w);
     }
     ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
-    ctx.fillStyle = '#0d2230'; ctx.fill();
-    ctx.strokeStyle = 'rgba(66,184,212,0.18)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#0c1e2c'; ctx.fill();
+    ctx.strokeStyle = 'rgba(66,184,212,0.22)'; ctx.lineWidth = 1; ctx.stroke();
 
     // Odblaski fal
-    for (let i = 0; i < 6; i++) {
-      const wx = (cx * 0.3 + i * cx * 0.28 + Math.sin(t * 0.7 + i) * 18) % W;
+    for (let i = 0; i < 7; i++) {
+      const wx = (cx * 0.3 + i * cx * 0.26 + Math.sin(t * 0.7 + i) * 18) % W;
       const wy = cy + 4 + Math.sin(t + i * 1.3) * 3;
-      ctx.fillStyle = 'rgba(66,184,212,0.10)';
-      ctx.fillRect(wx, wy, 14 + Math.sin(t + i) * 6, 1);
+      ctx.fillStyle = 'rgba(80,190,220,0.09)';
+      ctx.fillRect(wx, wy, 16 + Math.sin(t + i) * 6, 1);
     }
 
-    // ── Stadimetria (linie odległości) ───────────────────
-    const stadia = [{ lbl:'1km', f:0.10 }, { lbl:'2km', f:0.20 }, { lbl:'3.5km', f:0.38 }];
+    // Stadimetria (linie odległości)
+    const stadia = [
+      { lbl:'500m', f:0.04 }, { lbl:'1km', f:0.10 },
+      { lbl:'2km',  f:0.20 }, { lbl:'3.5km', f:0.38 },
+    ];
     for (const s of stadia) {
       const ry = cy + s.f * (H - cy);
       ctx.setLineDash([4, 8]);
       ctx.strokeStyle = 'rgba(243,237,224,0.07)'; ctx.lineWidth = 0.7;
-      ctx.beginPath(); ctx.moveTo(cx * 0.18, ry); ctx.lineTo(W - cx * 0.18, ry); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx * 0.12, ry); ctx.lineTo(W - cx * 0.12, ry); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = 'rgba(243,237,224,0.22)';
+      ctx.fillStyle = 'rgba(243,237,224,0.25)';
       ctx.font = '8px "JetBrains Mono"'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-      ctx.fillText(s.lbl, cx * 0.20, ry - 2);
+      ctx.fillText(s.lbl, cx * 0.14, ry - 2);
     }
 
-    // ── Sylwetki statków ─────────────────────────────────
+    // Sylwetki statków
     if (!tooDeep && !noData) {
+      const selectedId = window._sonar?.selectedId;
       const waveY = cy + (Math.sin(cx * 0.016 + t) * 2.2 + Math.sin(cx * 0.029 - t * 1.4) * 1.4);
       for (const c of contactsInView) {
         const angDiff = ((c.bearing - _pBearing + 540) % 360) - 180;
-        const px   = cx + (angDiff / (FOV / 2)) * R * 0.88;
-        const py   = waveY;
-        const prox = Math.max(0, 1 - c.distFrac / 0.62);  // skaluje się od wizualRange
+        const px  = cx + (angDiff / (FOV / 2)) * R * 0.88;
+        const py  = waveY;
+        const prox = Math.max(0, 1 - c.distFrac / 0.62);
+        const sh   = Math.max(6, 42 * prox);
+        const isSelected = c.id === selectedId;
 
-        const shipCol = c.cls === 'WARSHIP'  ? '#c88830'
-                      : c.cls === 'MERCHANT' ? '#2e8899'
-                      : c.cls === 'SURFACE'  ? '#8a8a30' : '#407755';
+        _psDrawShip(ctx, c, px, py, sh, prox);
 
-        const sh = Math.max(6, 42 * prox);
-        ctx.globalAlpha = 0.65 + prox * 0.32;
-
-        if (c.cls === 'WARSHIP') {
-          // Okręt wojenny: smukły kadłub, wysoka nadbudówka, antena radarowa
-          const sw = sh * 4.0;
-          ctx.fillStyle = shipCol;
-          ctx.fillRect(px - sw / 2, py - sh * 0.3, sw, sh * 0.3);        // kadłub
-          ctx.fillRect(px - sw * 0.20, py - sh * 1.05, sw * 0.40, sh * 0.75); // nadbudówka
-          ctx.fillRect(px - sw * 0.06, py - sh * 1.5,  sw * 0.12, sh * 0.50); // komin
-          ctx.fillRect(px - 1.2, py - sh * 1.85, 2.4, sh * 0.4);          // maszt
-          // Antena radarowa
-          ctx.strokeStyle = shipCol; ctx.lineWidth = 1; ctx.globalAlpha *= 0.7;
-          ctx.beginPath(); ctx.moveTo(px - 5, py - sh * 1.9); ctx.lineTo(px + 5, py - sh * 1.9); ctx.stroke();
-        } else {
-          // Merchant: szeroki kadłub, niska sylwetka, dźwigi
-          const sw = sh * 6.5;
-          ctx.fillStyle = shipCol;
-          ctx.fillRect(px - sw / 2, py - sh * 0.35, sw, sh * 0.35);      // kadłub
-          ctx.fillRect(px - sw * 0.05, py - sh * 0.9, sw * 0.14, sh * 0.55); // mostka
-          ctx.fillRect(px - 1.5, py - sh * 1.2, 3, sh * 0.35);            // maszt/komin
-          // Dźwigi ładunkowe
-          for (const gx of [-0.3, 0.28]) {
-            ctx.strokeStyle = shipCol; ctx.lineWidth = 1.2;
-            ctx.beginPath(); ctx.moveTo(px + gx * sw, py - sh * 0.35);
-            ctx.lineTo(px + gx * sw, py - sh * 0.9); ctx.stroke();
+        // Ramka rangefindera na wybranym kontakcie
+        if (isSelected) {
+          const bw = sh * (c.cls === 'WARSHIP' ? 4.8 : 7.8);
+          const bh = sh * 2.2;
+          const bx = px - bw / 2, by = py - bh;
+          const bs = 9;
+          ctx.strokeStyle = 'rgba(255,200,50,0.85)'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+          for (const [ox, oy, dx, dy] of [
+            [bx,      by,      1,  1], [bx + bw, by,      -1,  1],
+            [bx,      by + bh, 1, -1], [bx + bw, by + bh, -1, -1],
+          ]) {
+            ctx.beginPath();
+            ctx.moveTo(ox + dx * bs, oy); ctx.lineTo(ox, oy); ctx.lineTo(ox, oy + dy * bs);
+            ctx.stroke();
           }
+          ctx.fillStyle = 'rgba(255,200,50,0.90)';
+          ctx.font = 'bold 9px "JetBrains Mono"'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          ctx.fillText(`◈ ${c.id}`, px, by - 3);
         }
 
-        ctx.globalAlpha = 1;
-
-        // Etykieta + flash klasyfikacji
+        // Flash klasyfikacji
         const flashAge = Date.now() - (_pClassifyFlash[c.id] || 0);
-        const flashing = flashAge < 1800;
-        ctx.fillStyle = flashing ? '#5fffb0' : shipCol;
-        ctx.globalAlpha = flashing ? (0.7 + 0.3 * Math.sin(flashAge * 0.012)) : 0.88;
-        ctx.font = `bold ${Math.round(7 + prox * 6)}px "JetBrains Mono"`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-        ctx.fillText(c.id + (flashing ? ' ✓' : ''), px, py - sh * 2.05);
-        if (flashing) {
-          ctx.fillStyle = '#5fffb0'; ctx.globalAlpha = 0.55;
+        if (flashAge < 1800 && !isSelected) {
+          ctx.globalAlpha = 0.55;
+          ctx.fillStyle = '#5fffb0';
           ctx.font = `${Math.round(6 + prox * 4)}px "JetBrains Mono"`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
           const lbl = c.cls === 'WARSHIP' ? 'OKRĘT WOJ.' : c.cls === 'MERCHANT' ? 'JED. CYW.' : c.cls;
-          ctx.fillText(lbl, px, py - sh * 2.05 - (8 + prox * 6));
+          ctx.fillText(lbl + ' ✓', px, py - sh * (c.cls === 'WARSHIP' ? 2.15 : 1.05) - 4);
+          ctx.globalAlpha = 1;
         }
-        ctx.globalAlpha = 1;
       }
     }
 
-    // ── Skala kątowa ─────────────────────────────────────
+    // Skala kątowa
     for (let dBrg = -FOV / 2; dBrg <= FOV / 2; dBrg += (FOV <= 20 ? 2 : 5)) {
       const absB = ((_pBearing + dBrg) + 360) % 360;
       const frac = dBrg / (FOV / 2);
@@ -2701,7 +2788,7 @@
       }
     }
 
-    // ── Celownik ─────────────────────────────────────────
+    // Celownik
     ctx.strokeStyle = 'rgba(243,237,224,0.45)'; ctx.lineWidth = 0.8;
     ctx.beginPath(); ctx.moveTo(cx - R * 0.94, cy); ctx.lineTo(cx - 22, cy); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx + 22, cy); ctx.lineTo(cx + R * 0.94, cy); ctx.stroke();
@@ -2715,7 +2802,13 @@
     ctx.beginPath(); ctx.moveTo(cx - 14, cy); ctx.lineTo(cx + 14, cy); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx, cy - 14); ctx.lineTo(cx, cy + 14); ctx.stroke();
 
-    // ── Overlay "zbyt głęboko" ────────────────────────────
+    // Winieta soczewkowa
+    const vig = ctx.createRadialGradient(cx, cy, R * 0.42, cx, cy, R);
+    vig.addColorStop(0, 'transparent');
+    vig.addColorStop(1, 'rgba(0,0,0,0.60)');
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+    // Overlay "zbyt głęboko"
     if (tooDeep || noData) {
       const blur = Math.min(1, (depth - 12) / 6);
       ctx.fillStyle = `rgba(0,0,0,${0.55 + blur * 0.3})`; ctx.fillRect(0, 0, W, H);
@@ -2730,14 +2823,244 @@
 
     ctx.restore();
 
-    // ── Ramka kołowa ─────────────────────────────────────
+    // Ramka kołowa
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(243,237,224,0.14)'; ctx.lineWidth = 2; ctx.stroke();
-    // Czarna maska zewnętrzna
     ctx.beginPath();
     ctx.arc(cx, cy, W / 2, 0, Math.PI * 2);
     ctx.arc(cx, cy, R, 0, Math.PI * 2, true);
     ctx.fillStyle = '#02080b'; ctx.fill();
+  }
+
+  // ── Szczegółowa sylwetka okrętu ───────────────────────
+  function _psDrawShip(ctx, c, px, py, sh, prox) {
+    const t  = Date.now() * 0.001;
+    const d  = c.dir ?? 1;
+    const isWarship  = c.cls === 'WARSHIP';
+    const sw  = sh * (isWarship ? 4.2 : 7.0);
+    const alpha = 0.65 + prox * 0.32;
+    const baseCol = isWarship ? '#c88830' : c.cls === 'MERCHANT' ? '#2e8899' : '#8a8a30';
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    if (isWarship) {
+      // Kadłub (trapez — szerszy na rufie)
+      ctx.fillStyle = baseCol;
+      ctx.beginPath();
+      ctx.moveTo(px + d * sw * 0.48, py - sh * 0.04);
+      ctx.lineTo(px + d * sw * 0.30, py - sh * 0.30);
+      ctx.lineTo(px - d * sw * 0.46, py - sh * 0.22);
+      ctx.lineTo(px - d * sw * 0.46, py + sh * 0.08);
+      ctx.lineTo(px + d * sw * 0.48, py + sh * 0.06);
+      ctx.closePath(); ctx.fill();
+
+      // Główna nadbudówka
+      ctx.fillRect(px - sw * 0.13, py - sh * 1.00, sw * 0.30, sh * 0.70);
+      ctx.globalAlpha = alpha * 0.80;
+      ctx.fillRect(px - d * sw * 0.22, py - sh * 0.70, sw * 0.16, sh * 0.36);
+
+      // Komin
+      ctx.fillStyle = '#775522'; ctx.globalAlpha = alpha;
+      ctx.fillRect(px - sw * 0.04, py - sh * 1.38, sw * 0.09, sh * 0.42);
+
+      // Dym z komina
+      if (prox > 0.15) {
+        ctx.globalAlpha = alpha * 0.20;
+        ctx.fillStyle = '#bbaa88';
+        for (let s = 0; s < 3; s++) {
+          const sf = (t * 0.55 + s * 0.7) % 1;
+          ctx.beginPath();
+          ctx.arc(px + d * sf * sh * 0.5, py - sh * (1.40 + sf * 0.85),
+                  sh * (0.08 + sf * 0.12), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = alpha;
+      }
+
+      // Maszt
+      ctx.fillStyle = baseCol; ctx.globalAlpha = alpha * 0.65;
+      ctx.lineWidth = 1; ctx.strokeStyle = baseCol;
+      ctx.beginPath(); ctx.moveTo(px, py - sh * 1.00); ctx.lineTo(px, py - sh * 1.92); ctx.stroke();
+
+      // Antena radarowa (obraca się)
+      const rA = t * 1.4 * d;
+      ctx.globalAlpha = alpha * 0.55;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(px + Math.cos(rA) * sh * 0.30, py - sh * 1.97 + Math.sin(rA) * sh * 0.07);
+      ctx.lineTo(px - Math.cos(rA) * sh * 0.30, py - sh * 1.97 - Math.sin(rA) * sh * 0.07);
+      ctx.stroke();
+
+      // Wieże działowe
+      ctx.fillStyle = baseCol; ctx.globalAlpha = alpha;
+      for (const [tx, ty] of [[d * sw * 0.26, -sh * 0.18], [-d * sw * 0.24, -sh * 0.18]]) {
+        ctx.beginPath(); ctx.arc(px + tx, py + ty, sh * 0.13, 0, Math.PI * 2); ctx.fill();
+        ctx.lineWidth = 1.3; ctx.strokeStyle = baseCol;
+        ctx.beginPath();
+        ctx.moveTo(px + tx, py + ty);
+        ctx.lineTo(px + tx + d * sh * 0.25, py + ty - sh * 0.05);
+        ctx.stroke();
+      }
+
+      // Ślad za rufą (wake)
+      ctx.globalAlpha = alpha * 0.16;
+      const wakeLen = sh * 5.5;
+      const wg = ctx.createLinearGradient(px - d * sw * 0.46, 0, px - d * (sw * 0.46 + wakeLen), 0);
+      wg.addColorStop(0, 'rgba(130,210,230,0.50)');
+      wg.addColorStop(1, 'transparent');
+      ctx.fillStyle = wg;
+      const wx0 = Math.min(px - d * sw * 0.46, px - d * (sw * 0.46 + wakeLen));
+      ctx.fillRect(wx0, py - sh * 0.06, wakeLen, sh * 0.16);
+
+    } else {
+      // MERCHANT — szeroki kadłub, niski profil
+      ctx.fillStyle = baseCol;
+      ctx.beginPath();
+      ctx.moveTo(px + d * sw * 0.48, py - sh * 0.04);
+      ctx.lineTo(px + d * sw * 0.36, py - sh * 0.26);
+      ctx.lineTo(px - d * sw * 0.44, py - sh * 0.20);
+      ctx.lineTo(px - d * sw * 0.48, py + sh * 0.10);
+      ctx.lineTo(px + d * sw * 0.48, py + sh * 0.08);
+      ctx.closePath(); ctx.fill();
+
+      // Mostek
+      ctx.fillRect(px + d * sw * 0.06, py - sh * 0.78, sw * 0.18, sh * 0.58);
+      // Komin
+      ctx.fillStyle = '#664422'; ctx.globalAlpha = alpha * 0.90;
+      ctx.fillRect(px + d * sw * 0.09, py - sh * 1.00, sw * 0.07, sh * 0.26);
+      ctx.fillStyle = baseCol; ctx.globalAlpha = alpha;
+
+      // Dźwigi ładunkowe
+      ctx.lineWidth = 1.2; ctx.strokeStyle = baseCol;
+      ctx.globalAlpha = alpha * 0.70;
+      for (const gf of [-0.27, -0.08, 0.22]) {
+        const gx = px + d * gf * sw;
+        ctx.beginPath();
+        ctx.moveTo(gx, py - sh * 0.20);
+        ctx.lineTo(gx, py - sh * 0.62);
+        ctx.lineTo(gx + d * sh * 0.20, py - sh * 0.62);
+        ctx.stroke();
+      }
+
+      // Radar nawigacyjny (wolniejszy)
+      const rA2 = t * 0.75 * d;
+      ctx.globalAlpha = alpha * 0.42;
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.moveTo(px + d * sw * 0.06 + Math.cos(rA2) * sh * 0.20, py - sh * 0.88);
+      ctx.lineTo(px + d * sw * 0.06 - Math.cos(rA2) * sh * 0.20, py - sh * 0.88);
+      ctx.stroke();
+
+      // Wake
+      ctx.globalAlpha = alpha * 0.14;
+      const wg2 = ctx.createLinearGradient(px - d * sw * 0.44, 0, px - d * (sw * 0.44 + sh * 8.0), 0);
+      wg2.addColorStop(0, 'rgba(120,200,220,0.45)');
+      wg2.addColorStop(1, 'transparent');
+      ctx.fillStyle = wg2;
+      const wx2 = Math.min(px - d * sw * 0.44, px - d * (sw * 0.44 + sh * 8.0));
+      ctx.fillRect(wx2, py - sh * 0.06, sh * 8.0, sh * 0.18);
+    }
+
+    // Etykieta kontaktu
+    const flashAge = Date.now() - (_pClassifyFlash[c.id] || 0);
+    const flashing = flashAge < 1800;
+    ctx.fillStyle = flashing ? '#5fffb0' : baseCol;
+    ctx.globalAlpha = flashing ? (0.7 + 0.3 * Math.sin(flashAge * 0.012)) : alpha;
+    ctx.font = `bold ${Math.round(7 + prox * 6)}px "JetBrains Mono"`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText(c.id + (flashing ? ' ✓' : ''), px, py - sh * (isWarship ? 2.12 : 0.95));
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // ── TDC — Komputer Danych Celu ───────────────────────
+  function _psUpdateTDC(inView) {
+    const selectedId = window._sonar?.selectedId;
+    const c = inView.find(x => x.id === selectedId) || (inView.length ? inView[0] : null);
+    const setNA = el => { el.className = 'ps-tdc-val na'; };
+    if (!c) {
+      _psTDC.sel.textContent = 'BRAK CELU';
+      _psTDC.sel.style.color = 'var(--ink-faint)';
+      _psTDC.brg.textContent = '---°'; setNA(_psTDC.brg);
+      _psTDC.spd.textContent = '-- w'; setNA(_psTDC.spd);
+      _psTDC.aob.textContent = '--°';  setNA(_psTDC.aob);
+      _psTDC.rng.textContent = '---';  setNA(_psTDC.rng);
+      _psTDC.sol.textContent = '---°';
+      return;
+    }
+    _psTDC.sel.textContent = c.id;
+    _psTDC.sel.style.color = c.cls === 'WARSHIP' ? 'var(--amber)' : 'var(--blue)';
+
+    _psTDC.brg.textContent = `${String(Math.round(c.bearing)).padStart(3,'0')}°`;
+    _psTDC.brg.className = 'ps-tdc-val ok';
+
+    const distNm = (c.distFrac * 3.5 * 0.54).toFixed(1);
+    _psTDC.rng.textContent = `${distNm} Nm`;
+    _psTDC.rng.className = 'ps-tdc-val';
+
+    // Prędkość: patrolSpeed px/s → przybliżone węzły (skala gry kompresowana)
+    const spdKts = c.spd != null ? Math.max(1, Math.round(c.spd * 0.38)) : null;
+    if (spdKts != null) {
+      _psTDC.spd.textContent = `${spdKts} w`;
+      _psTDC.spd.className = 'ps-tdc-val' + (spdKts > 20 ? ' warn' : ' ok');
+    } else {
+      _psTDC.spd.textContent = '-- w'; setNA(_psTDC.spd);
+    }
+
+    // AOB (kąt natarcia)
+    const targetHdg = c.dir === 1 ? 90 : 270;
+    const relBrg    = ((c.bearing - targetHdg) + 360) % 360;
+    const aob       = relBrg > 180 ? 360 - relBrg : relBrg;
+    const aobSide   = relBrg < 180 ? 'L' : 'P';
+    _psTDC.aob.textContent = `${Math.round(aob)}° ${aobSide}`;
+    _psTDC.aob.className = 'ps-tdc-val' + (aob < 25 || aob > 155 ? ' warn' : ' ok');
+
+    // Namiar strzałowy (uproszczony kąt wyprzedzenia)
+    const torpSpd  = 35;
+    const tgt      = spdKts ?? 10;
+    const sinLead  = Math.min(0.99, (tgt * Math.sin(aob * Math.PI / 180)) / torpSpd);
+    const lead     = Math.round(Math.asin(sinLead) * 180 / Math.PI);
+    const fireBrg  = (Math.round(c.bearing) + lead * c.dir + 360) % 360;
+    _psTDC.sol.textContent = `${String(fireBrg).padStart(3,'0')}°`;
+  }
+
+  // ── ESM — Emisje elektromagnetyczne ──────────────────
+  function _psUpdateESM(inView) {
+    if (inView.length === 0) {
+      _psEsmList.innerHTML = '<div class="ss-empty">BRAK EMISJI W ZASIĘGU</div>';
+      return;
+    }
+    const t = Date.now() * 0.001;
+    let html = '';
+    for (const c of inView) {
+      const isWarship = c.cls === 'WARSHIP';
+      const distKm    = (c.distFrac * 3.5).toFixed(1);
+      const rawStr    = Math.max(1, Math.round((1 - c.distFrac / 0.62) * 5));
+      const bars      = '█'.repeat(rawStr) + '░'.repeat(5 - rawStr);
+      const navCol    = isWarship ? 'var(--amber)' : 'var(--blue)';
+      const navSig    = isWarship ? 'X-PASMO 9.4GHz · IMP.' : 'X-PASMO 9.2GHz · CIG.';
+
+      html += `<div class="ps-esm-row" style="border-left-color:${navCol}">
+        <span class="ps-esm-id" style="color:${navCol}">${c.id}</span>
+        <span class="ps-esm-sig">${navSig}</span>
+        <span class="ps-esm-bar" style="color:${navCol}">${bars}</span>
+        <span class="ps-esm-dst">${distKm}km</span>
+      </div>`;
+
+      if (isWarship) {
+        const fcStr  = Math.max(0, rawStr - 1);
+        const fcBars = '█'.repeat(fcStr) + '░'.repeat(5 - fcStr);
+        const fcLbl  = Math.sin(t * 2.2) > 0.35 ? 'AKTYWNY' : 'SKAN';
+        html += `<div class="ps-esm-row" style="border-left-color:var(--accent)">
+          <span class="ps-esm-id" style="color:var(--accent)">FC</span>
+          <span class="ps-esm-sig">I/J-PASMO · R.OGN. · ${fcLbl}</span>
+          <span class="ps-esm-bar" style="color:var(--accent)">${fcBars}</span>
+          <span class="ps-esm-dst">${distKm}km</span>
+        </div>`;
+      }
+    }
+    _psEsmList.innerHTML = html;
   }
 
   // ── Lista kontaktów w widoku ──────────────────────────
@@ -2815,6 +3138,8 @@
       _psDepthBadge.style.color = tooDeep ? 'var(--accent)' : 'var(--green)';
 
       _psUpdateContactList(inView);
+      _psUpdateTDC(inView);
+      _psUpdateESM(inView);
     } else {
       if (window._sonar) window._sonar.periscopeActive = false;
     }

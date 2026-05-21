@@ -4,6 +4,33 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.63] — 2026-05-21
+
+### Dodano/Zmieniono — Peryskop: TDC, ESM, sylwetki, nocny tryb, winieta
+
+**src/GameScene.js:**
+- `visualContacts` uzupełniony o pola `dir` i `spd` (kierunek ruchu i prędkość z `patrolSpeed`)
+
+**index.html — CSS:**
+- Nowe style: `#ps-tdc-panel`, `.ps-tdc-grid`, `.ps-tdc-cell`, `.ps-tdc-val`, `#ps-tdc-sol-row`
+- Nowe style: `.ps-esm-row`, `.ps-esm-id/sig/bar/dst`
+- Nowy przycisk `#ps-night-btn` z efektem hover/active
+
+**index.html — HTML:**
+- Przycisk NOC w nagłówku peryskopowym (obok głębokości)
+- **TDC panel** — Komputer Danych Celu: namiar (BRG), prędkość, kąt natarcia (AOB), zasięg, namiar strzału
+- **ESM panel** — funkcjonalny (zastąpił "PROTOTYP"): emisje X-pasmo (nawigacja) i I/J-pasmo (radar ognia) dla okrętów wojennych, słupki siły sygnału, odległość
+
+**index.html — JS:**
+- Nowe zmienne stanu: `_pNightMode`, `_pBrgHistory`, `_pBrgHistTick`, `_psTDC`, `_psEsmList`, `_psNightBtn`
+- Klawisz N — przełącznik trybu nocnego (CSS filter: sepia+hue-rotate = zielony fosfor)
+- `_psDrawShip()` — nowa szczegółowa sylwetka okrętu: kadłub trapezoidalny z dziobem/rufą, nadbudówki, komin z animowanym dymem, wieże działowe z lufami, obracający się radar, ślad za rufą (wake); merchant: dźwigi, mostek, wolniejszy radar nawigacyjny
+- `_psDrawOptic()` przepisany: winieta soczewkowa, nocny filtr CSS, rangefinder-brackets na wybranym kontakcie (złote narożniki), linia stadiametrii 500m/1km/2km/3.5km, wywołanie `_psDrawShip()` per kontakt
+- `_psUpdateTDC()` — AOB z kierunku celu, prędkość w węzłach, namiar strzałowy z kątem wyprzedzenia torpedy
+- `_psUpdateESM()` — słupki siły sygnału, dynamiczne oznaczenie FC (aktywny/skan), wywołane z `periscopeLoop`
+
+---
+
 ## [0.10.62] — 2026-05-21
 
 ### Zmieniono — Rakieta p/okrętowa: ImpactFX również przy chybieniu

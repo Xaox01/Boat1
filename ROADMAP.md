@@ -75,7 +75,10 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Stacja PERYSKOP — widok optyczny, sylwetki, skala kątowa, stadimetria, zoom ×1.5/×3 (F3) |
 | ✅ | Peryskop: natychmiastowa klasyfikacja wizualna WARSHIP/MERCHANT (<1925px, głęb. <12m) |
 | ✅ | Peryskop: selekcja V-* → cel, hałas masztu, badge HUD, FOV cone w CONN, sync kursu |
-| 🟢 | Peryskop: ESM — lista emisji radarowych wrogich okrętów |
+| ✅ | Peryskop: ESM — lista emisji radarowych (X-pasmo nav, I/J-pasmo FC), słupki siły sygnału |
+| ✅ | Peryskop: TDC — namiar, prędkość, AOB, zasięg, namiar strzałowy z kątem wyprzedzenia |
+| ✅ | Peryskop: szczegółowe sylwetki — kadłub trapezoidalny, wieże, radar, dym z komina, wake |
+| ✅ | Peryskop: tryb nocny (N) — zielony filtr fosforowy; winieta soczewkowa; rangefinder |
 | 🟢 | Grawimetria — wykrywanie okrętów podwodnych po anomaliach pola grawitacyjnego |
 
 ---

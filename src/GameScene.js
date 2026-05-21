@@ -849,6 +849,8 @@ export class GameScene extends Phaser.Scene {
           distFrac: Math.min(1, dist / VISUAL_RANGE),
           cls:      e.contactClass,
           shipType: e.shipType,
+          dir:      e.dir ?? 1,
+          spd:      Math.abs(e.patrolSpeed ?? 60),
         };
       })
       .filter(Boolean);
