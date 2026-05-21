@@ -2122,11 +2122,11 @@ export class GameScene extends Phaser.Scene {
   _drawCRT() {
     const overlay = this.add.graphics().setDepth(100);
     for (let y = 0; y < CAM_H; y += 4) {
-      overlay.fillStyle(0x000000, 0.07);
+      overlay.fillStyle(0x000000, 0.04);
       overlay.fillRect(0, y, CAM_W, 2);
     }
     for (let i = 0; i < 18; i++) {
-      overlay.lineStyle(i * 1.5, 0x000000, (i / 18) * 0.3);
+      overlay.lineStyle(i * 1.5, 0x000000, (i / 18) * 0.18);
       overlay.strokeRect(i, i, CAM_W - i * 2, CAM_H - i * 2);
     }
   }

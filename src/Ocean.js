@@ -59,23 +59,23 @@ export class Ocean {
     const H  = this.scene.scale.height + 30;
 
     // Niebo (nadpisane przez skyOverlay każdą klatkę — brak koloru stałego)
-    g.fillStyle(0x000c1a);
+    g.fillStyle(0x001428);
     g.fillRect(0, 0, W, SURFACE_Y);
 
     // Strefa epipelagiczna (powierzchnia → termoklina)
-    g.fillGradientStyle(0x00386e, 0x00386e, 0x00528e, 0x00528e, 1);
+    g.fillGradientStyle(0x00558a, 0x00558a, 0x0072a8, 0x0072a8, 1);
     g.fillRect(0, SURFACE_Y, W, THERMO_Y - SURFACE_Y);
 
     // Warstwa termokliny
-    g.fillStyle(0x1a6a80, 0.50);
+    g.fillStyle(0x2a8898, 0.55);
     g.fillRect(0, THERMO_Y - 3, W, 12);
 
     // Strefa mezopelelagiczna
-    g.fillGradientStyle(0x002244, 0x002244, 0x000e1c, 0x000e1c, 1);
+    g.fillGradientStyle(0x003566, 0x003566, 0x001e3a, 0x001e3a, 1);
     g.fillRect(0, THERMO_Y, W, H - THERMO_Y);
 
     // Wielokąt terenu
-    g.fillStyle(0x2c1c0c);
+    g.fillStyle(0x3e2a14);
     g.beginPath();
     g.moveTo(0, H);
     g.lineTo(0, this._sampleAt(0));
@@ -88,7 +88,7 @@ export class Ocean {
     for (let x = 0; x <= W; x += 26) {
       const fy = this._sampleAt(x);
       const bh = 4 + Math.sin(x * 0.09) * 3 + Math.sin(x * 0.23) * 2;
-      g.fillStyle(0x3c2810, 0.75);
+      g.fillStyle(0x503a1e, 0.75);
       g.fillRect(x, fy, 17, Math.max(2, bh));
     }
 
@@ -98,15 +98,15 @@ export class Ocean {
       const fy = this._sampleAt(x);
       if (fy < ROCK_THRESHOLD) {
         const rh = Math.min(70, (ROCK_THRESHOLD - fy) * 0.78 + 18);
-        g.fillStyle(0x352015, 0.95);
+        g.fillStyle(0x4a3020, 0.95);
         g.fillTriangle(x - 32, fy + 1, x + 32, fy + 1, x, fy - rh);
-        g.fillStyle(0x503a25, 0.68);
+        g.fillStyle(0x684e35, 0.68);
         g.fillTriangle(x - 10, fy + 1, x + 28, fy + 1, x + 10, fy - rh * 0.70);
         if (x + 60 < W) {
-          g.fillStyle(0x352015, 0.80);
+          g.fillStyle(0x4a3020, 0.80);
           g.fillTriangle(x + 30, fy + 1, x + 58, fy + 1, x + 44, fy - rh * 0.44);
         }
-        g.fillStyle(0x3a2208, 0.50);
+        g.fillStyle(0x503010, 0.50);
         g.fillEllipse(x, fy + 3, 80, 10);
       }
     }
@@ -161,15 +161,15 @@ export class Ocean {
   _getDayPalette(dt) {
     // Klatki kluczowe: [pora, kolor_nieba_góra, kolor_nieba_dół, kolor_fal, ciemność]
     const K = [
-      { t: 0.00, top: 0x000510, bot: 0x001022, wave: 0x1a3560, dark: 0.20 },
-      { t: 0.21, top: 0x050120, bot: 0x0c0a2e, wave: 0x1c2e58, dark: 0.16 },
-      { t: 0.27, top: 0xcc3311, bot: 0xff9933, wave: 0xff8844, dark: 0.02 },
-      { t: 0.33, top: 0x2255cc, bot: 0x77bbff, wave: 0x66ccff, dark: 0.00 },
-      { t: 0.50, top: 0x1155aa, bot: 0x44aaff, wave: 0x55d8ff, dark: 0.00 },
-      { t: 0.67, top: 0x1a5599, bot: 0x55aaee, wave: 0x44ccff, dark: 0.00 },
-      { t: 0.73, top: 0xcc3311, bot: 0xff9933, wave: 0xffaa55, dark: 0.02 },
-      { t: 0.79, top: 0x050120, bot: 0x0c0a28, wave: 0x1c2e4e, dark: 0.16 },
-      { t: 1.00, top: 0x000510, bot: 0x001022, wave: 0x1a3560, dark: 0.20 },
+      { t: 0.00, top: 0x060e22, bot: 0x0d1e3a, wave: 0x2a4878, dark: 0.12 },
+      { t: 0.21, top: 0x08042a, bot: 0x100e38, wave: 0x263868, dark: 0.08 },
+      { t: 0.27, top: 0xcc3311, bot: 0xff9933, wave: 0xff8844, dark: 0.00 },
+      { t: 0.33, top: 0x2c66dd, bot: 0x88ccff, wave: 0x77ddff, dark: 0.00 },
+      { t: 0.50, top: 0x1e66bb, bot: 0x55bbff, wave: 0x66e0ff, dark: 0.00 },
+      { t: 0.67, top: 0x2266aa, bot: 0x66bbee, wave: 0x55ddff, dark: 0.00 },
+      { t: 0.73, top: 0xcc3311, bot: 0xff9933, wave: 0xffaa55, dark: 0.00 },
+      { t: 0.79, top: 0x08042a, bot: 0x100e38, wave: 0x263858, dark: 0.08 },
+      { t: 1.00, top: 0x060e22, bot: 0x0d1e3a, wave: 0x2a4878, dark: 0.12 },
     ];
 
     const n = ((dt % 1) + 1) % 1;
