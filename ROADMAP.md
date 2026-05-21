@@ -45,7 +45,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | 🔴 | Miny morskie — stawianie i omijanie |
 | 🟡 | Termoklinowe uniki torpedy — jeśli torpeda nie zejdzie głębiej |
 | 🟡 | Fanowi wyrzut — odpalenie wielu torped jednocześnie (spread) |
-| 🟡 | Rakieta balistyczna (SLBM) — cel strategiczny długiego zasięgu |
+| ✅ | Rakieta balistyczna (SLBM) — panel F5: 20 silosów RSM-52, klucze bojowe, sekwencja T−10, animacja startu |
 | ✅ | Torpeda akustyczna wabik (noisemaker) — odciąganie torped |
 
 ---

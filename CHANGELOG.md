@@ -4,6 +4,25 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.58] — 2026-05-21
+
+### Dodano — Stacja SLBM (F5) — Panel wystrzeliwania rakiet balistycznych
+
+**index.html — nowa stacja F5:**
+
+- **Zakładka F5 SLBM** w górnym pasku stacji (zamiana placeholdera NAWIGACJA)
+- **Canvas wizualizacja** (lewa strona): okręt klasy Typhoon na głębokości ~50m, nocna scena, 20 silosów RSM-52 na grzbiecie, animacja światła nawigacyjnego, śruba 5-łopatowa
+- **20 silosów RSM-52 «Woiewoda»** w siatce 5×4 — 16 załadowanych, 4 puste (dziobowe); klikalne z LED statusu (zielony/bursztyn/czerwony)
+- **Dwa klucze bojowe** — DOWÓDCA + POL.ŚR. — oba muszą być przekręcone aby uzbroić
+- **Ograniczenia realistyczne** — odpalenie dostępne tylko przy głęb. ≤ 55m i prędkości ≤ 6kn (live z `window._sonar`)
+- **Sekwencja odpalenia**: UZBRÓJ → T−10 odliczanie z logami (otwarcie pokryw, giroskopy, akumulatory, trym, ciąg) → ODPALENIE → misja
+- **Animacja rakiety** canvas 2D: faza silosowa (gaz startowy, bąble) → podwodna (ślad bąbli) → przebicie powierzchni (splash 90 cząsteczek) → boost (ogień silnika additive, dym wielowarstwowy) → poza horyzont
+- **Pasek ostrzegawczy** — czerwona belka gdy warunki głębokość/prędkość nie są spełnione
+- **Dziennik log** z timestampami T±MM:SS
+- **Parametry okrętu live** — głębokość i prędkość aktualizowane na bieżąco ze stanu gry
+
+---
+
 ## [0.10.57] — 2026-05-21
 
 ### Zmieniono — Sprite gracza: pixel art Kilo-class K-244 «NALIM» (16-bit)
