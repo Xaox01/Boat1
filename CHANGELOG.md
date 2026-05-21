@@ -4,6 +4,33 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.64] — 2026-05-21
+
+### Dodano — Menu główne: panel ustawień gry
+
+**src/MenuScene.js:**
+- Nowy panel `USTAWIENIA GRY` poniżej wyboru trudności
+- **Konwój** — wybór liczby kupców: 2 / 4 / 6 statków (domyślnie 4)
+- **Amunicja** — Standardowa / Nieograniczona (torpedy ładują się w 2s, rakiety i wabie bez limitu)
+- **Do kontaktu** — opóźnienie pojawienia się niszczycieli: 15 sek. / 1 minuta / 5 minut
+- Kliknięty przycisk podświetla się na zielono, pozostałe są wygaszone
+- Ustawienia przekazywane przez `registry.set('settings', {...})` do GameScene
+- Poprawiono briefing: okręt K-244 «NALIM» klasy Kilo, rok 1984, Morze Norweskie
+- Dodano F1–F5 do listy sterowania
+- Lekko zmniejszono panele L/P żeby zmieścić ustawienia bez przepełnienia
+
+**src/GameScene.js:**
+- Czyta `settings.merchants` → dynamiczna lista CONVOY_ALL (2/4/6 kupców; nowe: IRKUTSK, VLADIVOSTOK)
+- Czyta `settings.enemyDelay` → dynamiczny próg spawnu niszczycieli
+- Czyta `settings.infiniteAmmo` → ustawia `sub.infiniteAmmo`
+
+**src/Submarine.js:**
+- Nowe pole `infiniteAmmo = false`
+- `fireTorpedo()`: przy `infiniteAmmo` przeładowanie rury = 2s zamiast 55–75s
+- `deployNoisemaker()` + `fireMissile()`: przy `infiniteAmmo` skip decrementu liczników
+
+---
+
 ## [0.10.63] — 2026-05-21
 
 ### Dodano/Zmieniono — Peryskop: TDC, ESM, sylwetki, nocny tryb, winieta

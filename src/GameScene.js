@@ -86,6 +86,7 @@ export class GameScene extends Phaser.Scene {
 
     this.ocean = new Ocean(this);
     this.sub   = new Submarine(this, CAM_W / 2, SURFACE_Y + 225); // ~270m — poniżej termokliny (test sonaru)
+    this.sub.infiniteAmmo = (this.registry.get('settings') || {}).infiniteAmmo ?? false;
     // Alias dla EnemyASROC — torpedy sprawdzają ten array
     Object.defineProperty(this, 'noisemakers', { get: () => this.sub.noisemakers });
 
@@ -314,12 +315,16 @@ export class GameScene extends Phaser.Scene {
     this._waveTimer = save.waveTimer ?? 0;
 
     // Konwój — odtwórz z zapisu
-    const CONVOY = [
-      { x: 2200, dir: 1, label: 'LENSKY' },
-      { x: 4000, dir: -1, label: 'KALININ' },
-      { x: 6200, dir: 1, label: 'TBLISI' },
-      { x: 8400, dir: -1, label: 'NOVOROSSIYSK' },
+    const CONVOY_ALL = [
+      { x: 2200,  dir:  1, label: 'LENSKY' },
+      { x: 4000,  dir: -1, label: 'KALININ' },
+      { x: 6200,  dir:  1, label: 'TBLISI' },
+      { x: 8400,  dir: -1, label: 'NOVOROSSIYSK' },
+      { x: 10600, dir:  1, label: 'IRKUTSK' },
+      { x: 12800, dir: -1, label: 'VLADIVOSTOK' },
     ];
+    const _merchantCount = (this.registry.get('settings') || {}).merchants ?? 4;
+    const CONVOY = CONVOY_ALL.slice(0, _merchantCount);
     for (const c of CONVOY) this.merchants.push(new Merchant(this, c.x, c.dir, c.label));
 
     const sms = save.merchants ?? [];
@@ -364,7 +369,8 @@ export class GameScene extends Phaser.Scene {
     // Opóźnione pojawienie się niszczycieli (tylko po tutorialu)
     if (!this._enemiesSpawned && !this.tutorial) {
       this._enemySpawnTimer += dt;
-      if (this._enemySpawnTimer >= 15) this._spawnEnemies();
+      const spawnDelay = (this.registry.get('settings') || {}).enemyDelay ?? 15;
+      if (this._enemySpawnTimer >= spawnDelay) this._spawnEnemies();
     }
 
     // B = toggle bota testowego
@@ -1760,13 +1766,16 @@ export class GameScene extends Phaser.Scene {
     this.merchants = [];
 
     // Dodaj konwój
-    const CONVOY = [
-      { x: 2200, dir:  1, label: 'LENSKY' },
-      { x: 4000, dir: -1, label: 'KALININ' },
-      { x: 6200, dir:  1, label: 'TBLISI' },
-      { x: 8400, dir: -1, label: 'NOVOROSSIYSK' },
+    const CONVOY_FULL = [
+      { x: 2200,  dir:  1, label: 'LENSKY' },
+      { x: 4000,  dir: -1, label: 'KALININ' },
+      { x: 6200,  dir:  1, label: 'TBLISI' },
+      { x: 8400,  dir: -1, label: 'NOVOROSSIYSK' },
+      { x: 10600, dir:  1, label: 'IRKUTSK' },
+      { x: 12800, dir: -1, label: 'VLADIVOSTOK' },
     ];
-    for (const c of CONVOY) this.merchants.push(new Merchant(this, c.x, c.dir, c.label));
+    const _mCnt = (this.registry.get('settings') || {}).merchants ?? 4;
+    for (const c of CONVOY_FULL.slice(0, _mCnt)) this.merchants.push(new Merchant(this, c.x, c.dir, c.label));
 
     // Start misji
     this.mission = new MissionSystem(this);

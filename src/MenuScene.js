@@ -20,6 +20,25 @@ export class MenuScene extends Phaser.Scene {
     this._sonarR   = 0;
     this._sonarAlpha = 0;
 
+    // Ustawienia gry — definicje i domyślne wartości
+    this._settingRows = [
+      {
+        key: 'merchants', y: 0,
+        options: [{ v: 2, label: '2 STATKI' }, { v: 4, label: '4 STATKI' }, { v: 6, label: '6 STATKÓW' }],
+        idx: 1,  // domyślnie 4
+      },
+      {
+        key: 'infiniteAmmo', y: 0,
+        options: [{ v: false, label: 'STANDARDOWA' }, { v: true, label: 'NIEOGRANICZONA' }],
+        idx: 0,
+      },
+      {
+        key: 'enemyDelay', y: 0,
+        options: [{ v: 15, label: '15 SEK.' }, { v: 60, label: '1 MINUTA' }, { v: 300, label: '5 MINUT' }],
+        idx: 0,
+      },
+    ];
+
     document.getElementById('game-ui').classList.remove('active');
 
     // ── Tło oceanu ────────────────────────────────────────────────────────────
@@ -76,7 +95,7 @@ export class MenuScene extends Phaser.Scene {
     deco.strokeLineShape(new Phaser.Geom.Line(W / 2 - 220, 150, W / 2 + 220, 150));
 
     // ── LEWY PANEL — Rozkazy ──────────────────────────────────────────────────
-    const lx = 28, ly = 162, lw = 310, lh = 220;
+    const lx = 28, ly = 158, lw = 304, lh = 190;
     const lbox = this.add.graphics().setDepth(10);
     lbox.fillStyle(0x000000, 0.55);
     lbox.fillRect(lx, ly, lw, lh);
@@ -91,23 +110,22 @@ export class MenuScene extends Phaser.Scene {
       'MISJA: Przerwij linię zaopatrzenia',
       'wrogiej floty nawodnej.',
       '',
-      'Twój okręt: B-39 klasy FOXTROT',
-      'Rejon operacji: Morze Północne',
-      'Data: Październik 1968',
+      'Twój okręt: K-244 «NALIM» kl. KILO',
+      'Rejon operacji: Morze Norweskie',
+      'Data: Październik 1984',
       '',
       'ZAGROŻENIA:',
       '  · Niszczyciele z sonarem aktywnym',
       '  · Zarzuty głębinowe — unikaj!',
       '  · Termoklina na 200 m maskuje',
       '    sygnaturę akustyczną',
-      '',
       'POWODZENIA, Towarzyszu Komandorze.',
     ];
 
     briefing.forEach((line, i) => {
       const isHeader = line.startsWith('MISJA') || line.startsWith('ZAGROŻENIA') || line.startsWith('POWODZENIA');
-      this.add.text(lx + 14, ly + 28 + i * 13, line, {
-        fontSize: '9px',
+      this.add.text(lx + 14, ly + 28 + i * 12.5, line, {
+        fontSize: '8.5px',
         color: isHeader ? '#4aff9a' : line === '' ? '#000' : '#2a6a3a',
         fontFamily: 'Courier New',
         fontStyle: isHeader ? 'bold' : 'normal',
@@ -115,7 +133,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // ── PRAWY PANEL — Sterowanie ──────────────────────────────────────────────
-    const rx = W - 28 - 310, ry = 162, rw = 310, rh = 220;
+    const rx = W - 28 - 304, ry = 158, rw = 304, rh = 190;
     const rbox = this.add.graphics().setDepth(10);
     rbox.fillStyle(0x000000, 0.55);
     rbox.fillRect(rx, ry, rw, rh);
@@ -133,57 +151,106 @@ export class MenuScene extends Phaser.Scene {
       ['Spacja',     'Stop silnika'],
       ['LPM',        'Odpal torpedę → kursor'],
       ['R / PPM',    'Rakieta p/okrętowa (≤70 m)'],
+      ['F1–F5',      'Stacje: CONN/SONAR/PERYSKOP…'],
     ];
 
     controls.forEach(([key, desc], i) => {
-      this.add.text(rx + 14, ry + 30 + i * 24, key, {
-        fontSize: '10px', color: '#4aff9a', fontFamily: 'Courier New', fontStyle: 'bold',
+      this.add.text(rx + 14, ry + 28 + i * 22, key, {
+        fontSize: '9px', color: '#4aff9a', fontFamily: 'Courier New', fontStyle: 'bold',
       }).setDepth(10);
-      this.add.text(rx + 14, ry + 43 + i * 24, desc, {
-        fontSize: '8px', color: '#2a5a3a', fontFamily: 'Courier New',
+      this.add.text(rx + 14, ry + 40 + i * 22, desc, {
+        fontSize: '7.5px', color: '#2a5a3a', fontFamily: 'Courier New',
       }).setDepth(10);
     });
 
     // ── ŚRODEK — Wybór trudności ──────────────────────────────────────────────
-    const diffY = 400;
-    this.add.text(W / 2, diffY - 16, 'WYBIERZ TRUDNOŚĆ', {
+    const diffY = 368;
+    this.add.text(W / 2, diffY - 14, 'TRUDNOŚĆ', {
       fontSize: '8px', color: '#2a6a3a', fontFamily: 'Courier New', letterSpacing: 3,
     }).setOrigin(0.5).setDepth(10);
 
     this._diffBtns = [];
     DIFFICULTIES.forEach((d, i) => {
       const bx = W / 2 - 165 + i * 165;
-      const bw = 145, bh = 48;
+      const bw = 145, bh = 44;
       const btn = this.add.graphics().setDepth(10);
-      const lbl = this.add.text(bx + bw / 2, diffY + 12, d.label, {
-        fontSize: '12px', color: '#4aff9a', fontFamily: 'Courier New', fontStyle: 'bold',
+      const lbl = this.add.text(bx + bw / 2, diffY + 10, d.label, {
+        fontSize: '11px', color: '#4aff9a', fontFamily: 'Courier New', fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(11);
-      const sub = this.add.text(bx + bw / 2, diffY + 30, d.desc, {
+      const sub = this.add.text(bx + bw / 2, diffY + 27, d.desc, {
         fontSize: '7px', color: '#2a6a3a', fontFamily: 'Courier New',
       }).setOrigin(0.5).setDepth(11);
-      this._diffBtns.push({ btn, lbl, sub, bx, bw: bw, bh, d });
+      this._diffBtns.push({ btn, lbl, sub, bx, bw, bh, d });
     });
     this._redrawDiff();
 
-    // Klik na przyciski trudności
+    // ── USTAWIENIA GRY ───────────────────────────────────────────────────────
+    const sy = 430;
+    const sbox = this.add.graphics().setDepth(10);
+    sbox.fillStyle(0x000000, 0.45);
+    sbox.fillRect(28, sy - 8, W - 56, 126);
+    sbox.lineStyle(1, 0x1a4a2a, 0.50);
+    sbox.strokeRect(28, sy - 8, W - 56, 126);
+
+    // Pionowa linia oddzielająca etykiety od przycisków
+    sbox.lineStyle(1, 0x1a3a1a, 0.35);
+    sbox.strokeLineShape(new Phaser.Geom.Line(200, sy - 8, 200, sy + 118));
+
+    this.add.text(W / 2, sy, 'USTAWIENIA GRY', {
+      fontSize: '8px', color: '#1a5a2a', fontFamily: 'Courier New', letterSpacing: 3,
+    }).setOrigin(0.5).setDepth(10);
+
+    const rowLabels   = ['KONWÓJ', 'AMUNICJA', 'DO KONTAKTU'];
+    const rowYOffsets = [20, 52, 84];
+
+    this._settingRows.forEach((row, ri) => {
+      row.y = sy + rowYOffsets[ri];
+      row.txts = [];
+
+      this.add.text(42, row.y + 5, rowLabels[ri], {
+        fontSize: '8px', color: '#1a4a2a', fontFamily: 'Courier New', letterSpacing: 2,
+      }).setDepth(10);
+
+      let bx = 210;
+      row.options.forEach((opt, oi) => {
+        const txt = this.add.text(bx, row.y, `[ ${opt.label} ]`, {
+          fontSize: '9px', fontFamily: 'Courier New', fontStyle: 'bold', color: '#1a3a2a',
+        }).setDepth(11);
+        row.txts.push({ txt, bx, by: row.y, bh: 18, oi });
+        bx += txt.width + 12;
+      });
+    });
+    this._redrawSettings();
+
+    // ── Obsługa kliku ─────────────────────────────────────────────────────────
     this.input.on('pointerdown', (ptr) => {
-      this._diffBtns.forEach(({ bx, bw, bh, d }, i) => {
+      // Ustawienia
+      for (const row of this._settingRows) {
+        for (const item of row.txts) {
+          if (ptr.x >= item.bx && ptr.x <= item.bx + item.txt.width + 4
+              && ptr.y >= item.by && ptr.y <= item.by + item.bh) {
+            row.idx = item.oi;
+            this._redrawSettings();
+            return;
+          }
+        }
+      }
+      // Trudność
+      for (let i = 0; i < this._diffBtns.length; i++) {
+        const { bx, bw, bh } = this._diffBtns[i];
         if (ptr.x >= bx && ptr.x <= bx + bw && ptr.y >= diffY && ptr.y <= diffY + bh) {
           this._diff = i;
           this._redrawDiff();
           return;
         }
-      });
-      // Klik poza przyciskami = start
-      const anyBtn = this._diffBtns.some(({ bx, bw }) =>
-        ptr.x >= bx && ptr.x <= bx + bw && ptr.y >= diffY && ptr.y <= diffY + 48
-      );
-      if (!anyBtn) this._start();
+      }
+      // Klik poza wszystkimi przyciskami = start
+      this._start();
     });
 
     // ── START ─────────────────────────────────────────────────────────────────
-    this._startTxt = this.add.text(W / 2, H - 36, '[ NACIŚNIJ  ENTER  LUB  KLIKNIJ  POZA  PRZYCISKAMI ]', {
-      fontSize: '11px', color: '#4aff9a', fontFamily: 'Courier New', letterSpacing: 2,
+    this._startTxt = this.add.text(W / 2, H - 24, '[ ENTER — START ]', {
+      fontSize: '11px', color: '#4aff9a', fontFamily: 'Courier New', letterSpacing: 3,
     }).setOrigin(0.5).setDepth(10);
 
     this.input.keyboard.on('keydown-ENTER', () => this._start());
@@ -206,21 +273,37 @@ export class MenuScene extends Phaser.Scene {
   }
 
   _redrawDiff() {
+    const diffY = 368;
     this._diffBtns.forEach(({ btn, lbl, sub, bx, bw, bh, d }, i) => {
       const sel = i === this._diff;
       btn.clear();
       btn.fillStyle(sel ? 0x002a10 : 0x000000, sel ? 0.80 : 0.50);
-      btn.fillRect(bx, 400, bw, bh);
+      btn.fillRect(bx, diffY, bw, bh);
       btn.lineStyle(1.5, sel ? d.color : 0x1a3a2a, sel ? 0.90 : 0.40);
-      btn.strokeRect(bx, 400, bw, bh);
+      btn.strokeRect(bx, diffY, bw, bh);
       lbl.setColor(sel ? Phaser.Display.Color.IntegerToColor(d.color).rgba : '#2a5a3a');
       sub.setColor(sel ? '#2a8a4a' : '#1a3a2a');
+    });
+  }
+
+  _redrawSettings() {
+    this._settingRows.forEach(row => {
+      row.txts.forEach(({ txt, oi }) => {
+        txt.setColor(oi === row.idx ? '#4aff9a' : '#1a3a2a');
+      });
     });
   }
 
   _start() {
     const d = DIFFICULTIES[this._diff];
     this.registry.set('difficulty', d);
+
+    const settings = {};
+    for (const row of this._settingRows) {
+      settings[row.key] = row.options[row.idx].v;
+    }
+    this.registry.set('settings', settings);
+
     this.scene.start('GameScene');
   }
 

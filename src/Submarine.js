@@ -78,6 +78,8 @@ export class Submarine {
     this.noisemakers     = [];   // aktywne wabie w wodzie
 
 
+    this.infiniteAmmo = false;
+
     this._prevY    = y;   // for thermocline crossing detection
     this.trail     = [];
     this.botControl = false;
@@ -114,7 +116,7 @@ export class Submarine {
     const tube = this.tubes.slice(0, availCount).find(t => t.loaded);
     if (!tube) return false;
     tube.loaded = false;
-    tube.reloadTimer = tube.reloadBase;
+    tube.reloadTimer = this.infiniteAmmo ? 2.0 : tube.reloadBase;
     this._torpedosFired++;
     this._salvoCD = 3.0;
     this.torpedoes.push(new Torpedo(this.scene, this.x, this.y, targetX, targetY));
@@ -122,8 +124,8 @@ export class Submarine {
   }
 
   deployNoisemaker() {
-    if (this.noisemakerCount <= 0) return false;
-    this.noisemakerCount--;
+    if (this.noisemakerCount <= 0 && !this.infiniteAmmo) return false;
+    if (!this.infiniteAmmo) this.noisemakerCount--;
     this.noisemakers.push({
       x:        this.x,
       y:        this.y,
@@ -136,11 +138,11 @@ export class Submarine {
 
   // Rakieta wymaga głębokości ≤ 70m i sprawnego systemu rakietowego
   fireMissile(targetX) {
-    if (this.missileCount  <= 0)  return 'brak';
+    if (this.missileCount  <= 0 && !this.infiniteAmmo) return 'brak';
     if (this.missileFireCD >  0)  return 'cd';
     if (this.depthMetres   >  70) return 'za_gleboko';
     if ((this.systems.rakiety?.health ?? 1) <= 0) return 'awaria';
-    this.missileCount--;
+    if (!this.infiniteAmmo) this.missileCount--;
     this.missileFireCD = 2.5;
     this.noiseSurge    = 1.0;
     this.missiles.push(new Missile(this.scene, this.x, this.y, targetX));
