@@ -4,6 +4,28 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.61] — 2026-05-21
+
+### Dodano — Wybuch rakiety p/okrętowej: ImpactFX dostosowany do ASM
+
+**src/ImpactFX.js — nowa metoda `triggerMissile()`:**
+
+- Wymuszony tryb `surface` (nie underwater) — rakieta trafia w kadłub nad wodą
+- Fireball ×1,65 więcej cząsteczek, większy rozmiar (r 34–82px vs 28–66px), dłuższa żywotność (do 1,85s)
+- Słup wody ×0,45 mniej — rakieta trafia w stalowy kadłub, nie w otwartą wodę
+- Dym ×1,55 więcej, 80% oleisty czarny (vs 55%) — paliwo rakietowe i olej napędowy
+- Pożary wtórne: 18 ognisk zamiast 10, rozkład do 460px (vs 340px), większe rozmiary (9–22px)
+- Ogień przy tafli ×1,35, rozkład do 130px (vs 90px)
+- 4 wybuchy wtórne zamiast 3 (0,9s / 2,8s / 5,2s / 8,0s) — sekwencyjne eksplozje pomieszczeń okrętu
+- Shake 0,020 (vs 0,018 torpedy) — cięższy uderzenie nawodne
+
+**src/GameScene.js:**
+
+- Trafienie rakietą wywołuje `_impactFX.triggerMissile(target.x, target.y)` zamiast samego shake/flash
+- Flash zmieniony na pomarańczowo-biały `(255, 180, 50)` (vs niebieskawy torpedy)
+
+---
+
 ## [0.10.60] — 2026-05-21
 
 ### Dodano — EAM: animacja namierzenia celu od Dowódstwa przed SLBM

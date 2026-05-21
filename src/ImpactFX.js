@@ -65,6 +65,28 @@ export class ImpactFX {
     this.scene.cameras.main.shake(820, underwater ? 0.018 : 0.012);
   }
 
+  // Trafienie rakietą przeciw-okrętową: większy ogień, mniej wody, więcej pożarów wtórnych
+  triggerMissile(worldX, worldY) {
+    const SURF = this.scene.SURFACE_Y;
+    const iy   = worldY ?? SURF;
+    this._hits.push({
+      ix: worldX, iy, surfY: SURF,
+      depth: 0, underwater: false, surfDelay: 0,
+      missile: true,
+      t: 0,
+      fire: [], surfaceFire: [], water: [], smoke: [], steam: [],
+      embers: [], seaSparks: [], oilFires: [], bubbles: [], sediment: [],
+      debris: this._spawnDebris(worldX, iy, false),
+      secondary: [
+        { delay: 0.9,  done: false, ox: Phaser.Math.Between(-35, 35) },
+        { delay: 2.8,  done: false, ox: Phaser.Math.Between(-60, 60) },
+        { delay: 5.2,  done: false, ox: Phaser.Math.Between(-45, 45) },
+        { delay: 8.0,  done: false, ox: Phaser.Math.Between(-28, 28) },
+      ],
+    });
+    this.scene.cameras.main.shake(580, 0.020);
+  }
+
   _spawnDebris(ix, iy, underwater) {
     const count = underwater ? 14 : 22;
     const pieces = [];
@@ -155,29 +177,33 @@ export class ImpactFX {
   _spawnSurface(h, dt, t) {
     const ix = h.ix, iy = h.iy, surfY = h.surfY;
 
-    // Fireball
-    if (t < 2.0 && h.fire.length < 220) {
-      const rate = t < 0.05 ? 380 : t < 0.3 ? 150 : t < 0.7 ? 55 : t < 1.2 ? 22 : 8;
-      const n = Math.ceil(rate * dt);
-      for (let i = 0; i < n && h.fire.length < 220; i++) {
+    // Fireball — rakieta: większy, intensywniejszy
+    const fxMax = h.missile ? 320 : 220;
+    const fxMul = h.missile ? 1.65 : 1.0;
+    if (t < 2.0 && h.fire.length < fxMax) {
+      const rateF = t < 0.05 ? 380 : t < 0.3 ? 150 : t < 0.7 ? 55 : t < 1.2 ? 22 : 8;
+      const n = Math.ceil(rateF * fxMul * dt);
+      for (let i = 0; i < n && h.fire.length < fxMax; i++) {
         const ang   = rand(-Math.PI * 0.95, -Math.PI * 0.05);
-        const base  = t < 0.1 ? rand(200, 500) : t < 0.5 ? rand(110, 260) : rand(38, 130);
+        const base  = t < 0.1 ? rand(200, h.missile ? 580 : 500) : t < 0.5 ? rand(110, h.missile ? 300 : 260) : rand(38, h.missile ? 150 : 130);
         const spike = Math.random() < 0.08 && t < 0.3;
         h.fire.push({
-          x: ix + (Math.random() - 0.5) * 18, y: iy - rand(0, 22),
-          vx: Math.cos(ang) * (spike ? base * 2.2 : base) + (Math.random() - 0.5) * 55,
-          vy: Math.sin(ang) * (spike ? base * 2.2 : base) - rand(18, 70),
-          life: 0, maxLife: spike ? rand(0.3, 0.6) : rand(0.65, 1.5),
-          size: t < 0.1 ? rand(28, 66) : rand(16, 42), seed: Math.random() * 1000,
+          x: ix + (Math.random() - 0.5) * (h.missile ? 26 : 18), y: iy - rand(0, h.missile ? 30 : 22),
+          vx: Math.cos(ang) * (spike ? base * 2.2 : base) + (Math.random() - 0.5) * (h.missile ? 70 : 55),
+          vy: Math.sin(ang) * (spike ? base * 2.2 : base) - rand(h.missile ? 22 : 18, h.missile ? 88 : 70),
+          life: 0, maxLife: spike ? rand(0.3, 0.6) : rand(h.missile ? 0.80 : 0.65, h.missile ? 1.85 : 1.5),
+          size: t < 0.1 ? rand(h.missile ? 34 : 28, h.missile ? 82 : 66) : rand(h.missile ? 20 : 16, h.missile ? 54 : 42),
+          seed: Math.random() * 1000,
         });
       }
     }
 
-    // Słup wody
+    // Słup wody — rakieta: mniej (trafia w kadłub, nie w wodę)
     if (t > 0.10 && t < 2.5 && h.water.length < 180) {
       const rise = t < 1.4;
+      const wxm  = h.missile ? 0.45 : 1.0;
       const rate = rise ? (t < 0.5 ? 110 : 60) : 18;
-      const n    = Math.ceil(rate * dt);
+      const n    = Math.ceil(rate * wxm * dt);
       for (let i = 0; i < n && h.water.length < 180; i++) {
         if (rise) {
           const isCrown = t > 0.5 && Math.random() < 0.3;
@@ -221,12 +247,13 @@ export class ImpactFX {
       }
     }
 
-    // Dym
-    if (t > 0.2 && h.smoke.length < 90) {
-      const rate = t < 1.0 ? 14 : t < 3.0 ? 8 : t < 6.0 ? 4 : 1;
-      const n    = Math.ceil(rate * dt);
-      for (let i = 0; i < n && h.smoke.length < 90; i++) {
-        const oily = Math.random() < 0.55;
+    // Dym — rakieta: więcej czarnego dymu (paliwo rakietowe)
+    const smMax = h.missile ? 130 : 90;
+    if (t > 0.2 && h.smoke.length < smMax) {
+      const rateS = t < 1.0 ? 14 : t < 3.0 ? 8 : t < 6.0 ? 4 : 1;
+      const n     = Math.ceil(rateS * (h.missile ? 1.55 : 1.0) * dt);
+      for (let i = 0; i < n && h.smoke.length < smMax; i++) {
+        const oily = Math.random() < (h.missile ? 0.80 : 0.55);
         h.smoke.push({
           x: ix + (Math.random() - 0.5) * 90, y: iy - rand(55, 180),
           vx: (Math.random() - 0.5) * 14 + WIND * 1.2, vy: -rand(45, 100),
@@ -252,22 +279,26 @@ export class ImpactFX {
       }
     }
 
-    // Ogniska paliwa
+    // Ogniska paliwa — rakieta: więcej, szerszy rozkład (paliwo rozlewa się po pokładzie)
     if (t >= 1.4 && h.oilFires.length === 0) {
-      for (let i = 0; i < 10; i++) {
+      const oilN = h.missile ? 18 : 10;
+      const oilR = h.missile ? 460 : 340;
+      for (let i = 0; i < oilN; i++) {
         const side = ranSign();
         h.oilFires.push({
-          x: ix + side * rand(55, 340), y: iy + rand(-2, 7),
-          size: rand(7, 16), delay: rand(1.5, 3.2), seed: Math.random() * 1000,
+          x: ix + side * rand(55, oilR), y: iy + rand(-2, 7),
+          size: rand(h.missile ? 9 : 7, h.missile ? 22 : 16),
+          delay: rand(h.missile ? 1.2 : 1.5, 3.5), seed: Math.random() * 1000,
         });
       }
     }
 
-    // Ogień przy tafli
-    if (t > 0.28 && t < 3.5 && h.surfaceFire.length < 200) {
-      const rate   = t < 0.6 ? 110 : t < 1.2 ? 75 : t < 2.2 ? 45 : 20;
-      const n      = Math.ceil(rate * dt);
-      const spread = 22 + Math.min(t * 28, 90);
+    // Ogień przy tafli — rakieta: większy rozkład, więcej płomieni
+    const sfMax = h.missile ? 280 : 200;
+    if (t > 0.28 && t < 3.5 && h.surfaceFire.length < sfMax) {
+      const sfBase = t < 0.6 ? 110 : t < 1.2 ? 75 : t < 2.2 ? 45 : 20;
+      const n      = Math.ceil(sfBase * (h.missile ? 1.35 : 1.0) * dt);
+      const spread = (h.missile ? 32 : 22) + Math.min(t * (h.missile ? 38 : 28), h.missile ? 130 : 90);
       for (let i = 0; i < n && h.surfaceFire.length < 200; i++) {
         h.surfaceFire.push({
           x: ix + (Math.random() - 0.5) * spread * 2, y: surfY + rand(-4, 3),

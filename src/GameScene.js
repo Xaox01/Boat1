@@ -525,8 +525,8 @@ export class GameScene extends Phaser.Scene {
         const isMerchant = this.merchants.includes(target);
         target.hull -= damage;
         target.onHit();
-        this.cameras.main.shake(isMerchant ? 350 : 400, isMerchant ? 0.012 : 0.014);
-        this.cameras.main.flash(200, 255, 160, 60, false);
+        this._impactFX.triggerMissile(target.x, target.y);
+        this.cameras.main.flash(220, 255, 180, 50, false);
         if (target.hull <= 0) {
           if (isMerchant) target.destroyed = true;
           else target.startSinking();
