@@ -102,6 +102,73 @@
       padding:3px 10px; color:var(--accent);
       border:1px solid var(--accent); font-size:9px; letter-spacing:2px;
     }
+    #radio-badge {
+      display:none; padding:3px 10px;
+      color:#16c870; border:1px solid #16c870;
+      font-size:9px; letter-spacing:2px; cursor:pointer;
+    }
+    #radio-badge.pulsing { animation: radio-badge-pulse 0.55s step-end infinite; }
+    @keyframes radio-badge-pulse { 0%,100%{opacity:1} 50%{opacity:0.15} }
+
+    /* ── RADIO OVERLAY ──────────────────────────────────── */
+    #radio-overlay {
+      display:none; position:fixed;
+      top:52px; left:0; right:0; bottom:0;
+      z-index:160;
+      justify-content:center; align-items:center;
+      background:rgba(2,8,11,0.78);
+      backdrop-filter:blur(3px);
+      cursor:pointer;
+    }
+    #radio-overlay.active { display:flex; }
+    #radio-terminal {
+      width:460px; position:relative;
+      background:#020d0a;
+      border:1px solid #16c870;
+      padding:22px 26px 20px;
+      font-family:'Courier New',monospace;
+      color:#16c870;
+      box-shadow:0 0 32px rgba(22,200,112,0.12), inset 0 0 22px rgba(22,200,112,0.04);
+      cursor:default;
+    }
+    #radio-terminal::before {
+      content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
+      background:repeating-linear-gradient(0deg,
+        rgba(0,0,0,0.10) 0px, rgba(0,0,0,0.10) 1px,
+        transparent 1px, transparent 3px);
+    }
+    #radio-terminal > * { position:relative; z-index:2; }
+    #radio-header-bar {
+      font-size:9px; letter-spacing:3px; opacity:0.45;
+      text-align:center; margin-bottom:14px;
+    }
+    #radio-priority {
+      font-size:13px; letter-spacing:5px; font-weight:bold;
+      display:inline-block;
+      border:1px solid; padding:2px 12px;
+      margin-bottom:12px;
+    }
+    .radio-meta { font-size:8px; letter-spacing:1.5px; opacity:0.5; margin-bottom:2px; }
+    .radio-meta span { opacity:1; color:#e8ffe0; }
+    .radio-sep {
+      border:none; border-top:1px solid #16c87044;
+      margin:12px 0;
+    }
+    #radio-body {
+      font-size:10.5px; line-height:1.9; letter-spacing:0.6px;
+      min-height:72px; white-space:pre-line; color:#c8ffe0;
+    }
+    #radio-cursor {
+      display:inline-block; width:7px; height:11px;
+      background:#16c870; vertical-align:text-bottom;
+      animation:radio-cur 0.65s step-end infinite;
+    }
+    @keyframes radio-cur { 0%,100%{opacity:1} 50%{opacity:0} }
+    #radio-dismiss-hint {
+      font-size:8px; letter-spacing:2px; opacity:0.15;
+      text-align:center; margin-top:14px;
+      transition:opacity 0.4s;
+    }
 
     /* ── MAIN AREA ─────────────────────────────────────── */
     #main-area { display:flex; overflow:hidden; min-height:0; position:relative; }
@@ -1077,6 +1144,7 @@
 
     <div id="tb-meta">
       <span id="tb-utc">UTC 00:00:00</span>
+      <span id="radio-badge" onclick="document.getElementById('radio-overlay')?.classList.add('active')">◈ VLF</span>
       <span id="tb-badge">● PATROL BOJOWY</span>
     </div>
   </div>
@@ -1922,6 +1990,20 @@
     </div>
 
   </div><!-- #bottom-bar -->
+
+  <!-- ══ RADIO VLF OVERLAY ══ -->
+  <div id="radio-overlay">
+    <div id="radio-terminal">
+      <div id="radio-header-bar">◈ ◈ ◈  TRANSMISJA VLF / ELF — FLOTA PÓŁNOCNA  ◈ ◈ ◈</div>
+      <div id="radio-priority">RUTYNOWE</div>
+      <div class="radio-meta">OD: <span id="radio-from">SZTAB SF</span></div>
+      <div class="radio-meta">DO: <span id="radio-to">K-244 «NALIM»</span></div>
+      <div class="radio-meta">UTC: <span id="radio-utc">--:--:--</span></div>
+      <hr class="radio-sep">
+      <div id="radio-body"></div><span id="radio-cursor"></span>
+      <div id="radio-dismiss-hint">[R] POTWIERDŹ ODBIÓR · KLIKNIJ ABY KONTYNUOWAĆ</div>
+    </div>
+  </div>
 
 </div><!-- #game-shell -->
 

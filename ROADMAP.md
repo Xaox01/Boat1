@@ -136,7 +136,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Stacja BROŃ (F4) — rury torpedowe, zapasy bojowe, 3 karty uzbrojenia, live sync z HUD |
 | 🔴 | Zegar prawdziwy 24h — pora dnia wpływa na widoczność (peryskop) |
 | ✅ | Panel AWARIE (F6) — lista 8 systemów z paskami zdrowia, badge statusu, dziennik awarii 5Hz |
-| 🟡 | Wiadomości radiowe — przychodzące meldunki ze sztabu (fabuła) |
+| ✅ | Wiadomości radiowe VLF — meldunki ze sztabu, realia 1983, efekt maszyny do pisania |
 | 🟡 | Historia trajektorii łodzi — subtelna linia za okrętem |
 | 🟡 | Panel komputera torpedowego TMA (Track Motion Analysis) |
 | 🟢 | Peryskop — przełączalny widok z góry przy małej głębokości |

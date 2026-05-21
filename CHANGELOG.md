@@ -4,6 +4,30 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.68] — 2026-05-21
+
+### Dodano — System łączności radiowej VLF/ELF
+
+**src/RadioComms.js** (nowy plik):
+- Pula 12 wiadomości osadzonych w realiach zimnej wojny 1983:
+  - Timed (8): patrol_start, nato_carrier (USS Enterprise CVN-65), kal_context, orion_warning (P-3C), able_archer (FLASH!), weather, friendly_forces (K-324), petrov (incydent Pietrowa), rtb
+  - Event-triggered (3): first_contact (pierwsze HUNT wroga), torpedo_hit (trafienie ASROC), merchant_sunk
+- Efekt maszyny do pisania (22 znaki/s); `R` pomija/potwierdza; kliknięcie = to samo
+- Wiadomości kolejkowane — pokazują się jedna po drugiej
+- Po odebraniu: wpis w dzienniku pokładowym z tagiem `[VLF]`
+
+**index.html:**
+- `#radio-overlay` — terminalowy overlay VLF w stylu fosforowym (zielony na czarnym), aktywny przez CSS `.active`; z-index 160 (nad stacjami)
+- `#radio-badge` (`◈ VLF`) — migający wskaźnik w top barze przy nadchodzącej transmisji
+- CSS: scanlines na terminalu, glowy, animacja kursora, efekt fade-in wskazówki potwierdzenia
+
+**src/GameScene.js:**
+- Import i inicjalizacja `RadioComms` w `create()`
+- `_radio.update(dt)` w głównej pętli
+- Triggery eventów: HUNT → `first_contact`, trafienie ASROC → `torpedo_hit`, zatopienie merchanty → `merchant_sunk`
+
+---
+
 ## [0.10.67] — 2026-05-21
 
 ### Naprawiono — przycisk ← POWRÓĆ w ustawieniach

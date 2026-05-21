@@ -11,6 +11,7 @@ import { TutorialMission } from './TutorialMission.js';
 import { DevConsole } from './DevConsole.js';
 import { TorpedoLaunchFX } from './TorpedoLaunchFX.js';
 import { ImpactFX } from './ImpactFX.js';
+import { RadioComms } from './RadioComms.js';
 
 const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
@@ -118,6 +119,7 @@ export class GameScene extends Phaser.Scene {
     this._devConsole = new DevConsole(this);
     this._launchFX   = new TorpedoLaunchFX(this);
     this._impactFX   = new ImpactFX(this);
+    this._radio      = new RadioComms(this);
 
     // SLBM — rakiety balistyczne z panelu F5
     this._slbmMissiles = [];
@@ -490,6 +492,7 @@ export class GameScene extends Phaser.Scene {
           this.cameras.main.flash(180, 255, 140, 60, false);
           this._logEvent('TRAFIENIE — torpeda naprowadzana ASROC!');
           this._shipLog(`Trafienie torpedą samonaprowadzającą ASROC. Kadłub: ${Math.round(this.sub.hull * 100)}%.`, 'danger');
+          this._radio.trigger('torpedo_hit');
         }
       }
     }
@@ -624,6 +627,7 @@ export class GameScene extends Phaser.Scene {
             const mb = this._brg(this.sub.x, this.sub.y, m.x, m.y);
             const mr = this._rng(this.sub.x, this.sub.y, m.x, m.y);
             this._shipLog(`Cel handlowy zatopiony torpedą — ${m.label}. Nam. ${mb}°, dyst. ${mr}m.`, 'good');
+            this._radio.trigger('merchant_sunk');
             this.mission?.onMerchantDestroyed(m);
           } else {
             const mb = this._brg(this.sub.x, this.sub.y, m.x, m.y);
@@ -684,6 +688,7 @@ export class GameScene extends Phaser.Scene {
     this._devConsole.update(dt);
     this._launchFX.update(dt, this.camX);
     this._impactFX.update(dt, this.camX);
+    this._radio.update(dt);
     this._updateSLBMMissiles(dt);
     this._updatePings(dt);
     this.sonar.update(delta, this.sub, [...this.enemies.filter(e => !e._sinking), ...this.merchants], this.sub.torpedoes, this._activePings);
@@ -1174,7 +1179,7 @@ export class GameScene extends Phaser.Scene {
         const eb = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
         const er = this._rng(this.sub.x, this.sub.y, enemy.x, enemy.y);
         if (curr === STATE.ALERT)    { this._logEvent('Niszczyciel namierzył hałas — szuka...'); this._shipLog(`${enemy.label || 'Niszczyciel'} — ALERT. Wykryto sygnał akustyczny. Nam. ${eb}°, dyst. ${er}m.`, 'warn'); }
-        if (curr === STATE.HUNT)     { this._logEvent('NISZCZYCIEL ATAKUJE — zarzuty + ASROC!'); this._shipLog(`${enemy.label || 'Niszczyciel'} — ATAKUJE. Okręt namierzony. Nam. ${eb}°. Procedury unikania!`, 'danger'); }
+        if (curr === STATE.HUNT)     { this._logEvent('NISZCZYCIEL ATAKUJE — zarzuty + ASROC!'); this._shipLog(`${enemy.label || 'Niszczyciel'} — ATAKUJE. Okręt namierzony. Nam. ${eb}°. Procedury unikania!`, 'danger'); this._radio.trigger('first_contact'); }
         if (curr === STATE.SEARCH)   { this._logEvent('Niszczyciel przeszukuje obszar...'); this._shipLog(`${enemy.label || 'Niszczyciel'} — przeszukuje sektor. Nam. ${eb}°. Zachować ciszę.`, 'warn'); }
         if (curr === STATE.WITHDRAW) { this._logEvent('Niszczyciel wycofuje się!'); this._shipLog(`${enemy.label || 'Niszczyciel'} — WYCOFYWANIE. Nam. ${eb}°, dyst. ${er}m. Ślad olejowy na powierzchni.`, 'info'); }
         if (curr === STATE.PATROL && prev !== STATE.PATROL) { this._logEvent('Niszczyciel wrócił na patrol.'); this._shipLog(`${enemy.label || 'Niszczyciel'} — kontakt utracony. Powrót na patrol.`, 'info'); }
