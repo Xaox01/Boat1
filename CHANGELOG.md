@@ -6,12 +6,11 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ## [0.10.67] — 2026-05-21
 
-### Dodano — przycisk powrotu w panelu ustawień
+### Naprawiono — przycisk ← POWRÓĆ w ustawieniach
 
 **src/Menu.js:**
-- Przycisk `← POWRÓĆ` w stopce panelu ustawień — alternatywa dla ESC
-- Styl `.ms-back-btn` z efektem hover (podświetlenie na akcent przy najechaniu)
-- Tekst "ZMIANY ZAPISYWANE AUTOMATYCZNIE" przeniesiony do `.ms-save-note`
+- Przycisk `← POWRÓĆ` przeniesiony ze stopki do nagłówka panelu (`#menu-panel-hint`) — stopka była przykryta przez `#menu-bottom` (z-index: 10), co blokowało kliknięcia
+- Przycisk w nagłówku zawsze widoczny i klikalny niezależnie od długości listy ustawień
 
 ---
 

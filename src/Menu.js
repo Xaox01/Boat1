@@ -485,7 +485,6 @@ export class Menu {
       <div class="ms-hdr">// KONFIGURACJA PATROLU</div>
       ${rowsHTML}
       <div class="ms-foot">
-        <button class="ms-back-btn">← POWRÓĆ</button>
         <span class="ms-save-note">ZMIANY ZAPISYWANE AUTOMATYCZNIE</span>
       </div>
     </div>`;
@@ -515,7 +514,7 @@ export class Menu {
     const panelEl = this._el.querySelector('#menu-panel');
 
     titleEl.textContent = 'USTAWIENIA GRY';
-    hintEl.textContent  = '← → ZMIEŃ OPCJĘ  ·  ESC WRÓĆ';
+    hintEl.innerHTML    = '<button class="ms-back-btn">← POWRÓĆ</button><span style="opacity:0.55"> · ← → ZMIEŃ OPCJĘ</span>';
     listEl.style.display  = 'none';
     briefEl.style.display = 'none';
 
@@ -540,7 +539,7 @@ export class Menu {
       });
     });
 
-    panelEl.querySelector('.ms-back-btn')?.addEventListener('click', () => this._hideSettings());
+    hintEl.querySelector('.ms-back-btn')?.addEventListener('click', () => this._hideSettings());
 
     this._inSettings = true;
     window._gameSettings = this._getSettings();
