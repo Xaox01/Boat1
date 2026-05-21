@@ -81,6 +81,9 @@ export class Submarine {
     this._prevY    = y;   // for thermocline crossing detection
     this.trail     = [];
     this.botControl = false;
+
+    this._frameIdx = 0;   // pixel art animation clock (14 fps)
+    this._frameT   = 0;
   }
 
   // Liczba załadowanych rur (do odczytu przez HUD i GameScene)
@@ -241,6 +244,9 @@ export class Submarine {
     this._applyPhysics(dt);
     this._clampToWorld();
     this._updateSystems(dt);
+    // pixel art clock — 14 fps
+    this._frameT += dt;
+    while (this._frameT > 1 / 14) { this._frameT -= 1 / 14; this._frameIdx++; }
     this._draw();
     this._updateTorpedoes(dt);
   }
@@ -551,8 +557,8 @@ export class Submarine {
 
     // ── Kawitacja za śrubą ────────────────────────────────────────────────────
     if (this.cavitating) {
-      const px = this.x - Math.cos(this.angle) * 62;
-      const py = this.y - Math.sin(this.angle) * 62;
+      const px = this.x - Math.cos(this.angle) * 78;
+      const py = this.y - Math.sin(this.angle) * 78;
       const rx = -Math.sin(this.angle);
       const ry =  Math.cos(this.angle);
       for (let i = 0; i < 7; i++) {
@@ -580,257 +586,187 @@ export class Submarine {
       }
     }
 
-    // ── Kadłub — sprite Kilo-class (Projekt 877) ─────────────────────────────
+    // ── Kadłub — pixel art Kilo-class 16-bit (K-244 «NALIM») ─────────────────
     g.save();
     g.translateCanvas(this.x, this.y);
     g.rotateCanvas(this.angle);
 
-    const s = 0.20;   // skala: design 610px → ~122px w grze
+    const fi = this._frameIdx;
 
-    // Pomocnik: sampleuje cubic Bézier do lineTo (Phaser nie ma bezierCurveTo)
-    const cbez = (x0, y0, cp1x, cp1y, cp2x, cp2y, x1, y1, n = 10) => {
-      for (let i = 1; i <= n; i++) {
-        const t = i / n, mt = 1 - t;
-        const x = mt*mt*mt*x0 + 3*mt*mt*t*cp1x + 3*mt*t*t*cp2x + t*t*t*x1;
-        const y = mt*mt*mt*y0 + 3*mt*mt*t*cp1y + 3*mt*t*t*cp2y + t*t*t*y1;
-        g.lineTo(x, y);
-      }
+    // Paleta 16-bit
+    const C = {
+      hullDark:  0x0a0d14, hullMid:  0x1c2632,
+      hullLight: 0x2e3c4a, hullEdge: 0x465668, hullHi: 0x6a7c8e,
+      red:       0xe8413a, redDim:   0x8a201a,
+      amber:     0xffb347, green:    0x5fcf7a,
+      water3:    0x142838,
     };
 
-    // Cień pod kadłubem (przy płytkiej głębokości)
-    if (this.depthMetres < 5) {
-      g.fillStyle(0x000000, 0.30);
-      g.fillEllipse(0, 8 * s, 640 * s, 24 * s);
+    // Pixel helpers w układzie lokalnym
+    const pxf = (x, y, col) => { g.fillStyle(col, 1.0); g.fillRect(x, y, 1, 1); };
+    const rf  = (x, y, w, h, col) => { g.fillStyle(col, 1.0); g.fillRect(x, y, w, h); };
+
+    // Cień pod okrętem (przy małej głębokości)
+    if (this.depthMetres < 3) {
+      for (let y = 5; y <= 8; y++) {
+        const w = Math.round(60 * (1 - (y - 5) / 8));
+        for (let x = -w; x <= w; x++) {
+          if ((x + y) % 4 !== 0) pxf(x, y, C.water3);
+        }
+      }
     }
 
-    // ── Kadłub główny — Kilo-class ────────────────────────────────────────────
-    const hullBaseCol = this.hull > 0.6 ? 0x070b10
-                      : this.hull > 0.3 ? 0x100809 : 0x1e0606;
-    g.fillStyle(hullBaseCol, 0.97);
-    g.beginPath();
-    g.moveTo(-300 * s, 0);
-    cbez(-300*s,0, -320*s,-8*s, -310*s,-22*s, -280*s,-28*s);
-    g.lineTo(220 * s, -30 * s);
-    cbez(220*s,-30*s, 280*s,-30*s, 300*s,-18*s, 310*s,0);
-    cbez(310*s,0, 300*s,14*s, 280*s,22*s, 220*s,24*s);
-    g.lineTo(-260 * s, 24 * s);
-    cbez(-260*s,24*s, -290*s,22*s, -310*s,14*s, -300*s,0);
-    g.closePath();
-    g.fillPath();
+    const deep = this.depthMetres > 80;
 
-    // Górny highlight — pasmo księżycowe
-    g.fillStyle(0x7896af, 0.28);
-    g.fillEllipse(-30 * s, -26 * s, 490 * s, 9 * s);
+    // Profil kadłuba — krzywa cygarowa
+    const hullH = (x) => {
+      const t = (x + 70) / 140;
+      if (t < 0.15) return Math.round(4 + t / 0.15 * 4);
+      if (t < 0.85) return 8;
+      return Math.round(8 - (t - 0.85) / 0.15 * 6);
+    };
 
-    // Dolny mokry highlight
-    g.fillStyle(0x28466a, 0.22);
-    g.fillEllipse(-20 * s, 23 * s, 460 * s, 7 * s);
-
-    // Nity / linie poszycia
-    g.lineStyle(0.7, 0x324659, 0.35);
-    for (let xi = -260; xi < 260; xi += 38) {
-      g.strokeLineShape(new Phaser.Geom.Line(xi * s, -23 * s, xi * s, 21 * s));
+    // ── Kadłub główny ─────────────────────────────────────────────────────────
+    for (let x = -70; x <= 70; x++) {
+      const h = hullH(x);
+      if (h <= 0) continue;
+      const hi = deep ? C.hullEdge : C.hullHi;
+      const hl = deep ? C.hullMid  : C.hullLight;
+      rf(x, -h,    1, 1,   hi);
+      if (h > 1) rf(x, -h+1, 1, 1, hl);
+      if (h > 2) rf(x, -h+2, 1, h-2, C.hullMid);
+      rf(x, 0,     1, 1,   C.hullEdge);
+      rf(x, 1,     1, h,   C.hullDark);
     }
 
-    // Pozioma linia podziału burty
-    g.lineStyle(0.9, 0x1e3246, 0.50);
-    g.strokeLineShape(new Phaser.Geom.Line(-280 * s, 2 * s, 290 * s, 2 * s));
-
-    // ── Wyrzutnie torped przy dziobie (4 oczka) ───────────────────────────────
-    for (let i = 0; i < 4; i++) {
-      const ty = (-16 + i * 11) * s;
-      g.fillStyle(0x02050a, 1.0);
-      g.fillRect(265 * s, ty, 14 * s, 7 * s);
-      g.lineStyle(0.6, 0x506e82, 0.5);
-      g.strokeRect(265 * s, ty, 14 * s, 7 * s);
+    // Nity — pionowe linie poszycia
+    for (let x = -60; x < 60; x += 14) {
+      const h = hullH(x);
+      for (let y = -h + 2; y < h - 1; y += 4) pxf(x, y, C.hullDark);
     }
-    // Wskaźnik gotowości (zielony = rura załadowana)
+    for (let x = -65; x < 65; x++) pxf(x, 1, C.hullDark);
+
+    // ── Wyrzutnie torped (4 szczeliny przy dziobie) ───────────────────────────
+    for (let i = 0; i < 4; i++) rf(64, -3 + i * 2, 3, 1, C.hullDark);
     const tubeReady = this.tubes.some(t => t.loaded);
-    g.fillStyle(tubeReady ? 0x00cc44 : 0x885500, 0.80);
-    g.fillCircle(267 * s, -12 * s, 2);
+    pxf(65, -4, tubeReady ? C.green : C.redDim);
 
-    // ── Kiosk / Sail ───────────────────────────────────────────────────────────
-    g.fillStyle(0x080c12, 1.0);
-    g.beginPath();
-    g.moveTo(-30 * s, -28 * s);
-    cbez(-30*s,-28*s, -30*s,-54*s, -20*s,-72*s, 10*s,-74*s);
-    g.lineTo(60 * s, -74 * s);
-    cbez(60*s,-74*s, 80*s,-74*s, 88*s,-60*s, 88*s,-28*s);
-    g.closePath();
-    g.fillPath();
+    // ── Kiosk / Sail — trapezoidalny ─────────────────────────────────────────
+    rf(-4, -18, 22, 10, C.hullDark);
+    rf(-3, -19, 20,  1, C.hullMid);
+    rf(-2, -20, 18,  1, C.hullLight);
+    rf( 0, -19, 16,  1, C.hullMid);
+    rf(-3, -18,  1, 10, C.hullEdge);
+    rf(17, -18,  1, 10, C.hullEdge);
+    rf(2, -16, 3, 1, C.hullDark);
+    rf(8, -16, 3, 1, C.hullDark);
 
-    // Highlight kiosku — lewy brzeg
-    g.fillStyle(0x82a0b9, 0.20);
-    g.fillEllipse(18 * s, -54 * s, 55 * s, 38 * s);
-
-    // Okienka radarowe kiosku
-    g.fillStyle(0x04070c, 1.0);
-    g.fillRect(4 * s, -62 * s, 50 * s, 8 * s);
-
-    // Stery głębin kiosku (fairwater planes)
-    g.fillStyle(0x06090e, 1.0);
-    g.beginPath();
-    g.moveTo(-12 * s, -16 * s);
-    g.lineTo(-44 * s, -22 * s);
-    g.lineTo(-44 * s, -10 * s);
-    g.lineTo(-12 * s,  -4 * s);
-    g.closePath();
-    g.fillPath();
-
-    // ── Maszty przy małej głębokości ──────────────────────────────────────────
-    if (this.depthMetres < 40) {
-      g.fillStyle(0x06090e, 1.0);
-      // Peryskop główny (od wierzchu kiosku -74 w górę o 28)
-      g.fillRect(28 * s, -102 * s, 3 * s, 28 * s);
-      // Głowica peryskopu
-      g.fillCircle(29.5 * s, -106 * s, 4 * s);
-      // Soczewka peryskopu — migocze
-      const lensFlick = 0.6 + Math.sin(Date.now() * 0.003) * 0.2;
-      g.fillStyle(0xfff0c8, lensFlick * 0.60);
-      g.fillCircle(31 * s, -106 * s, 1.6 * s);
-
-      // Antena radarowa (od -74 w górę o 36)
-      g.fillStyle(0x06090e, 1.0);
-      g.fillRect(50 * s, -110 * s, 2.5 * s, 36 * s);
-      // Talerz radaru
-      g.beginPath();
-      g.moveTo(48 * s, -106 * s);
-      g.lineTo(60 * s, -110 * s);
-      g.lineTo(60 * s, -106 * s);
-      g.lineTo(48 * s, -102 * s);
-      g.closePath();
-      g.fillPath();
-
-      // Maszt snorchla
-      g.fillStyle(0x06090e, 1.0);
-      g.fillRect(70 * s, -92 * s, 1.6 * s, 18 * s);
-      // Wskaźnik ładowania snorchla
-      g.fillStyle(this.snorkeling ? 0x44ff66 : 0x55cc88, this.snorkeling ? 0.90 : 0.55);
-      g.fillCircle(70.8 * s, -93 * s, 2.5);
+    // Światło nawigacyjne — czerwone, mruga co 7 klatek
+    const navBlink = (fi % 14) < 7;
+    if (navBlink) {
+      pxf(7, -14, C.red);
+      pxf(6, -14, C.redDim); pxf(8, -14, C.redDim);
+      pxf(7, -15, C.redDim); pxf(7, -13, C.redDim);
+    } else {
+      pxf(7, -14, C.redDim);
     }
+
+    // ── Peryskop i antena (przy głębokości < 40m) ─────────────────────────────
+    if (this.depthMetres < 40) {
+      for (let y = -20; y > -28; y--) pxf(6, y, C.hullMid);
+      rf(5, -29, 3, 2, C.hullDark);
+      pxf(5, -28, C.hullLight);
+      if (fi % 28 < 14) pxf(7, -28, C.amber);
+
+      for (let y = -20; y > -30; y--) pxf(11, y, C.hullMid);
+      rf(10, -30, 5, 1, C.hullMid);
+      pxf(14, -30, C.hullLight);
+
+      for (let y = -20; y > -27; y--) pxf(15, y, C.hullMid);
+      pxf(15, -21, this.snorkeling ? C.green : 0x3a8a4a);
+    }
+
+    // ── Stery głębin (przy kiosku) ────────────────────────────────────────────
+    rf(-12, -3, 6, 1, C.hullDark);
+    rf(-14, -2, 8, 1, C.hullMid);
+    rf(-14, -1, 8, 1, C.hullDark);
 
     // ── Stery rufowe ───────────────────────────────────────────────────────────
-    g.fillStyle(0x06090e, 1.0);
-    // Sterołan poziomy
-    g.beginPath();
-    g.moveTo(-280 * s, -8 * s);
-    g.lineTo(-315 * s, -2 * s);
-    g.lineTo(-315 * s,  8 * s);
-    g.lineTo(-280 * s, 12 * s);
-    g.closePath();
-    g.fillPath();
-    // Sterołan pionowy górny
-    g.beginPath();
-    g.moveTo(-285 * s, -28 * s);
-    g.lineTo(-300 * s, -54 * s);
-    g.lineTo(-280 * s, -54 * s);
-    g.lineTo(-260 * s, -28 * s);
-    g.closePath();
-    g.fillPath();
-    // Sterołan pionowy dolny
-    g.beginPath();
-    g.moveTo(-285 * s, 24 * s);
-    g.lineTo(-300 * s, 48 * s);
-    g.lineTo(-280 * s, 48 * s);
-    g.lineTo(-260 * s, 24 * s);
-    g.closePath();
-    g.fillPath();
+    rf(-78, -2,  8, 1, C.hullMid);
+    rf(-80, -1, 10, 1, C.hullDark);
+    rf(-80,  0, 10, 1, C.hullMid);
+    rf(-78,  1,  8, 1, C.hullDark);
+    rf(-72, -14, 1, 6, C.hullMid);
+    rf(-71, -16, 1, 8, C.hullMid);
+    rf(-70, -10, 1, 4, C.hullDark);
+    rf(-73, -10, 1, 4, C.hullDark);
+    rf(-72,  8, 1, 6, C.hullMid);
+    rf(-71,  8, 1, 8, C.hullMid);
 
-    // ── Śruba — 5-łopatowa, widok perspektywiczny z boku ─────────────────────
-    const propSpd   = Math.abs(this.enginePower) * (this.battery > 0 ? 1 : 0);
-    const propAngle = (Date.now() * 0.003 * (1 + propSpd * 2.2) * (this.cavitating ? 1.9 : 1)) % (Math.PI * 2);
-    const propX     = -310 * s;
-    // Hub
-    g.fillStyle(0x0a0d12, 1.0);
-    g.fillCircle(propX, 0, 4 * s);
-    // 5 łopat — elipsy perspektywiczne (szerokość zależy od kąta)
-    for (let i = 0; i < 5; i++) {
-      const ang    = propAngle + (i / 5) * Math.PI * 2;
-      const wPersp = (Math.abs(Math.cos(ang)) * 16 + 2) * s;
-      const yOff   = Math.sin(ang) * 14 * s;
-      const alpha  = 0.4 + Math.abs(Math.cos(ang)) * 0.5;
-      g.fillStyle(0x141c24, alpha);
-      g.fillEllipse(propX, yOff, 4 * s, wPersp * 2);
-    }
+    // ── Śruba — 6-klatkowa animacja fazowa ────────────────────────────────────
+    const px0 = -78, py0 = 0;
+    rf(px0, py0 - 1, 2, 3, C.hullDark);
+    const propFI = this.battery > 0 ? fi : 0;
+    const propFrame = propFI % 6;
+    const propPhases = [
+      [[px0-2, py0-4, 1, 9], [px0-1, py0-5, 1, 11], [px0, py0-5, 1, 11]],
+      [[px0-2, py0-3, 1, 7], [px0-1, py0-4, 1, 9],  [px0, py0-4, 1, 9]],
+      [[px0-1, py0-2, 2, 5], [px0,   py0-2, 1, 5]],
+      [[px0-1, py0,   2, 1]],
+      [[px0-1, py0-2, 2, 5], [px0,   py0-2, 1, 5]],
+      [[px0-2, py0-3, 1, 7], [px0-1, py0-4, 1, 9],  [px0, py0-4, 1, 9]],
+    ];
+    const propCol = this.cavitating ? C.hullLight : C.hullMid;
+    for (const r of propPhases[propFrame]) rf(r[0], r[1], r[2], r[3], propCol);
+
+    // ── Światła nawigacyjne ───────────────────────────────────────────────────
+    pxf(-79, 0, C.red);
+    pxf( 70, 0, C.green);
 
     // ── Drzwi wyrzutni (animowane przy odpaleniu) ─────────────────────────────
     const doorFrac = this.scene._launchFX?.doorOpenFraction ?? 0;
     if (doorFrac > 0) {
       const dAngle = doorFrac * 0.9;
       g.save();
-      g.translateCanvas(310 * s, -7 * s);
-      g.save();
-      g.rotateCanvas(-dAngle);
-      g.fillStyle(0xe8413a, 0.92);
-      g.fillRect(0, -3 * s, 10 * s, 3 * s);
+      g.translateCanvas(67, -3);
+      g.save(); g.rotateCanvas(-dAngle);
+      g.fillStyle(C.red, 0.92); g.fillRect(0, -2, 8, 2);
       g.restore();
-      g.save();
-      g.rotateCanvas(dAngle);
-      g.fillStyle(0xe8413a, 0.92);
-      g.fillRect(0, 1 * s, 10 * s, 3 * s);
+      g.save(); g.rotateCanvas(dAngle);
+      g.fillStyle(C.red, 0.92); g.fillRect(0, 1, 8, 2);
       g.restore();
       g.restore();
     }
-
-    // ── Światła nawigacyjne ───────────────────────────────────────────────────
-    g.fillStyle(0xff2222, 1.0); g.fillCircle(-310 * s, 0, 2.0);  // rufowe czerwone
-    g.fillStyle(0x22dd22, 1.0); g.fillCircle( 310 * s, 0, 2.0);  // dziobowe zielone
-
-    // Cień kiosku na kadłubie
-    g.fillStyle(0x000000, 0.18);
-    g.fillEllipse(20 * s, -20 * s, 110 * s, 10 * s);
 
     // ── Uszkodzenia kadłuba ───────────────────────────────────────────────────
     if (this.hull < 0.6) {
       const ca = (0.6 - this.hull) * 3.5;
-      g.lineStyle(1.2, 0xff5533, ca);
-      g.strokeLineShape(new Phaser.Geom.Line(-100 * s,  8 * s, -60 * s, -16 * s));
-      g.strokeLineShape(new Phaser.Geom.Line(  60 * s, -15 * s, 110 * s,  12 * s));
+      g.lineStyle(1, 0xff5533, ca);
+      g.strokeLineShape(new Phaser.Geom.Line(-40, 4, -25, -5));
+      g.strokeLineShape(new Phaser.Geom.Line(20, -5, 40, 5));
       if (this.hull < 0.3) {
-        g.strokeLineShape(new Phaser.Geom.Line(0, -24 * s, 30 * s, 15 * s));
-        g.strokeLineShape(new Phaser.Geom.Line(-20 * s, 0, 20 * s, 24 * s));
-        if (Math.random() < 0.28) {
-          g.fillStyle(0x885522, 0.38);
-          g.fillCircle(
-            Phaser.Math.Between(-80, 80) * s,
-            Phaser.Math.Between(-20, 20) * s,
-            Phaser.Math.Between(2, 5)
-          );
-        }
+        g.strokeLineShape(new Phaser.Geom.Line(0, -7, 10, 5));
+        if (Math.random() < 0.22) pxf(Phaser.Math.Between(-30, 30), Phaser.Math.Between(-4, 4), 0x885522);
       }
     }
 
     // ── Efekty systemowe ──────────────────────────────────────────────────────
-    // Uszkodzony napęd — dym z maszynowni (rufa)
     const napedH = this.systems.naped?.health ?? 1.0;
     if (napedH < 0.65 && Math.random() < 0.85) {
       const intensity = (0.65 - napedH) / 0.65;
       g.fillStyle(0x445544, intensity * 0.38 * (0.5 + Math.random() * 0.5));
-      g.fillCircle(
-        Phaser.Math.Between(-200, -100) * s,
-        Phaser.Math.Between(-15, 15) * s,
-        Phaser.Math.Between(3, 9)
-      );
+      g.fillRect(Phaser.Math.Between(-78, -50), Phaser.Math.Between(-5, 5), 2, 2);
       if (napedH < 0.25 && Math.random() < 0.4) {
         g.fillStyle(0x774422, 0.35);
-        g.fillCircle(
-          Phaser.Math.Between(-190, -120) * s,
-          Phaser.Math.Between(-12, 12) * s,
-          Phaser.Math.Between(2, 5)
-        );
+        g.fillRect(Phaser.Math.Between(-74, -55), Phaser.Math.Between(-4, 4), 2, 2);
       }
     }
 
-    // Uszkodzony balast — bąble z zaworów ciśnieniowych
     const balastH = this.systems.balast?.health ?? 1.0;
     if (balastH < 0.55 && Math.random() < 0.72) {
       const bInt = (0.55 - balastH) / 0.55;
       g.fillStyle(0x88ccff, bInt * 0.55 + 0.12);
-      g.fillCircle(
-        Phaser.Math.Between(-140, 140) * s,
-        Phaser.Math.Between(-24, 6) * s,
-        Phaser.Math.Between(1, 4)
-      );
+      g.fillCircle(Phaser.Math.Between(-50, 50), Phaser.Math.Between(-8, 2), 2);
     }
 
     g.restore();

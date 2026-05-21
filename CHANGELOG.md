@@ -4,9 +4,31 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.57] — 2026-05-21
+
+### Zmieniono — Sprite gracza: pixel art Kilo-class K-244 «NALIM» (16-bit)
+
+**Submarine.js — zamiana sprite'u Béziera na pixel art:**
+
+- **Kadłub pixel art** renderowany kolumna po kolumnie przez `fillRect(x,y,1,1)` — profil cygarowy Kilo-class z funkcją `hullH(x)` zamiast krzywych
+- **Paleta 16-bit** (6 odcieni stali: hullDark / hullMid / hullLight / hullEdge / hullHi; red / redDim / amber / green)
+- **Animacja 14 fps** — zegar `_frameIdx` / `_frameT` w `update()` napędza efekty czasowe
+- **Kiosk trapezoidalny** z portholami, pionowymi krawędziami i blokiem kominkowym
+- **Peryskop + antena radarowa + maszt snorchla** (widoczne < 40m głębokości); mrugająca soczewka ambra (co 28 klatek)
+- **Światło nawigacyjne czerwone** na kiosku mruga co 14 klatek (7 on / 7 off)
+- **Śruba 6-fazowa** animowana jako tablice `fillRect`; kolor jasny przy kawitacji
+- **Drzwi wyrzutni** otwierają się animacyjnie przy odpaleniu torpedy (`doorOpenFraction`)
+- **Wskaźnik gotowości wyrzutni** — zielony piksel przy dziobie gdy rura załadowana
+- **Uszkodzenia kadłuba** — rysy i migające piksele przy hull < 0.6 / 0.3
+- **Efekty systemów** — dym silnika przy naped.health < 0.65, bąble balatsu przy balast.health < 0.55
+- **Cień przy powierzchni** — piskselowy cień pod łodzią gdy depthMetres < 3
+- **Zmiana kolorystyki przy głębokości** — paleta ciemniejsza gdy depth > 80m
+
+---
+
 ## [0.10.56] — 2026-05-21
 
-### Zmieniono — Sprite gracza: okręt klasy Kilo (Projekt 877)
+### Zmieniono — Sprite gracza: okręt klasy Kilo (Projekt 877) — Bézier (zastąpione przez 0.10.57)
 
 **Submarine.js — kompletna wymiana sprite'u kadłuba:**
 
