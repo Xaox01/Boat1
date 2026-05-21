@@ -835,7 +835,7 @@ export class GameScene extends Phaser.Scene {
     // ── Peryskop — kontakty wizualne + klasyfikacja ───────────────────────────
     const VISUAL_RANGE = 3500;
     const sonarIdMap   = new Map((this.sonar.contacts || []).map((c, i) => [c.enemy, `K-${i + 1}`]));
-    const allUnits     = [...this.enemies.filter(e => !e.destroyed && !e._sinking), ...this.merchants.filter(m => !m.destroyed)];
+    const allUnits     = [...this.enemies.filter(e => !e.destroyed), ...this.merchants.filter(m => !m.destroyed)];
 
     window._sonar.visualContacts = allUnits
       .map((e, vIdx) => {
@@ -851,6 +851,9 @@ export class GameScene extends Phaser.Scene {
           shipType: e.shipType,
           dir:      e.dir ?? 1,
           spd:      Math.abs(e.patrolSpeed ?? 60),
+          hull:     e.hull ?? 1,
+          sinking:  e._sinking ?? false,
+          onFire:   (e._fireParts?.length ?? 0) > 3,
         };
       })
       .filter(Boolean);

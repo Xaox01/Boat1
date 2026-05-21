@@ -2839,9 +2839,22 @@
     const isWarship  = c.cls === 'WARSHIP';
     const sw  = sh * (isWarship ? 4.2 : 7.0);
     const alpha = 0.65 + prox * 0.32;
+    const hull  = c.hull ?? 1;
+    const sinking = c.sinking ?? false;
+    const onFire  = c.onFire  ?? false;
+
+    // Kąt przechyłu — okręty tonące przechylają się na bok
+    const tiltAngle = sinking ? Math.min(Math.PI * 0.38, (1 - hull) * Math.PI * 0.55) : 0;
+
     const baseCol = isWarship ? '#c88830' : c.cls === 'MERCHANT' ? '#2e8899' : '#8a8a30';
 
     ctx.save();
+    // Przechył okrętu (obrót wokół linii wody)
+    if (tiltAngle > 0) {
+      ctx.translate(px, py);
+      ctx.rotate(tiltAngle * d);
+      ctx.translate(-px, -py);
+    }
     ctx.globalAlpha = alpha;
 
     if (isWarship) {
@@ -2962,14 +2975,56 @@
       ctx.fillRect(wx2, py - sh * 0.06, sh * 8.0, sh * 0.18);
     }
 
+    // ── Ogień i dym na uszkodzonych okrętach ─────────────
+    if (onFire || hull < 0.75) {
+      const dmg  = 1 - hull;
+      const fInt = onFire ? Math.max(0.5, dmg) : dmg * 0.45;
+      const fireY = py - sh * (isWarship ? 0.80 : 0.55);
+
+      // Kolumna czarnego dymu (widoczna z daleka)
+      for (let s = 0; s < 5; s++) {
+        const sf  = (t * 0.45 + s * 0.55) % 1;
+        const sx  = px + (Math.sin(t * 1.1 + s) * sh * 0.25);
+        const sy  = fireY - sf * sh * (2.8 + dmg * 3.0);
+        const sr  = sh * (0.18 + sf * 0.55 + dmg * 0.25);
+        ctx.globalAlpha = alpha * fInt * (1 - sf) * 0.55;
+        ctx.fillStyle = hull < 0.35 ? '#111108' : '#443322';
+        ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Płomienie (tylko gdy onFire lub hull < 0.45)
+      if (onFire || hull < 0.45) {
+        for (let f = 0; f < 4; f++) {
+          const ff  = (t * 2.2 + f * 0.78) % 1;
+          const fx  = px + (f - 1.5) * sw * 0.18 + Math.sin(t * 3 + f) * sh * 0.12;
+          const fy  = fireY - ff * sh * (0.6 + dmg * 0.8);
+          const fr  = sh * (0.10 + (1 - ff) * 0.22 * fInt);
+          ctx.globalAlpha = alpha * fInt * (1 - ff) * 0.80;
+          ctx.fillStyle = ff < 0.4 ? '#ffffff' : ff < 0.65 ? '#ffcc22' : '#ff5500';
+          ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      ctx.globalAlpha = alpha;
+    }
+
+    // Połówkowe zanurzenie tonącego okrętu (korpus chowany za horyzont)
+    if (sinking) {
+      const submerge = Math.min(sh * 1.2, (1 - hull) * sh * 2.4);
+      ctx.globalAlpha = alpha * 0.92;
+      ctx.fillStyle = '#0c1e2c';  // kolor wody zakrywa dolną część
+      ctx.fillRect(px - sw * 0.55, py - submerge + sh * 0.12, sw * 1.1, submerge + sh * 0.25);
+    }
+
     // Etykieta kontaktu
     const flashAge = Date.now() - (_pClassifyFlash[c.id] || 0);
     const flashing = flashAge < 1800;
-    ctx.fillStyle = flashing ? '#5fffb0' : baseCol;
+    const labelCol = sinking ? '#e8413a' : onFire ? '#ff8822' : (flashing ? '#5fffb0' : baseCol);
+    ctx.fillStyle = labelCol;
     ctx.globalAlpha = flashing ? (0.7 + 0.3 * Math.sin(flashAge * 0.012)) : alpha;
     ctx.font = `bold ${Math.round(7 + prox * 6)}px "JetBrains Mono"`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    ctx.fillText(c.id + (flashing ? ' ✓' : ''), px, py - sh * (isWarship ? 2.12 : 0.95));
+    const labelSuffix = sinking ? ' ▼' : flashing ? ' ✓' : '';
+    ctx.fillText(c.id + labelSuffix, px, py - sh * (isWarship ? 2.12 : 0.95));
     ctx.globalAlpha = 1;
     ctx.restore();
   }
@@ -2977,7 +3032,9 @@
   // ── TDC — Komputer Danych Celu ───────────────────────
   function _psUpdateTDC(inView) {
     const selectedId = window._sonar?.selectedId;
-    const c = inView.find(x => x.id === selectedId) || (inView.length ? inView[0] : null);
+    const active = inView.filter(x => !x.sinking);
+    const c = inView.find(x => x.id === selectedId && !x.sinking)
+           || (active.length ? active[0] : null);
     const setNA = el => { el.className = 'ps-tdc-val na'; };
     if (!c) {
       _psTDC.sel.textContent = 'BRAK CELU';
@@ -3027,13 +3084,14 @@
 
   // ── ESM — Emisje elektromagnetyczne ──────────────────
   function _psUpdateESM(inView) {
-    if (inView.length === 0) {
+    const emitters = inView.filter(c => !c.sinking);
+    if (emitters.length === 0) {
       _psEsmList.innerHTML = '<div class="ss-empty">BRAK EMISJI W ZASIĘGU</div>';
       return;
     }
     const t = Date.now() * 0.001;
     let html = '';
-    for (const c of inView) {
+    for (const c of emitters) {
       const isWarship = c.cls === 'WARSHIP';
       const distKm    = (c.distFrac * 3.5).toFixed(1);
       const rawStr    = Math.max(1, Math.round((1 - c.distFrac / 0.62) * 5));
@@ -3074,14 +3132,22 @@
     const lblMap = { WARSHIP:'OKRĘT WOJ.', MERCHANT:'JED. CYW.', SURFACE:'NAWODNY', UNK:'NIEZNANY' };
     _psCvList.innerHTML = inView.map(c => {
       const angDiff = Math.round(((c.bearing - _pBearing + 540) % 360) - 180);
-      const sign = angDiff >= 0 ? '+' : '';
-      const col  = colMap[c.cls] || 'var(--ink-dim)';
-      const lbl  = lblMap[c.cls] || 'NIEZNANY';
-      const rng  = (c.distFrac * 3.5).toFixed(1);  // dystans w km (VISUAL_RANGE=3500px)
+      const sign  = angDiff >= 0 ? '+' : '';
+      const rng   = (c.distFrac * 3.5).toFixed(1);
       const flash = (Date.now() - (_pClassifyFlash[c.id] || 0)) < 1800;
-      return `<div class="ps-row${flash ? ' sel' : ''}" data-cid="${c.id}">
+
+      let col = colMap[c.cls] || 'var(--ink-dim)';
+      let lbl = lblMap[c.cls] || 'NIEZNANY';
+      let suffix = flash ? ' ✓' : '';
+      let rowStyle = '';
+      if (c.sinking) {
+        col = 'var(--accent)'; lbl = 'TONIE'; suffix = ' ▼'; rowStyle = 'opacity:0.75;';
+      } else if (c.onFire || (c.hull ?? 1) < 0.5) {
+        col = '#ff8822'; suffix = ' ▲';
+      }
+      return `<div class="ps-row${flash && !c.sinking ? ' sel' : ''}" data-cid="${c.id}" style="${rowStyle}">
         <span class="ps-cid" style="color:${col}">${c.id}</span>
-        <span class="ps-cls" style="color:${col}">${lbl}${flash ? ' ✓' : ''}</span>
+        <span class="ps-cls" style="color:${col}">${lbl}${suffix}</span>
         <span class="ps-off">${sign}${angDiff}°</span>
         <span class="ps-dst">${rng}km</span>
       </div>`;
