@@ -4,6 +4,26 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.59] — 2026-05-21
+
+### Zmieniono — Ulepszony system wystrzeliwania SLBM
+
+**index.html — nowy IIFE SLBM v2:**
+
+- **Multi-select silosów** — możliwość zaznaczenia wielu silosów naraz (kliknięcie toggle); zaznaczone wyświetlane z czerwoną elipsą na canvasie
+- **Salwa wielu silosów** — UZBRÓJ zbroi wszystkie zaznaczone; ODPAL kolejkuje starty z przerwą 1,8s; pasek misji wyświetla `T+1.2 · SALWA 2/4`
+- **Integracja z grą** — `spawnMissile()` wywołuje `window._slbmLaunch()` → rakieta pojawia się w widoku CONN; wstrząs kamery i flash przy przebijaniu powierzchni
+- **Lepsza animacja** — `rings[]` (rozszerzające się elipsy przy tafli), `steam[]` (kolumna białej pary), 100 cząsteczek rozbryzgu wody
+- **Fix literówki** `slvo.queue` → `salvo.queue` w `doAbort()`
+
+**src/GameScene.js — nowe metody:**
+
+- `_spawnSLBMMissile()` — tworzy obiekt rakiety (fazy: eject → underwater → breach → boost → gone), wstrząs kamery 280ms
+- `_updateSLBMMissiles(dt)` — symulacja fizyki i renderowania rakiety na canvasie gry przez `_slbmGfx`
+- `window._slbmLaunch` — bridge HTML→Phaser
+
+---
+
 ## [0.10.58] — 2026-05-21
 
 ### Dodano — Stacja SLBM (F5) — Panel wystrzeliwania rakiet balistycznych

@@ -118,6 +118,13 @@ export class GameScene extends Phaser.Scene {
     this._launchFX   = new TorpedoLaunchFX(this);
     this._impactFX   = new ImpactFX(this);
 
+    // SLBM — rakiety balistyczne z panelu F5
+    this._slbmMissiles = [];
+    this._slbmGfx = this.add.graphics().setDepth(19);
+
+    // Bridge: panel HTML → gra
+    window._slbmLaunch = () => this._spawnSLBMMissile();
+
     // API testowe dla Playwright / skryptów zewnętrznych
     window.__gameTest = {
       exec:    (cmd) => this._devConsole._exec(cmd),
@@ -667,6 +674,7 @@ export class GameScene extends Phaser.Scene {
     this._devConsole.update(dt);
     this._launchFX.update(dt, this.camX);
     this._impactFX.update(dt, this.camX);
+    this._updateSLBMMissiles(dt);
     this._updatePings(dt);
     this.sonar.update(delta, this.sub, [...this.enemies.filter(e => !e._sinking), ...this.merchants], this.sub.torpedoes, this._activePings);
     this._exportSonarState();
@@ -705,6 +713,7 @@ export class GameScene extends Phaser.Scene {
     this.crushLine.x     = -this.camX;
     this.bearingGfx.x  = -this.camX;
     this._pingGfx.x    = -this.camX;
+    this._slbmGfx.x    = -this.camX;
     for (const e of this.enemies) {
       e.gfx.x     = -this.camX;
       e.fireGfx.x = -this.camX;
@@ -2116,6 +2125,126 @@ export class GameScene extends Phaser.Scene {
     // Etykiety km
     for (const k of this._mapKmTxt) {
       k.text.setPosition(wx(k.worldX), MY - 1);
+    }
+  }
+
+  // ── SLBM — rakiety balistyczne ────────────────────────────────────────────
+
+  _spawnSLBMMissile() {
+    this._slbmMissiles.push({
+      x: this.sub.x,
+      y: this.sub.y,
+      vy: -120,   // powolne wyrzucenie sprężonym powietrzem
+      vx: 0,
+      phase: 'eject',
+      t: 0,
+      surfaced: false,
+      bubbles: [],
+      exhaust: [],
+    });
+    this.cameras.main.shake(280, 0.005);
+  }
+
+  _updateSLBMMissiles(dt) {
+    const g   = this._slbmGfx;
+    const SURF = this.SURFACE_Y;
+    g.clear();
+
+    for (let i = this._slbmMissiles.length - 1; i >= 0; i--) {
+      const m = this._slbmMissiles[i];
+      m.t += dt;
+
+      if (m.phase === 'eject') {
+        m.vy -= 200 * dt;
+        m.y  += m.vy * dt;
+        for (let j = 0; j < 5; j++) m.bubbles.push({
+          x: m.x + (Math.random() - 0.5) * 14,
+          y: m.y + Math.random() * 12,
+          vy: -(30 + Math.random() * 60),
+          r: 2 + Math.random() * 4,
+          life: 0, maxLife: 1.5 + Math.random(),
+        });
+        if (m.vy < -320) m.phase = 'underwater';
+      }
+      else if (m.phase === 'underwater') {
+        m.vy -= 380 * dt;
+        m.y  += m.vy * dt;
+        for (let j = 0; j < 10; j++) m.bubbles.push({
+          x: m.x + (Math.random() - 0.5) * 18,
+          y: m.y + 10 + Math.random() * 10,
+          vy: -(20 + Math.random() * 70),
+          r: 1.5 + Math.random() * 4,
+          life: 0, maxLife: 1.2 + Math.random() * 1.2,
+        });
+        if (m.y <= SURF) {
+          m.phase = 'breach';
+          m.surfaced = true;
+          m.y = SURF;
+          this._impactFX.trigger(m.x, SURF);
+          this.cameras.main.shake(500, 0.016);
+          this.cameras.main.flash(160, 255, 245, 210, false);
+        }
+      }
+      else if (m.phase === 'breach') {
+        m.vy -= 500 * dt;
+        m.y  += m.vy * dt;
+        if (m.t > 0.4) m.phase = 'boost';
+      }
+      else if (m.phase === 'boost') {
+        m.vy  -= 1100 * dt;
+        m.vx  += (m.vx < 0 ? 1 : -1) * 6 * dt;  // lekkie pochylenie
+        m.y   += m.vy * dt;
+        m.x   += m.vx * dt;
+        for (let j = 0; j < 6; j++) m.exhaust.push({
+          x: m.x + (Math.random() - 0.5) * 8,
+          y: m.y + 28 + Math.random() * 6,
+          vy: 160 + Math.random() * 220,
+          vx: (Math.random() - 0.5) * 30,
+          r: 5 + Math.random() * 12,
+          life: 0, maxLife: 0.2 + Math.random() * 0.45,
+        });
+      }
+
+      // Bąble — ruch i sprzątanie
+      for (let j = m.bubbles.length - 1; j >= 0; j--) {
+        const b = m.bubbles[j];
+        b.life += dt; b.y += b.vy * dt;
+        if (b.life >= b.maxLife || b.y < SURF) { m.bubbles.splice(j, 1); continue; }
+        const a = (1 - b.life / b.maxLife) * 0.75;
+        g.fillStyle(0x88ccff, a * 0.38);
+        g.fillCircle(b.x, b.y, b.r);
+        g.fillStyle(0xddf0ff, a * 0.7);
+        g.fillCircle(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.3);
+      }
+
+      // Ogień silnika — efekt additive nie dostępny w Phaser Graphics,
+      // rysujemy jako przejście kolorów białe→pomarańczowe→czerwone
+      for (let j = m.exhaust.length - 1; j >= 0; j--) {
+        const e = m.exhaust[j];
+        e.life += dt; e.x += e.vx * dt; e.y += e.vy * dt;
+        if (e.life >= e.maxLife) { m.exhaust.splice(j, 1); continue; }
+        const lt = e.life / e.maxLife;
+        const a  = (1 - lt) * 0.85;
+        const col = lt < 0.25 ? 0xfffce0 : lt < 0.55 ? 0xffaa30 : lt < 0.8 ? 0xff6010 : 0xcc2800;
+        g.fillStyle(col, a);
+        g.fillCircle(e.x, e.y, e.r * (1 + lt * 0.6));
+      }
+
+      // Ciało rakiety
+      const sub = m.y > SURF;
+      const bCol = sub ? 0x1c2b3a : 0xd4cca8;
+      g.fillStyle(bCol, 1);
+      g.fillTriangle(m.x, m.y - 26, m.x - 5, m.y - 14, m.x + 5, m.y - 14);
+      g.fillRect(m.x - 5, m.y - 14, 10, 40);
+      if (!sub) {
+        g.fillStyle(0xcc1810, 1);
+        g.fillRect(m.x - 5, m.y - 6, 10, 4);
+      }
+      g.fillStyle(sub ? 0x0d1820 : 0x9a9282, 1);
+      g.fillTriangle(m.x - 5, m.y + 22, m.x - 12, m.y + 30, m.x - 5, m.y + 30);
+      g.fillTriangle(m.x + 5, m.y + 22, m.x + 12, m.y + 30, m.x + 5, m.y + 30);
+
+      if (m.y < SURF - 1200 || m.t > 14) this._slbmMissiles.splice(i, 1);
     }
   }
 

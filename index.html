@@ -2986,12 +2986,14 @@
 })();
 
 // ══════════════════════════════════════════════════════════════════
-// PANEL SLBM — stacja F5
+
+// ══════════════════════════════════════════════════════════════════
+// PANEL SLBM — stacja F5 (v2: multi-select, salwa, integracja z grą)
 // ══════════════════════════════════════════════════════════════════
 (function initSLBM() {
-  const cv   = document.getElementById('slbm-cv');
+  const cv  = document.getElementById('slbm-cv');
   if (!cv) return;
-  const ctx  = cv.getContext('2d', { alpha: false });
+  const ctx = cv.getContext('2d', { alpha: false });
   const W = 580, H = 820;
   cv.width = W; cv.height = H;
 
@@ -2999,7 +3001,6 @@
   const tubesEl   = document.getElementById('slbm-tubes');
   const logEl     = document.getElementById('slbm-log');
   const hdEl      = document.getElementById('slbm-hd');
-  const hsEl      = document.getElementById('slbm-hs');
   const depthVEl  = document.getElementById('slbm-depth-v');
   const speedVEl  = document.getElementById('slbm-speed-v');
   const statusVEl = document.getElementById('slbm-status-v');
@@ -3008,7 +3009,7 @@
   const cdOvEl    = document.getElementById('slbm-countdown-overlay');
   const cdNumEl   = document.getElementById('slbm-countdown-num');
   const armBtn    = document.getElementById('slbm-arm');
-  const armHintEl = document.getElementById('slbm-arm-h');
+  const armHEl    = document.getElementById('slbm-arm-h');
   const fireBtn   = document.getElementById('slbm-fire');
   const fireHEl   = document.getElementById('slbm-fire-h');
   const abortBtn  = document.getElementById('slbm-abort');
@@ -3016,36 +3017,33 @@
   const key1El    = document.getElementById('slbm-key1');
   const key2El    = document.getElementById('slbm-key2');
 
-  // ── KONSTANTY SCENY ───────────────────────────────────────────
-  const SURF_Y = 260, SUB_CY = 520, SUB_CX = W / 2;
-  const MAX_DEPTH_LAUNCH = 55;   // m
-  const MAX_SPEED_LAUNCH = 6;    // kn
+  // ── STAŁE SCENY ───────────────────────────────────────────────
+  const SURF_Y = 260, SUB_CY = 510, SUB_CX = W / 2;
+  const MAX_DEPTH = 55, MAX_SPD = 6;   // warunki odpalenia
 
   // ── STAN ──────────────────────────────────────────────────────
   const TOTAL = 20;
-  const EMPTY_IDS = new Set([0, 1, 18, 19]); // 4 puste (dziobowe)
+  const EMPTY = new Set([0, 1, 18, 19]);
   const tubes = Array.from({ length: TOTAL }, (_, i) => ({
-    id: i + 1,
-    state: EMPTY_IDS.has(i) ? 'empty' : 'ready',
+    id: i + 1, state: EMPTY.has(i) ? 'empty' : 'ready',
   }));
 
   const S = {
-    sel: null, keys: { 1: false, 2: false },
-    phase: 'idle',  // idle|armed|countdown|launching
+    selSet: new Set(),         // multi-select
+    keys: { 1: false, 2: false },
+    phase: 'idle',             // idle|armed|countdown|launching
     cdT: 0, launchedAt: null, startT: null,
     missiles: [],
   };
-  const bubbles = [], smoke = [], fire = [], splash = [];
+
+  // Salwa — kolejka startów z odstępem 1.8s
+  const salvo = { queue: [], nextIn: 0, total: 0, fired: 0 };
+
+  // Cząsteczki
+  const bubbles = [], smoke = [], exhaust = [], splash = [], rings = [], steam = [];
 
   let _t = 0, _last = 0, _t0 = performance.now();
-
-  // ── HELPERS ───────────────────────────────────────────────────
   const rand = (a, b) => a + Math.random() * (b - a);
-  function fmtT(s) {
-    const sign = s < 0 ? '−' : '+';
-    s = Math.abs(s);
-    return `T${sign}${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
-  }
 
   // ── LOG ───────────────────────────────────────────────────────
   function slbmLog(msg, kind = '') {
@@ -3055,17 +3053,23 @@
     e.innerHTML = `<span class="lt">${ts}</span>${msg}`;
     logEl.appendChild(e);
     logEl.scrollTop = logEl.scrollHeight;
-    while (logEl.children.length > 22) logEl.removeChild(logEl.firstChild);
+    while (logEl.children.length > 24) logEl.removeChild(logEl.firstChild);
+  }
+  function fmtT(s) {
+    const sign = s < 0 ? '−' : '+';
+    s = Math.abs(s);
+    return `T${sign}${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
   }
 
-  // ── RENDER SIATKI SILOSÓW ─────────────────────────────────────
+  // ── SILOSY ────────────────────────────────────────────────────
   function renderTubes() {
     tubesEl.innerHTML = '';
     let loaded = 0;
     for (const tube of tubes) {
-      if (tube.state !== 'empty') loaded++;
+      if (tube.state !== 'empty' && tube.state !== 'launched') loaded++;
+      const sel = S.selSet.has(tube.id);
       const el = document.createElement('div');
-      el.className = 'slbm-tube' + (S.sel === tube.id ? ' sel' : '');
+      el.className = 'slbm-tube' + (sel ? ' sel' : '');
       el.dataset.s = tube.state;
       el.innerHTML = `<div class="st-led"></div>
         <div class="st-id">${String(tube.id).padStart(2,'0')}</div>
@@ -3075,220 +3079,222 @@
     }
     tcountEl.textContent = `${loaded} / ${TOTAL}`;
   }
-  function lblOf(s) {
-    return { ready:'GOTOWA', armed:'UZBR.', launching:'ODPAL.', empty:'PUSTA', launched:'WYSTZ.' }[s] || s;
-  }
+  const lblOf = s => ({ ready:'GOTOWA', armed:'UZBR.', launching:'ODPAL.',
+                         empty:'PUSTA', launched:'WYSTZ.' }[s] || s);
 
   function selTube(id) {
     const t = tubes.find(t => t.id === id);
-    if (!t || t.state === 'empty' || t.state === 'launching' || t.state === 'launched') return;
-    S.sel = id;
-    slbmLog(`WYBÓR — SILOS №${String(id).padStart(2,'0')}`);
-    refreshBtns();
-    renderTubes();
+    if (!t || t.state === 'empty' || t.state === 'launched' || t.state === 'launching') return;
+    if (S.selSet.has(id)) S.selSet.delete(id);
+    else                  S.selSet.add(id);
+    refreshBtns(); renderTubes();
   }
 
   // ── WARUNKI ODPALENIA ─────────────────────────────────────────
   function launchOK() {
-    const depth = window._sonar?.depth ?? 50;
-    const spd   = window._sonar?.speed ?? 3;
-    return depth <= MAX_DEPTH_LAUNCH && spd <= MAX_SPEED_LAUNCH;
+    const d = window._sonar?.depth ?? 50;
+    const s = window._sonar?.speed ?? 0;
+    return d <= MAX_DEPTH && s <= MAX_SPD * 10; // speed w px/s ~10px/s = 1kn
   }
 
   // ── PRZYCISKI ─────────────────────────────────────────────────
   function refreshBtns() {
-    const tube     = tubes.find(t => t.id === S.sel);
-    const bothKeys = S.keys[1] && S.keys[2];
-    const ok       = launchOK();
+    const selReady  = [...S.selSet].filter(id => tubes.find(t=>t.id===id)?.state === 'ready');
+    const selArmed  = [...S.selSet].filter(id => tubes.find(t=>t.id===id)?.state === 'armed');
+    const anyArmed  = tubes.some(t => t.state === 'armed');
+    const bothKeys  = S.keys[1] && S.keys[2];
+    const ok        = launchOK();
 
     warnBar.classList.toggle('vis', !ok);
 
     // ARM
-    if (!tube) { armBtn.disabled = true; armHintEl.textContent = 'WYBIERZ SILOS'; }
-    else if (tube.state === 'armed') { armBtn.disabled = true; armHintEl.textContent = 'JUŻ UZBROJONA'; }
-    else if (!bothKeys) { armBtn.disabled = true; armHintEl.textContent = 'PRZEKRĘĆ OBA KLUCZE'; }
-    else { armBtn.disabled = false; armHintEl.textContent = `№${String(tube.id).padStart(2,'0')} · KLAWISZ A`; }
+    if (!selReady.length && !selArmed.length) {
+      armBtn.disabled = true; armHEl.textContent = 'WYBIERZ SILOSY';
+    } else if (!selReady.length) {
+      armBtn.disabled = true; armHEl.textContent = 'JUŻ UZBROJONE';
+    } else if (!bothKeys) {
+      armBtn.disabled = true; armHEl.textContent = 'PRZEKRĘĆ OBA KLUCZE';
+    } else {
+      armBtn.disabled = false;
+      armHEl.textContent = `UZBRÓJ ${selReady.length} SILOS${selReady.length > 1 ? 'Ó' : ''}W · A`;
+    }
 
     // FIRE
-    if (!tube || tube.state !== 'armed') { fireBtn.disabled = true; fireHEl.textContent = 'NAJPIERW UZBRÓJ'; }
-    else if (!ok) { fireBtn.disabled = true; fireHEl.textContent = 'WARUNKI NIE SPEŁNIONE'; }
-    else if (S.phase === 'countdown') { fireBtn.disabled = true; fireHEl.textContent = `T−${S.cdT.toFixed(1)} s`; }
-    else { fireBtn.disabled = false; fireHEl.textContent = 'T−10 SEKUND · KLAWISZ L'; }
+    if (!anyArmed) {
+      fireBtn.disabled = true; fireHEl.textContent = 'NAJPIERW UZBRÓJ';
+    } else if (!ok) {
+      fireBtn.disabled = true; fireHEl.textContent = 'WARUNKI NIE SPEŁNIONE';
+    } else if (S.phase === 'countdown') {
+      fireBtn.disabled = true; fireHEl.textContent = `T−${S.cdT.toFixed(1)} s`;
+    } else {
+      const n = tubes.filter(t => t.state === 'armed').length;
+      fireBtn.disabled = false;
+      fireHEl.textContent = `SALWA ${n} RAKIET · T−10 · L`;
+    }
   }
 
   // ── KLUCZE ────────────────────────────────────────────────────
-  function setupKey(el, id) {
+  [key1El, key2El].forEach((el, i) => {
+    const id = i + 1;
     el.addEventListener('click', () => {
       S.keys[id] = !S.keys[id];
       el.classList.toggle('on', S.keys[id]);
       slbmLog(S.keys[id]
-        ? `KLUCZ ${id===1?'DOWÓDCY':'POL.ŚR.'} — PRZEKRĘCONY`
+        ? `KLUCZ ${id===1?'DOWÓDCY':'POL.ŚR.'} — PRZEKRĘCONY` + (S.keys[1]&&S.keys[2] ? ' · AUTORYZACJA OK' : '')
         : `KLUCZ ${id===1?'DOWÓDCY':'POL.ŚR.'} — COFNIĘTY`, S.keys[id] ? 'mj' : 'cr');
-      if (S.keys[1] && S.keys[2]) slbmLog('OBA KLUCZE — AUTORYZACJA OK', 'mj');
       refreshBtns();
     });
-  }
-  setupKey(key1El, 1);
-  setupKey(key2El, 2);
-
-  // ── UZBROJENIE / ODPALENIE / PRZERWANIE ───────────────────────
-  armBtn.addEventListener('click', doArm);
-  fireBtn.addEventListener('click', doFire);
-  abortBtn.addEventListener('click', doAbort);
-  window.addEventListener('keydown', function slbmKeys(e) {
-    if (!_slbmActive) return;
-    if (e.target.tagName === 'INPUT') return;
-    if (e.code === 'KeyA') doArm();
-    else if (e.code === 'KeyL') doFire();
-    else if (e.code === 'Escape') { _switchStation('conn'); }
   });
 
+  // ── ARM ───────────────────────────────────────────────────────
+  armBtn.addEventListener('click', doArm);
   function doArm() {
     if (armBtn.disabled) return;
-    const tube = tubes.find(t => t.id === S.sel);
-    if (!tube) return;
-    tube.state = 'armed';
-    slbmLog(`UZBROJONO SILOS №${String(tube.id).padStart(2,'0')} · RSM-52`, 'mj');
-    slbmLog('GIROSKOPY INERCYJNE — INICJALIZACJA');
-    slbmLog('NAWIGACJA ASTROKOREKCYJNA — UPDATE');
-    S.phase = 'armed';
+    const toArm = [...S.selSet].filter(id => tubes.find(t=>t.id===id)?.state === 'ready');
+    for (const id of toArm) tubes.find(t=>t.id===id).state = 'armed';
+    slbmLog(`UZBROJONO ${toArm.length} SILOS${toArm.length>1?'Y':''}: ${toArm.map(id=>String(id).padStart(2,'0')).join(' ')} · RSM-52`, 'mj');
+    slbmLog('GIROSKOPY INERCYJNE — INIT · NAWIGACJA ASTRO — UPDATE');
+    S.phase = 'armed'; S.selSet.clear();
     renderTubes(); refreshBtns();
   }
 
+  // ── FIRE ──────────────────────────────────────────────────────
+  fireBtn.addEventListener('click', doFire);
   function doFire() {
     if (fireBtn.disabled || !launchOK()) return;
-    S.phase = 'countdown'; S.cdT = 10;
-    S.startT = performance.now();
+    S.phase = 'countdown'; S.cdT = 10; S.startT = performance.now();
     cdOvEl.classList.add('on');
-    slbmLog('★ SEKWENCJA ODPALENIA — START', 'cr');
-    slbmLog('T−10 · ZALANIE KOMORY STARTOWEJ');
+    const armed = tubes.filter(t => t.state === 'armed');
+    salvo.queue  = armed.map(t => t.id);
+    salvo.total  = armed.length;
+    salvo.fired  = 0;
+    salvo.nextIn = 0;
+    slbmLog(`★ SEKWENCJA SALWY ${armed.length} RAKIET — START`, 'cr');
+    slbmLog('T−10 · ZALANIE KOMÓR STARTOWYCH · CIŚNIENIE');
     refreshBtns();
   }
 
+  // ── ABORT ─────────────────────────────────────────────────────
+  abortBtn.addEventListener('click', doAbort);
   function doAbort() {
     if (S.phase === 'countdown') {
       slbmLog('★ SEKWENCJA PRZERWANA — ABORT', 'cr');
       S.phase = 'idle'; S.cdT = 0;
       cdOvEl.classList.remove('on');
     }
-    for (const t of tubes) { if (t.state === 'armed') t.state = 'ready'; }
+    for (const t of tubes) if (t.state === 'armed') t.state = 'ready';
     S.keys[1] = S.keys[2] = false;
-    key1El.classList.remove('on');
-    key2El.classList.remove('on');
+    key1El.classList.remove('on'); key2El.classList.remove('on');
+    salvo.queue = []; salvo.fired = 0;
     slbmLog('RESET — KLUCZE COFNIĘTE · SILOSY ROZBROJONE');
     renderTubes(); refreshBtns();
   }
 
-  // ── RAKIETA ────────────────────────────────────────────────────
-  function siloX(id) {
-    const col = (id - 1) % 5;
-    return -100 + col * 50;
-  }
+  // ── RAKIETA — pozycja silosu na canvasie ──────────────────────
+  function siloCanvasX(id) { return SUB_CX - 100 + ((id - 1) % 5) * 50; }
 
   function spawnMissile(tubeId) {
     const tube = tubes.find(t => t.id === tubeId);
-    if (!tube) return;
+    if (!tube || tube.state !== 'armed') return;
     tube.state = 'launched';
-    S.missiles.push({
-      id: tubeId, siloX: siloX(tubeId),
-      phase: 'tube', phaseT: 0,
-      x: 0, y: 0, vx: 0, vy: 0, angle: 0,
-    });
-    slbmLog(`★★ T+0 · ODPALENIE №${String(tubeId).padStart(2,'0')}`, 'cr');
-    slbmLog('GAZ STARTOWY — KAPSUŁA OPUSZCZA SILOS');
+    const sx = siloCanvasX(tubeId);
+    S.missiles.push({ id: tubeId, siloX: sx, phase: 'tube', phaseT: 0,
+                      x: sx, y: SUB_CY - 38, vx: 0, vy: 0, angle: 0 });
+    slbmLog(`★ T+0 SILOS №${String(tubeId).padStart(2,'0')} — ODPALENIE`, 'cr');
+    // Integracja z grą Phaser
+    if (typeof window._slbmLaunch === 'function') window._slbmLaunch();
   }
 
   function updateMissile(m, dt) {
-    const lx = SUB_CX + m.siloX;
+    const lx = m.siloX;
     const subTopY = SUB_CY - 38;
 
     if (m.phase === 'tube') {
-      m.x = lx; m.y = subTopY - m.phaseT * 90;
-      for (let i = 0; i < 8; i++) bubbles.push({
-        x: lx + rand(-10, 10), y: subTopY + rand(-6, 6),
-        vx: rand(-15, 15), vy: rand(-50, -120),
-        life: 0, maxLife: rand(1.2, 2.5), r: rand(2, 6),
+      m.x = lx; m.y = subTopY - m.phaseT * 95;
+      for (let i = 0; i < 10; i++) bubbles.push({
+        x: lx + rand(-12, 12), y: subTopY + rand(-8, 8),
+        vx: rand(-20, 20), vy: rand(-60, -140),
+        life: 0, maxLife: rand(1.0, 2.2), r: rand(2, 7),
       });
-      if (m.phaseT > 0.4) { m.phase = 'underwater'; m.phaseT = 0; slbmLog('KAPSUŁA W WODZIE — WZNOSZENIE', 'mj'); }
+      if (m.phaseT > 0.38) { m.phase = 'underwater'; m.phaseT = 0; slbmLog('KAPSUŁA W WODZIE'); }
     }
     else if (m.phase === 'underwater') {
-      m.vy -= 300 * dt;
-      m.x = lx + Math.sin(_t * 3.5) * 2;
-      m.y += m.vy * dt;
-      for (let i = 0; i < 14; i++) bubbles.push({
-        x: m.x + rand(-12, 12), y: m.y + rand(10, 24),
-        vx: rand(-20, 20), vy: rand(-20, -80),
-        life: 0, maxLife: rand(0.8, 2.0), r: rand(1.5, 5),
+      m.vy -= 340 * dt;
+      m.x   = lx + Math.sin(_t * 3.8) * 2;
+      m.y  += m.vy * dt;
+      for (let i = 0; i < 16; i++) bubbles.push({
+        x: m.x + rand(-14, 14), y: m.y + rand(8, 22),
+        vx: rand(-25, 25), vy: rand(-25, -90),
+        life: 0, maxLife: rand(0.7, 1.8), r: rand(1.5, 5.5),
       });
       if (m.y < SURF_Y) {
         m.phase = 'breach'; m.phaseT = 0;
-        for (let i = 0; i < 90; i++) {
-          const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.85;
-          splash.push({
-            x: lx + rand(-12, 12), y: SURF_Y,
-            vx: Math.cos(ang) * rand(50, 300),
-            vy: Math.sin(ang) * rand(80, 380),
-            life: 0, maxLife: rand(0.5, 1.3), r: rand(2, 8),
-          });
+        // Pierścień rozchodzący się w miejscu przebicia
+        rings.push({ x: lx, y: SURF_Y, r: 4, maxR: 110, life: 0, maxLife: 0.9 });
+        rings.push({ x: lx, y: SURF_Y, r: 4, maxR: 70,  life: 0, maxLife: 0.6 });
+        // Splash cząsteczki
+        for (let i = 0; i < 100; i++) {
+          const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.88;
+          splash.push({ x: lx + rand(-14,14), y: SURF_Y,
+            vx: Math.cos(ang)*rand(55,320), vy: Math.sin(ang)*rand(90,400),
+            life: 0, maxLife: rand(0.5, 1.4), r: rand(2, 9) });
         }
+        // Para / steam ze słupa wody
+        for (let i = 0; i < 22; i++) steam.push({
+          x: lx + rand(-20, 20), y: SURF_Y - rand(0, 20),
+          vx: rand(-18, 18), vy: rand(-80, -180),
+          life: 0, maxLife: rand(1.2, 2.8), r: rand(8, 22), rg: rand(20, 55),
+        });
         slbmLog('★ PRZEBICIE POWIERZCHNI', 'cr');
       }
     }
     else if (m.phase === 'breach') {
-      m.vy -= 260 * dt;
-      m.y += m.vy * dt;
-      if (m.phaseT > 0.32) { m.phase = 'boost'; m.phaseT = 0; slbmLog('SILNIK I STOPIEŃ — ZAPŁON', 'mj'); }
+      m.vy -= 280 * dt; m.y += m.vy * dt;
+      if (m.phaseT > 0.3) { m.phase = 'boost'; m.phaseT = 0; slbmLog('SILNIK I ST. — ZAPŁON', 'mj'); }
     }
     else if (m.phase === 'boost') {
-      m.vy -= 900 * dt;
-      m.angle = Math.min(0.45, m.phaseT * 0.07);
+      m.vy -= 1000 * dt;
+      m.angle = Math.min(0.42, m.phaseT * 0.068);
       m.vx = -Math.sin(m.angle) * Math.abs(m.vy);
       m.x += m.vx * dt; m.y += m.vy * dt;
-      const ex = m.x + Math.sin(m.angle) * 28, ey = m.y + Math.cos(m.angle) * 28;
-      for (let i = 0; i < 9; i++) fire.push({
-        x: ex + rand(-6, 6), y: ey + rand(-4, 4),
-        vx: rand(-20, 20) + Math.sin(m.angle) * 90,
-        vy: rand(100, 280) + Math.cos(m.angle) * 60,
-        life: 0, maxLife: rand(0.25, 0.65), r: rand(7, 18),
+      const ex = m.x + Math.sin(m.angle) * 30, ey = m.y + Math.cos(m.angle) * 30;
+      // Ogień silnika — 3 warstwy
+      for (let i = 0; i < 12; i++) exhaust.push({
+        x: ex + rand(-7,7), y: ey + rand(-5,5),
+        vx: rand(-25,25) + Math.sin(m.angle)*100, vy: rand(110,300)+Math.cos(m.angle)*70,
+        life: 0, maxLife: rand(0.2,0.6), r: rand(6,20),
       });
-      for (let i = 0; i < 4; i++) smoke.push({
-        x: ex + rand(-18, 18), y: ey + rand(8, 18),
-        vx: rand(-6, 6), vy: rand(8, 28),
-        life: 0, maxLife: rand(4, 8),
-        r: rand(14, 24), rg: rand(36, 72), dk: rand(0.65, 0.9),
+      // Dym
+      for (let i = 0; i < 5; i++) smoke.push({
+        x: ex + rand(-22,22), y: ey + rand(10,22),
+        vx: rand(-8,8), vy: rand(10,35),
+        life: 0, maxLife: rand(4,9), r: rand(12,26), rg: rand(38,78), dk: rand(0.6,0.92),
       });
-      if (m.y < -160) {
-        m.phase = 'gone';
-        slbmLog('★ POZA HORYZONT · APOGEUM ~1200 km', 'ok');
-      }
+      if (m.y < -180) { m.phase = 'gone'; slbmLog('★ POZA HORYZONT · APOGEUM ~1200 km', 'ok'); }
     }
   }
 
   // ── UPDATE ─────────────────────────────────────────────────────
   function slbmUpdate(dt) {
     _t += dt;
-
-    // Live data
     const depth = window._sonar?.depth ?? 50;
-    const spd   = Math.round((window._sonar?.speed ?? 0) / 10 * 18) / 10; // px/s→kn approx
+    const spd   = window._sonar?.speed ?? 0;
     if (hdEl) hdEl.textContent = Math.round(depth);
     if (depthVEl) depthVEl.textContent = `−${Math.round(depth)} m`;
-    if (speedVEl) speedVEl.textContent = `${spd.toFixed(1)} kn`;
-    const ok = launchOK();
+    if (speedVEl) speedVEl.textContent = `${(spd/10).toFixed(1)} kn`;
+    const ok = depth <= MAX_DEPTH && spd <= MAX_SPD * 10;
     if (statusVEl) { statusVEl.textContent = ok ? 'GOTOWOŚĆ' : 'OCZEKIWANIE'; statusVEl.style.color = ok ? 'var(--green)' : 'var(--amber)'; }
     warnBar.classList.toggle('vis', !ok);
 
     // Mission time
     if (S.phase === 'idle' || S.phase === 'armed') {
-      mtimeEl.textContent = 'T−00:00';
-      mtimeEl.style.color = 'rgba(216,209,190,0.4)';
+      mtimeEl.textContent = 'T−00:00'; mtimeEl.style.color = 'rgba(216,209,190,0.38)';
     } else if (S.phase === 'countdown') {
-      mtimeEl.textContent = `T−${S.cdT.toFixed(1)}`;
-      mtimeEl.style.color = 'var(--accent)';
-    } else if (S.phase === 'launching') {
+      mtimeEl.textContent = `T−${S.cdT.toFixed(1)}`; mtimeEl.style.color = 'var(--accent)';
+    } else {
       const el = (performance.now() - S.launchedAt) / 1000;
-      mtimeEl.textContent = `T+${el.toFixed(1)}`;
-      mtimeEl.style.color = 'var(--accent)';
+      const salvaInfo = salvo.total > 1 ? ` · SALWA ${salvo.fired}/${salvo.total}` : '';
+      mtimeEl.textContent = `T+${el.toFixed(1)}${salvaInfo}`; mtimeEl.style.color = 'var(--accent)';
     }
 
     // Countdown
@@ -3299,314 +3305,255 @@
       cdNumEl.textContent = Math.max(0, cur);
       if (cur !== prev) {
         if (cur === 7) slbmLog('T−7 · OTWARCIE POKRYW SILOSÓW', 'mj');
-        else if (cur === 5) slbmLog('T−5 · AKUMULATORY STARTOWE — POBÓR');
+        else if (cur === 5) slbmLog('T−5 · AKUMULATORY STARTOWE');
         else if (cur === 3) slbmLog('T−3 · GIROSKOPY ZSYNCHRONIZOWANE');
         else if (cur === 2) slbmLog('T−2 · TRYM OKRĘTU STABILNY');
-        else if (cur === 1) slbmLog('T−1 · CIĄG WSTĘPNY');
+        else if (cur === 1) slbmLog('T−1 · CIĄG WSTĘPNY · KOMORY GOTOWE');
         else if (cur <= 0) {
-          for (const t of tubes) { if (t.state === 'armed') spawnMissile(t.id); }
-          S.phase = 'launching'; S.launchedAt = performance.now();
-          S.cdT = 0; cdOvEl.classList.remove('on');
+          S.phase = 'launching'; S.launchedAt = performance.now(); S.cdT = 0;
+          cdOvEl.classList.remove('on');
+          salvo.nextIn = 0;  // pierwszy start natychmiast
           renderTubes(); refreshBtns();
         }
       }
       refreshBtns();
     }
 
-    // Missiles
+    // Salwa — staggered launches co 1.8s
+    if (S.phase === 'launching' && salvo.queue.length) {
+      salvo.nextIn -= dt;
+      if (salvo.nextIn <= 0) {
+        const id = salvo.queue.shift();
+        spawnMissile(id);
+        salvo.fired++;
+        salvo.nextIn = 1.8;
+        if (!salvo.queue.length) renderTubes();
+      }
+    }
+
+    // Rakiety
     for (let i = S.missiles.length - 1; i >= 0; i--) {
-      const m = S.missiles[i];
-      m.phaseT += dt;
+      const m = S.missiles[i]; m.phaseT += dt;
       updateMissile(m, dt);
       if (m.phase === 'gone') S.missiles.splice(i, 1);
     }
 
+    // Pierścienie na tafli
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i]; r.life += dt;
+      if (r.life >= r.maxLife) { rings.splice(i, 1); continue; }
+      r.r = 4 + (r.maxR - 4) * (r.life / r.maxLife);
+    }
+
+    // Para (steam)
+    for (let i = steam.length - 1; i >= 0; i--) {
+      const p = steam[i]; p.life += dt;
+      if (p.life >= p.maxLife) { steam.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 6 * dt; p.vx *= 1 - dt * 0.25;
+    }
+
     // Particles
-    const updateArr = (arr, fn) => {
-      for (let i = arr.length - 1; i >= 0; i--) {
-        const p = arr[i]; p.life += dt;
-        if (p.life >= p.maxLife) { arr.splice(i, 1); continue; }
-        fn(p, dt);
-      }
-    };
-    updateArr(bubbles, (p) => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= 90 * dt; p.vx *= 1 - dt * 0.6;
-      if (p.y < SURF_Y + 4) {
-        for (let j = 0; j < 2; j++) splash.push({ x: p.x + rand(-4,4), y: SURF_Y, vx: rand(-40,40), vy: rand(-60,-120), life:0, maxLife: rand(0.25,0.65), r: rand(1.5,4) });
-        p.life = p.maxLife;
-      }
+    const upd = (arr, fn) => { for (let i=arr.length-1;i>=0;i--) {
+      const p=arr[i]; p.life+=dt; if(p.life>=p.maxLife){arr.splice(i,1);continue;} fn(p,dt); }};
+    upd(bubbles, p => { p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy-=95*dt; p.vx*=1-dt*0.55;
+      if(p.y<SURF_Y+3){ splash.push({x:p.x+rand(-3,3),y:SURF_Y,vx:rand(-30,30),vy:rand(-50,-110),life:0,maxLife:rand(0.2,0.55),r:rand(1.5,4)});p.life=p.maxLife;}
     });
-    updateArr(smoke,   (p) => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= 6 * dt; p.vx += (-4 - p.vx * 0.25) * dt; });
-    updateArr(fire,    (p) => { p.x += p.vx * dt; p.y += p.vy * dt; });
-    updateArr(splash,  (p) => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 420 * dt; });
+    upd(exhaust, p => { p.x+=p.vx*dt; p.y+=p.vy*dt; });
+    upd(smoke,   p => { p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy-=5*dt; p.vx+=(-4-p.vx*0.22)*dt; });
+    upd(splash,  p => { p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=440*dt; });
   }
 
   // ── RENDER ─────────────────────────────────────────────────────
   function drawBg() {
-    // Niebo — noc
-    const sky = ctx.createLinearGradient(0, 0, 0, SURF_Y);
-    sky.addColorStop(0, '#010208');
-    sky.addColorStop(0.75, '#080d18');
-    sky.addColorStop(1, '#122238');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, SURF_Y);
-
-    // Gwiazdy deterministyczne
-    for (let i = 0; i < 55; i++) {
-      const x = (i * 139.5) % W, y = (i * 71.3) % (SURF_Y * 0.85);
-      const br = ((i * 23) % 100) / 100;
-      ctx.fillStyle = `rgba(210,215,240,${0.15 + br * 0.45})`;
-      ctx.fillRect(x, y, br > 0.88 ? 1.4 : 0.7, br > 0.88 ? 1.4 : 0.7);
+    const sky = ctx.createLinearGradient(0,0,0,SURF_Y);
+    sky.addColorStop(0,'#010209'); sky.addColorStop(0.75,'#090e1a'); sky.addColorStop(1,'#14263e');
+    ctx.fillStyle=sky; ctx.fillRect(0,0,W,SURF_Y);
+    // Gwiazdy
+    for (let i=0;i<55;i++) {
+      const x=(i*139.5)%W, y=(i*71.3)%(SURF_Y*0.88), br=((i*23)%100)/100;
+      ctx.fillStyle=`rgba(208,214,242,${0.14+br*0.46})`; ctx.fillRect(x,y,br>0.88?1.4:0.7,br>0.88?1.4:0.7);
     }
-
     // Księżyc
-    const moonG = ctx.createRadialGradient(W-120, 65, 2, W-120, 65, 18);
-    moonG.addColorStop(0, 'rgba(235,228,195,0.92)');
-    moonG.addColorStop(0.6, 'rgba(210,205,175,0.5)');
-    moonG.addColorStop(1, 'rgba(200,200,175,0)');
-    ctx.fillStyle = moonG; ctx.beginPath(); ctx.arc(W-120, 65, 18, 0, Math.PI*2); ctx.fill();
-
+    const mg=ctx.createRadialGradient(W-110,58,2,W-110,58,18);
+    mg.addColorStop(0,'rgba(238,230,198,0.92)'); mg.addColorStop(0.6,'rgba(215,208,178,0.5)'); mg.addColorStop(1,'rgba(200,198,175,0)');
+    ctx.fillStyle=mg; ctx.beginPath(); ctx.arc(W-110,58,18,0,Math.PI*2); ctx.fill();
     // Woda
-    const sea = ctx.createLinearGradient(0, SURF_Y, 0, H);
-    sea.addColorStop(0, '#0b1824'); sea.addColorStop(0.45, '#060d18'); sea.addColorStop(1, '#020407');
-    ctx.fillStyle = sea; ctx.fillRect(0, SURF_Y, W, H - SURF_Y);
-
-    // Snop księżycowy w wodzie
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 6; i++) {
-      const xx = 160 + i * 105;
-      ctx.fillStyle = 'rgba(70,110,145,0.035)';
-      ctx.beginPath(); ctx.moveTo(xx-6,SURF_Y); ctx.lineTo(xx+6,SURF_Y); ctx.lineTo(xx+36,H); ctx.lineTo(xx-36,H); ctx.closePath(); ctx.fill();
-    }
+    const sea=ctx.createLinearGradient(0,SURF_Y,0,H);
+    sea.addColorStop(0,'#0c1926'); sea.addColorStop(0.4,'#060d18'); sea.addColorStop(1,'#020408');
+    ctx.fillStyle=sea; ctx.fillRect(0,SURF_Y,W,H-SURF_Y);
+    // Promienie w wodzie
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for (let i=0;i<6;i++) { const xx=155+i*100; ctx.fillStyle='rgba(68,108,142,0.035)';
+      ctx.beginPath(); ctx.moveTo(xx-5,SURF_Y); ctx.lineTo(xx+5,SURF_Y); ctx.lineTo(xx+34,H); ctx.lineTo(xx-34,H); ctx.closePath(); ctx.fill(); }
     ctx.restore();
-
-    // Linia fali
-    ctx.strokeStyle = 'rgba(130,165,195,0.38)'; ctx.lineWidth = 1.3;
-    ctx.beginPath();
-    for (let x = 0; x <= W; x += 4) {
-      const wy = SURF_Y - Math.sin(x*0.016+_t*1.1)*3.5 - Math.sin(x*0.055+_t*1.7)*1.8;
-      x === 0 ? ctx.moveTo(x, wy) : ctx.lineTo(x, wy);
-    }
+    // Fala
+    ctx.strokeStyle='rgba(128,162,192,0.38)'; ctx.lineWidth=1.3; ctx.beginPath();
+    for (let x=0;x<=W;x+=4) { const wy=SURF_Y-Math.sin(x*0.016+_t*1.1)*3.5-Math.sin(x*0.055+_t*1.7)*1.8; x===0?ctx.moveTo(x,wy):ctx.lineTo(x,wy); }
     ctx.stroke();
-
-    // Markownik głębokości
-    ctx.fillStyle = 'rgba(130,165,195,0.28)';
-    ctx.font = '9px JetBrains Mono';
-    ctx.fillText('—  0 m', 14, SURF_Y - 7);
-    for (let d = 10; d <= 60; d += 10) {
-      const yy = SURF_Y + d * 4.4;
-      ctx.fillStyle = 'rgba(130,165,195,0.16)';
-      ctx.fillRect(0, yy, 10, 0.5);
-      ctx.fillText(`−${d}m`, 14, yy+3);
-    }
+    // Markowniki głębokości
+    ctx.fillStyle='rgba(128,162,192,0.26)'; ctx.font='9px JetBrains Mono';
+    ctx.fillText('— 0 m',14,SURF_Y-7);
+    for (let d=10;d<=60;d+=10) { const yy=SURF_Y+d*4.1; ctx.fillStyle='rgba(128,162,192,0.14)'; ctx.fillRect(0,yy,10,0.5); ctx.fillText(`−${d}m`,14,yy+3); }
   }
 
   function drawSub() {
-    // Typhoon-class — duży kadłub z 20 silosami
-    const cx = SUB_CX, cy = SUB_CY;
-    ctx.save(); ctx.translate(cx, cy);
-
-    // Cień głębinowy
-    ctx.save(); ctx.globalCompositeOperation = 'multiply';
-    const sh = ctx.createRadialGradient(0, 20, 10, 0, 20, 220);
-    sh.addColorStop(0, 'rgba(0,0,0,0.35)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = sh; ctx.fillRect(-280, 10, 560, 100); ctx.restore();
-
+    const cx=SUB_CX, cy=SUB_CY;
+    ctx.save(); ctx.translate(cx,cy);
+    // Cień
+    ctx.save(); ctx.globalCompositeOperation='multiply';
+    const sh=ctx.createRadialGradient(0,18,8,0,18,215); sh.addColorStop(0,'rgba(0,0,0,0.32)'); sh.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=sh; ctx.fillRect(-275,8,550,95); ctx.restore();
     // Kadłub
-    ctx.fillStyle = '#070b10';
-    ctx.beginPath();
-    ctx.moveTo(-300, 0);
-    ctx.bezierCurveTo(-320, -8, -312, -30, -285, -36);
-    ctx.lineTo(265, -36);
-    ctx.bezierCurveTo(310, -36, 330, -18, 335, 0);
-    ctx.bezierCurveTo(330, 17, 310, 30, 265, 32);
-    ctx.lineTo(-270, 32);
-    ctx.bezierCurveTo(-305, 28, -320, 16, -300, 0);
-    ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#070b10'; ctx.beginPath();
+    ctx.moveTo(-295,0); ctx.bezierCurveTo(-316,-8,-308,-30,-280,-36);
+    ctx.lineTo(260,-36); ctx.bezierCurveTo(305,-36,326,-18,330,0);
+    ctx.bezierCurveTo(326,17,305,30,260,32); ctx.lineTo(-265,32);
+    ctx.bezierCurveTo(-300,28,-316,16,-295,0); ctx.closePath(); ctx.fill();
+    // Highlight górny
+    const tg=ctx.createLinearGradient(0,-36,0,-6); tg.addColorStop(0,'rgba(108,142,172,0.48)'); tg.addColorStop(1,'rgba(108,142,172,0)');
+    ctx.fillStyle=tg; ctx.beginPath();
+    ctx.moveTo(-280,-36); ctx.lineTo(260,-36); ctx.bezierCurveTo(302,-36,324,-18,328,-4);
+    ctx.lineTo(324,-6); ctx.bezierCurveTo(302,-20,280,-34,258,-32); ctx.lineTo(-278,-32); ctx.closePath(); ctx.fill();
+    // Mokry reflex
+    const bg=ctx.createLinearGradient(0,6,0,32); bg.addColorStop(0,'rgba(38,68,92,0)'); bg.addColorStop(1,'rgba(34,62,88,0.4)');
+    ctx.fillStyle=bg; ctx.beginPath(); ctx.moveTo(-265,32); ctx.lineTo(260,32);
+    ctx.bezierCurveTo(300,28,318,20,328,8); ctx.lineTo(324,12); ctx.bezierCurveTo(314,25,294,32,260,34); ctx.lineTo(-265,34); ctx.closePath(); ctx.fill();
+    // Poszycie
+    ctx.strokeStyle='rgba(44,64,84,0.32)'; ctx.lineWidth=0.7; ctx.beginPath();
+    for (let x=-255;x<255;x+=38) { ctx.moveTo(x,-28); ctx.lineTo(x,30); } ctx.stroke();
 
-    // Górny highlight
-    const topG = ctx.createLinearGradient(0,-36,0,-6);
-    topG.addColorStop(0,'rgba(110,145,175,0.5)'); topG.addColorStop(1,'rgba(110,145,175,0)');
-    ctx.fillStyle = topG;
-    ctx.beginPath();
-    ctx.moveTo(-285,-36); ctx.lineTo(265,-36);
-    ctx.bezierCurveTo(308,-36,328,-18,332,-4);
-    ctx.lineTo(328,-6); ctx.bezierCurveTo(308,-20,286,-34,264,-32);
-    ctx.lineTo(-283,-32); ctx.closePath(); ctx.fill();
-
-    // Dolny mokry reflex
-    const botG = ctx.createLinearGradient(0,6,0,32);
-    botG.addColorStop(0,'rgba(40,70,95,0)'); botG.addColorStop(1,'rgba(35,65,90,0.4)');
-    ctx.fillStyle = botG;
-    ctx.beginPath(); ctx.moveTo(-270,32); ctx.lineTo(265,32);
-    ctx.bezierCurveTo(305,28,322,20,332,8); ctx.lineTo(328,12);
-    ctx.bezierCurveTo(318,25,298,32,265,34); ctx.lineTo(-270,34); ctx.closePath(); ctx.fill();
-
-    // Linie poszycia
-    ctx.strokeStyle = 'rgba(45,65,85,0.35)'; ctx.lineWidth = 0.7;
-    ctx.beginPath();
-    for (let x = -260; x < 260; x += 38) { ctx.moveTo(x,-28); ctx.lineTo(x,30); }
-    ctx.stroke();
-
-    // ── Silosy RSM-52 — 4 rzędy × 5 kolumn = 20 ──
-    for (let i = 0; i < TOTAL; i++) {
-      const col  = i % 5, row = Math.floor(i / 5);
-      const sx   = -100 + col * 50;
-      const sy   = -28 + row * 13;
-      const tube = tubes[i];
-      const open = tube.state === 'armed' || tube.state === 'launching' || tube.state === 'launched';
-      const firing = S.missiles.some(m => m.id === tube.id);
-
+    // 20 silosów RSM-52 — 4 rzędy × 5 kolumn
+    for (let i=0;i<TOTAL;i++) {
+      const col=i%5, row=Math.floor(i/5);
+      const sx=-100+col*50, sy=-28+row*13;
+      const tube=tubes[i];
+      const open = tube.state==='armed'||tube.state==='launched';
+      const firing = S.missiles.some(m=>m.id===tube.id);
       if (open) {
-        ctx.fillStyle = '#000';
-        ctx.beginPath(); ctx.ellipse(sx, sy, 11, 4, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(sx,sy,11,4,0,0,Math.PI*2); ctx.fill();
         if (firing) {
-          ctx.save(); ctx.globalCompositeOperation = 'lighter';
-          const fg = ctx.createRadialGradient(sx,sy,0,sx,sy,24);
-          fg.addColorStop(0,'rgba(255,200,80,0.95)'); fg.addColorStop(0.5,'rgba(255,100,40,0.5)'); fg.addColorStop(1,'rgba(255,50,20,0)');
-          ctx.fillStyle=fg; ctx.fillRect(sx-26,sy-26,52,52); ctx.restore();
+          ctx.save(); ctx.globalCompositeOperation='lighter';
+          const fg=ctx.createRadialGradient(sx,sy,0,sx,sy,26); fg.addColorStop(0,'rgba(255,205,80,0.98)'); fg.addColorStop(0.45,'rgba(255,100,40,0.55)'); fg.addColorStop(1,'rgba(255,50,18,0)');
+          ctx.fillStyle=fg; ctx.fillRect(sx-28,sy-28,56,56); ctx.restore();
         }
       } else {
-        ctx.fillStyle = tube.state==='empty' ? '#0c161e' : (tube.state==='launched' ? '#0c161e' : '#192432');
-        ctx.beginPath(); ctx.ellipse(sx, sy, 11, 4, 0, 0, Math.PI*2); ctx.fill();
-        // numer
-        ctx.fillStyle = tube.state==='ready' ? 'rgba(216,209,190,0.5)' : 'rgba(216,209,190,0.2)';
-        ctx.font = '6px JetBrains Mono'; ctx.textAlign = 'center';
-        ctx.fillText(String(i+1).padStart(2,'0'), sx, sy+2);
-        // LED
-        const lc = { ready:'#5fcf7a', armed:'#ffb347', empty:'#2a2a2a', launched:'#2a2a2a' };
-        ctx.fillStyle = lc[tube.state] || '#2a2a2a';
-        ctx.beginPath(); ctx.arc(sx+7, sy-2, 1, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle=tube.state==='ready'?'#1a2636':'#0d1622';
+        ctx.beginPath(); ctx.ellipse(sx,sy,11,4,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle=tube.state==='ready'?'rgba(216,209,190,0.48)':'rgba(216,209,190,0.18)';
+        ctx.font='6px JetBrains Mono'; ctx.textAlign='center'; ctx.fillText(String(i+1).padStart(2,'0'),sx,sy+2);
+        const lc={ready:'#5fcf7a',armed:'#ffb347',empty:'#282828',launched:'#282828'};
+        ctx.fillStyle=lc[tube.state]||'#282828'; ctx.beginPath(); ctx.arc(sx+7,sy-2,1,0,Math.PI*2); ctx.fill();
+        // zaznaczony silos
+        if (S.selSet.has(i+1)) { ctx.strokeStyle='rgba(232,65,58,0.85)'; ctx.lineWidth=1; ctx.beginPath(); ctx.ellipse(sx,sy,13,6,0,0,Math.PI*2); ctx.stroke(); }
       }
     }
 
-    // ── Kiosk ──
-    ctx.fillStyle = '#070b11';
-    ctx.beginPath();
-    ctx.moveTo(148,-36); ctx.bezierCurveTo(148,-56,165,-68,190,-70);
-    ctx.lineTo(242,-70); ctx.bezierCurveTo(258,-70,268,-56,268,-36); ctx.closePath(); ctx.fill();
-
-    // Peryskop
-    ctx.fillStyle = '#050810'; ctx.fillRect(210,-70,2,-20); ctx.beginPath(); ctx.arc(211,-94,2.5,0,Math.PI*2); ctx.fill();
-
-    // Stery rufowe
-    ctx.fillStyle = '#07090f';
-    ctx.beginPath(); ctx.moveTo(-290,-8); ctx.lineTo(-325,-3); ctx.lineTo(-325,9); ctx.lineTo(-290,15); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-285,-36); ctx.lineTo(-308,-58); ctx.lineTo(-282,-58); ctx.lineTo(-262,-36); ctx.closePath(); ctx.fill();
-
+    // Kiosk
+    ctx.fillStyle='#070b11'; ctx.beginPath();
+    ctx.moveTo(144,-36); ctx.bezierCurveTo(144,-56,162,-68,186,-70);
+    ctx.lineTo(238,-70); ctx.bezierCurveTo(254,-70,264,-56,264,-36); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#050810'; ctx.fillRect(206,-70,2,-18); ctx.beginPath(); ctx.arc(207,-91,2.5,0,Math.PI*2); ctx.fill();
+    // Stery
+    ctx.fillStyle='#07090f';
+    ctx.beginPath(); ctx.moveTo(-286,-8); ctx.lineTo(-320,-3); ctx.lineTo(-320,9); ctx.lineTo(-286,14); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-280,-36); ctx.lineTo(-302,-56); ctx.lineTo(-278,-56); ctx.lineTo(-258,-36); ctx.closePath(); ctx.fill();
     // Śruba
-    const propA = _t * 5.5;
-    ctx.save(); ctx.translate(-318, 0);
-    for (let i = 0; i < 5; i++) {
-      const a = propA + (i/5)*Math.PI*2;
-      const w = Math.abs(Math.cos(a))*14+2, yo = Math.sin(a)*12;
-      ctx.fillStyle = `rgba(18,26,34,${0.35 + Math.abs(Math.cos(a))*0.5})`;
-      ctx.beginPath(); ctx.ellipse(0, yo, 2, w, 0, 0, Math.PI*2); ctx.fill();
-    }
+    const pa=_t*5.5; ctx.save(); ctx.translate(-312,0);
+    for (let i=0;i<5;i++) { const a=pa+(i/5)*Math.PI*2; const w=Math.abs(Math.cos(a))*14+2,yo=Math.sin(a)*12;
+      ctx.fillStyle=`rgba(18,26,34,${0.32+Math.abs(Math.cos(a))*0.5})`; ctx.beginPath(); ctx.ellipse(0,yo,2,w,0,0,Math.PI*2); ctx.fill(); }
     ctx.restore();
+    // Światło nav
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const nf=0.52+Math.sin(_t*2.8)*0.22;
+    const ng=ctx.createRadialGradient(214,-68,0,214,-68,12); ng.addColorStop(0,`rgba(232,65,58,${0.78*nf})`); ng.addColorStop(1,'rgba(232,65,58,0)');
+    ctx.fillStyle=ng; ctx.fillRect(204,-78,22,22); ctx.fillStyle=`rgba(232,65,58,${0.9*nf})`; ctx.beginPath(); ctx.arc(214,-68,1.4,0,Math.PI*2); ctx.fill(); ctx.restore();
 
-    // Światło nawigacyjne
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const nf = 0.55 + Math.sin(_t*2.8)*0.2;
-    const ng = ctx.createRadialGradient(218,-68,0,218,-68,12);
-    ng.addColorStop(0,`rgba(232,65,58,${0.75*nf})`); ng.addColorStop(1,'rgba(232,65,58,0)');
-    ctx.fillStyle=ng; ctx.fillRect(208,-78,24,22);
-    ctx.fillStyle=`rgba(232,65,58,${0.9*nf})`;
-    ctx.beginPath(); ctx.arc(218,-68,1.4,0,Math.PI*2); ctx.fill();
-    ctx.restore();
-
-    ctx.textAlign = 'left';
-    ctx.restore();
+    ctx.textAlign='left'; ctx.restore();
   }
 
   function drawMissile(m) {
-    ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.angle);
-    const sub = m.phase === 'tube' || m.phase === 'underwater';
-    ctx.fillStyle = sub ? '#1c2b3a' : '#ccc4a8';
-    // stożek
-    ctx.beginPath(); ctx.moveTo(0,-30); ctx.lineTo(-6,-18); ctx.lineTo(6,-18); ctx.closePath(); ctx.fill();
-    // korpus
-    ctx.fillRect(-6,-18,12,48);
-    // pierścienie
-    ctx.fillStyle = sub ? '#091018' : '#9a9282';
-    ctx.fillRect(-6,-4,12,2); ctx.fillRect(-6,10,12,2);
-    if (!sub) {
-      ctx.fillStyle = '#921a12'; ctx.fillRect(-6,-14,12,4);
-    }
-    // statecznik
-    ctx.fillStyle = sub ? '#091018' : '#9a9282';
-    ctx.beginPath(); ctx.moveTo(-6,26); ctx.lineTo(-12,34); ctx.lineTo(-6,34); ctx.closePath();
-    ctx.moveTo(6,26);  ctx.lineTo(12,34);  ctx.lineTo(6,34); ctx.closePath(); ctx.fill();
+    ctx.save(); ctx.translate(m.x,m.y); ctx.rotate(m.angle);
+    const sub=m.y>SURF_Y;
+    ctx.fillStyle=sub?'#1c2b3a':'#d4cca8';
+    ctx.beginPath(); ctx.moveTo(0,-29); ctx.lineTo(-5,-15); ctx.lineTo(5,-15); ctx.closePath(); ctx.fill();
+    ctx.fillRect(-5,-15,10,44);
+    if (!sub) { ctx.fillStyle='#cc1810'; ctx.fillRect(-5,-7,10,4); }
+    ctx.fillStyle=sub?'#0d1820':'#9a9282';
+    ctx.beginPath(); ctx.moveTo(-5,24); ctx.lineTo(-12,32); ctx.lineTo(-5,32); ctx.closePath();
+    ctx.moveTo(5,24); ctx.lineTo(12,32); ctx.lineTo(5,32); ctx.closePath(); ctx.fill();
     ctx.restore();
+  }
+
+  function drawRings() {
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for (const r of rings) {
+      const a = (1 - r.life/r.maxLife) * 0.7;
+      ctx.strokeStyle=`rgba(200,235,255,${a})`; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.ellipse(r.x,r.y,r.r,r.r*0.18,0,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawSteam() {
+    for (const p of steam) {
+      const lt=p.life/p.maxLife, r=p.r+lt*p.rg, a=Math.sin(lt*Math.PI)*0.35;
+      if(a<=0) continue;
+      const gg=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);
+      gg.addColorStop(0,`rgba(220,235,248,${a})`); gg.addColorStop(0.55,`rgba(200,220,240,${a*0.4})`); gg.addColorStop(1,'rgba(180,210,235,0)');
+      ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.fill();
+    }
   }
 
   function drawBubbles() {
     for (const p of bubbles) {
-      const lt = p.life / p.maxLife;
-      const a = Math.min(1 - lt, p.life / 0.06) * 0.8;
-      if (a <= 0) continue;
-      ctx.fillStyle = `rgba(175,200,218,${a*0.45})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = `rgba(240,250,255,${a})`;
-      ctx.beginPath(); ctx.arc(p.x - p.r*0.3, p.y - p.r*0.3, p.r*0.32, 0, Math.PI*2); ctx.fill();
+      const lt=p.life/p.maxLife, a=Math.min(1-lt,p.life/0.07)*0.78; if(a<=0) continue;
+      ctx.fillStyle=`rgba(172,198,218,${a*0.42})`; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=`rgba(238,250,255,${a})`; ctx.beginPath(); ctx.arc(p.x-p.r*0.3,p.y-p.r*0.3,p.r*0.3,0,Math.PI*2); ctx.fill();
     }
   }
   function drawSplash() {
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.save(); ctx.globalCompositeOperation='lighter';
     for (const p of splash) {
-      const a = (1 - p.life/p.maxLife) * 0.85;
-      ctx.fillStyle = `rgba(215,235,248,${a})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
-      if (Math.abs(p.vy) > 55) {
-        ctx.strokeStyle = `rgba(215,235,248,${a*0.35})`; ctx.lineWidth = p.r*0.35;
-        ctx.beginPath(); ctx.moveTo(p.x - p.vx*0.02, p.y - p.vy*0.02); ctx.lineTo(p.x, p.y); ctx.stroke();
-      }
+      const a=(1-p.life/p.maxLife)*0.82; ctx.fillStyle=`rgba(212,235,250,${a})`; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+      if(Math.abs(p.vy)>55) { ctx.strokeStyle=`rgba(212,235,250,${a*0.32})`; ctx.lineWidth=p.r*0.32; ctx.beginPath(); ctx.moveTo(p.x-p.vx*0.02,p.y-p.vy*0.02); ctx.lineTo(p.x,p.y); ctx.stroke(); }
+    }
+    ctx.restore();
+  }
+  function drawExhaust() {
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for (const p of exhaust) {
+      const lt=p.life/p.maxLife, a=(1-lt)*0.9;
+      const col=lt<0.18?[255,252,218]:lt<0.45?[255,192,90]:lt<0.72?[255,112,42]:[170,42,16];
+      const gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
+      gr.addColorStop(0,`rgba(${col},${a})`); gr.addColorStop(0.55,`rgba(${col},${a*0.48})`); gr.addColorStop(1,`rgba(${col},0)`);
+      ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(1+lt*0.65),0,Math.PI*2); ctx.fill();
     }
     ctx.restore();
   }
   function drawSmoke() {
     for (const p of smoke) {
-      const lt = p.life / p.maxLife;
-      const r = p.r + lt * p.rg;
-      const a = Math.sin(lt * Math.PI) * 0.38 * p.dk;
-      if (a <= 0) continue;
-      const g2 = Math.floor(26 + (1-lt)*20);
-      const gr = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);
-      gr.addColorStop(0,  `rgba(${g2},${g2},${g2},${a})`);
-      gr.addColorStop(0.55,`rgba(${g2},${g2},${g2},${a*0.4})`);
-      gr.addColorStop(1,  `rgba(${g2},${g2},${g2},0)`);
+      const lt=p.life/p.maxLife, r=p.r+lt*p.rg, a=Math.sin(lt*Math.PI)*0.36*p.dk; if(a<=0) continue;
+      const gv=Math.floor(24+(1-lt)*22);
+      const gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);
+      gr.addColorStop(0,`rgba(${gv},${gv},${gv},${a})`); gr.addColorStop(0.55,`rgba(${gv},${gv},${gv},${a*0.38})`); gr.addColorStop(1,`rgba(${gv},${gv},${gv},0)`);
       ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.fill();
     }
   }
-  function drawFire() {
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (const p of fire) {
-      const lt = p.life / p.maxLife;
-      let r,g,b;
-      if (lt < 0.15)     { r=255;g=252;b=220; }
-      else if (lt < 0.4) { r=255;g=195;b=95; }
-      else if (lt < 0.7) { r=255;g=115;b=45; }
-      else               { r=175;g=45;b=18; }
-      const a = (1 - lt) * 0.92;
-      const grd = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
-      grd.addColorStop(0,`rgba(${r},${g},${b},${a})`);
-      grd.addColorStop(0.55,`rgba(${r},${g},${b},${a*0.48})`);
-      grd.addColorStop(1,`rgba(${r},${g},${b},0)`);
-      ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
-    }
-    ctx.restore();
-  }
   function drawVignette() {
-    const vg = ctx.createRadialGradient(W/2,H*0.5,H*0.3,W/2,H*0.5,H);
-    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.5)');
+    const vg=ctx.createRadialGradient(W/2,H*0.5,H*0.28,W/2,H*0.5,H);
+    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.52)');
     ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
   }
 
   function slbmRender() {
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
     drawBg();
     drawSub();
     drawSmoke();
     drawBubbles();
-    drawFire();
+    drawRings();
+    drawSteam();
+    drawExhaust();
     for (const m of S.missiles) drawMissile(m);
     drawSplash();
     drawVignette();
@@ -3614,7 +3561,9 @@
 
   // ── PĘTLA ──────────────────────────────────────────────────────
   function slbmFrame(ts) {
-    if (!_slbmActive && !S.missiles.length) { _slbmRunning = false; return; }
+    if (!_slbmActive && !S.missiles.length && !bubbles.length && !splash.length) {
+      _slbmRunning = false; return;
+    }
     _slbmRunning = true;
     const dt = Math.min(0.05, (ts - _last) / 1000 || 0);
     _last = ts;
@@ -3625,19 +3574,20 @@
 
   window._slbmStart = function() {
     if (_slbmRunning) return;
-    _last = 0;
+    _last = performance.now();
     requestAnimationFrame(slbmFrame);
   };
 
-  // ── INIT ───────────────────────────────────────────────────────
-  renderTubes();
-  refreshBtns();
-  slbmLog('SYSTEM SLBM — INICJALIZACJA');
+  renderTubes(); refreshBtns();
+  slbmLog('SYSTEM SLBM — INICJALIZACJA v2');
   slbmLog('K-244 «NALIM» · PANEL DOWÓDCZY');
-  slbmLog('GOTOWOŚĆ: 16/20 RAKIET RSM-52');
-  slbmLog('CEL ZAŁADOWANY: CEL-α MINUTEMAN III');
+  slbmLog('ZAŁADOWANO: 16/20 RSM-52 «WOIEWODA»');
+  slbmLog('CEL: CEL-α MINUTEMAN III BAZA');
+  slbmLog('TRYB: SALWA WIELOKROTNA AKTYWNY', 'ok');
 })();
 
 let _slbmActive = false;
 let _slbmRunning = false;
 </script>
+</body>
+</html></script>
