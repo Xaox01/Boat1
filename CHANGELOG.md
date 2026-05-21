@@ -4,6 +4,25 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.60] — 2026-05-21
+
+### Dodano — EAM: animacja namierzenia celu od Dowódstwa przed SLBM
+
+**index.html — nakładka `#slbm-eam-overlay`:**
+
+- **Przycisk "◈ ODBIERZ ROZKAZ CELOWANIA"** w prawym panelu SLBM — inicjuje sekwencję EAM (Emergency Action Message)
+- **5 faz automatycznych** z wizualizacją czasu rzeczywistego i wskaźnikami postępu (5 kropek):
+  1. **ODBIÓR ELF/VLF** — animowany szum sygnału → czysty sygnał, typewriter linii statusu szyfrantu, SNR rosnące do 89%
+  2. **DESZYFROWANIE** — zaszyfrowane bloki (`NK22-ALFA-LIMA-74RR`...) → typewriter pełnego rozkazu bojowego (`ROZKAZ BOJOWY NR 071-A · OPERACJA: PAŹDZIERNIK · PKTU-7/26-ALFA...`)
+  3. **UWIERZYTELNIENIE** — porównanie kodu EAM z kartą pieczętną PKP, weryfikacja PAŁ, komunikat `CHEGET: POŁĄCZENIE AKTYWNE`, zielone `██ ZGODNOŚĆ ██`
+  4. **PAKIET CELÓW** — mapa świata (Canvas 2D): kontury kontynentów, pozycja K-244, cel `CEL-α` z przerywanymi łukiem trajektorii 9840km, belka z parametrami `PKTU-7/26-ALFA · h=1200km · CEP: 38m · 10×MIRV 500kT`
+  5. **POTWIERDZENIE BOJOWE** — dwa niezależne przyciski `DOWÓDCA (KDT)` + `POL.ŚR. (XO)` — oba wymagane; po kliknięciu zmień kolor na zielony
+- **Blokada operacyjna** — silosy nieaktywne, ARM/FIRE zablokowane do czasu `EAM.done`; `refreshBtns()` i `selTube()` sprawdzają flagę
+- **Integracja z logiem** — każda faza generuje wpisy w dzienniku SLBM
+- Po potwierdzeniu: nakładka znika (fade 1,4s), przycisk zmienia się na `◈ ROZKAZ POTWIERDZONY`, silosy odblokowane
+
+---
+
 ## [0.10.59] — 2026-05-21
 
 ### Zmieniono — Ulepszony system wystrzeliwania SLBM

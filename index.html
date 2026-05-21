@@ -550,6 +550,49 @@
     }
     .slbm-warn-bar.vis { display: block; }
 
+    /* ── EAM OVERLAY (Rozkaz celowania od Sztabu) ─────── */
+    #slbm-eam-overlay {
+      position:absolute;inset:0;z-index:30;background:rgba(0,4,10,0.97);
+      display:none;flex-direction:column;font-family:var(--fm);
+      color:rgba(0,220,110,0.9);padding:16px 20px 14px;
+      box-sizing:border-box;gap:10px;overflow:hidden;
+    }
+    #slbm-eam-overlay.vis { display:flex; }
+    #eam-header {
+      display:flex;align-items:center;gap:9px;flex-shrink:0;
+      border-bottom:1px solid rgba(0,200,80,0.2);padding-bottom:10px;
+    }
+    .eam-dot { width:7px;height:7px;border-radius:50%;background:rgba(0,160,60,0.18);flex-shrink:0;transition:background 400ms; }
+    .eam-dot.act { background:rgba(0,220,110,0.95);box-shadow:0 0 7px rgba(0,220,110,0.6);animation:blink 0.9s steps(1) infinite; }
+    .eam-dot.dn  { background:rgba(0,180,70,0.5); }
+    #eam-phase-lbl { font-size:11px;letter-spacing:4px;color:rgba(0,220,110,0.9);flex:1; }
+    #eam-phase-tag { font-size:9px;letter-spacing:2px;color:rgba(0,160,60,0.42); }
+    #eam-sig-cv  { display:block;width:100%;height:64px;flex-shrink:0; }
+    #eam-content { flex:1;overflow:hidden;display:flex;flex-direction:column;gap:8px; }
+    #eam-msg  { font-size:9.5px;line-height:1.75;color:rgba(0,210,90,0.82); }
+    .eam-line { padding:0.5px 0; }
+    .eam-enc  { font-size:9px;color:rgba(0,160,60,0.42);letter-spacing:1px;line-height:1.6; }
+    .eam-dec  { font-family:var(--fm);font-size:9.5px;line-height:1.7;margin:0;color:rgba(0,210,90,0.88);white-space:pre-wrap; }
+    .eam-cur  { animation:blink 0.45s steps(1) infinite; }
+    #eam-auth { font-size:9.5px;line-height:1.9;display:none; }
+    .eam-al   { color:rgba(0,190,70,0.62);padding:1px 0; }
+    .eam-al.ok{ color:rgba(0,220,110,0.9); }
+    .eam-al.mt{ color:#e8413a;font-weight:600;letter-spacing:2px; }
+    #eam-map-cv  { display:none;width:100%;flex-shrink:0; }
+    #eam-cfm-row { display:none;gap:12px;flex-shrink:0;padding-top:8px;border-top:1px solid rgba(232,65,58,0.28); }
+    .eam-cfm {
+      flex:1;padding:12px 8px;font-family:var(--fm);font-size:10px;letter-spacing:3px;
+      background:#130208;border:1px solid rgba(232,65,58,0.4);color:rgba(232,65,58,0.7);
+      cursor:pointer;text-align:center;line-height:1.6;
+      transition:background 120ms,color 120ms,border-color 120ms;
+    }
+    .eam-cfm:hover { background:#1e0a0a;color:var(--accent);border-color:var(--accent); }
+    .eam-cfm.ok   { background:#081a0d;color:var(--green);border-color:var(--green);cursor:default; }
+    .eam-cfm-sub  { font-size:8px;letter-spacing:1px;opacity:0.55;display:block;margin-top:2px; }
+    .slbm-btn.eam { border-left:3px solid rgba(0,200,80,0.55);color:rgba(0,200,80,0.85); }
+    .slbm-btn.eam:not(:disabled):hover { background:#041509;color:rgba(0,230,110,1); }
+    .slbm-btn.eam:disabled { opacity:0.38; }
+
     /* ── DAMAGE STATION ─────────────────────────────────── */
     #damage-station {
       display: none;
@@ -1590,6 +1633,11 @@
         <div id="slbm-right">
           <div id="slbm-right-inner">
 
+            <button class="slbm-btn eam" id="slbm-rcv-eam" style="margin-bottom:2px;">
+              <span>◈ ODBIERZ ROZKAZ CELOWANIA</span>
+              <span class="bh">SZYFRANT · ELF/VLF 76 Hz</span>
+            </button>
+
             <div class="slbm-head">
               <h2>PANEL SLBM</h2>
               <div class="slbm-sub">RSM-52 «WOIEWODA» · 20×10 MIRV</div>
@@ -1663,6 +1711,29 @@
           </div><!-- #slbm-right-inner -->
           <div class="slbm-warn-bar" id="slbm-warn">⚠ OGRANICZENIE GŁĘBOKOŚCI — MAKS. 55 m DLA ODPALENIA</div>
         </div><!-- #slbm-right -->
+
+      <!-- ══ EAM OVERLAY — Rozkaz celowania od Dowódstwa ══ -->
+      <div id="slbm-eam-overlay">
+        <div id="eam-header">
+          <div class="eam-dot" id="eam-d1"></div>
+          <div class="eam-dot" id="eam-d2"></div>
+          <div class="eam-dot" id="eam-d3"></div>
+          <div class="eam-dot" id="eam-d4"></div>
+          <div class="eam-dot" id="eam-d5"></div>
+          <div id="eam-phase-lbl">SZYFRANT · NASŁUCH ELF/VLF AKTYWNY</div>
+          <div id="eam-phase-tag">KAVKAZ-Ω · PRIORYTET: BŁYSKAWICA</div>
+        </div>
+        <canvas id="eam-sig-cv" width="560" height="64"></canvas>
+        <div id="eam-content">
+          <div id="eam-msg"></div>
+          <div id="eam-auth"></div>
+          <canvas id="eam-map-cv" width="560" height="140"></canvas>
+        </div>
+        <div id="eam-cfm-row">
+          <button class="eam-cfm" id="eam-cmd-btn">◈ POTWIERDZAM<br>ROZKAZ BOJOWY<span class="eam-cfm-sub">DOWÓDCA · KDT</span></button>
+          <button class="eam-cfm" id="eam-xo-btn">◈ POTWIERDZAM<br>ROZKAZ BOJOWY<span class="eam-cfm-sub">POL. ŚR. · XO</span></button>
+        </div>
+      </div>
 
       </div><!-- #slbm-station -->
 
@@ -3017,6 +3088,181 @@
   const key1El    = document.getElementById('slbm-key1');
   const key2El    = document.getElementById('slbm-key2');
 
+  // ── EAM (Rozkaz celowania od Dowódstwa) ───────────────────────
+  const EAM = { active:false, phase:'off', t:0, conf:{cmd:false,xo:false}, done:false };
+  const eamOv     = document.getElementById('slbm-eam-overlay');
+  const eamSigCv  = document.getElementById('eam-sig-cv');
+  const eamSigX   = eamSigCv?.getContext('2d');
+  const eamMsgEl  = document.getElementById('eam-msg');
+  const eamAuthEl = document.getElementById('eam-auth');
+  const eamMapCv  = document.getElementById('eam-map-cv');
+  const eamMapX   = eamMapCv?.getContext('2d');
+  const eamLblEl  = document.getElementById('eam-phase-lbl');
+  const eamCfmRow = document.getElementById('eam-cfm-row');
+  const eamCmdBtn = document.getElementById('eam-cmd-btn');
+  const eamXoBtn  = document.getElementById('eam-xo-btn');
+  const eamDots   = [1,2,3,4,5].map(i => document.getElementById(`eam-d${i}`));
+  const rcvBtn    = document.getElementById('slbm-rcv-eam');
+
+  const EAM_RCV = [
+    [0.4, 'SZYFRANT: ODBIÓR SYGNAŁU ELF/VLF...'],
+    [1.0, 'FREQ: 76 Hz · STACJA: GSHRF-SIEWIERODINSK'],
+    [1.6, 'SYNC: ███████████░░ SYNCHRONIZACJA PROTOKOŁU'],
+    [2.2, 'STATUS: WIADOMOŚĆ PRIORYTETOWA KAVKAZ-Ω'],
+    [2.7, 'ODBIÓR ZAKOŃCZONY · PRZEKAZUJĘ DO DESZYFRATORA'],
+  ];
+  const EAM_DECODE = `─── EAM KAVKAZ-Ω · PRIORYTET: BŁYSKAWICA ───
+
+NADAWCA: SZEF SG RF · MOSKWA · 211430Z MAJ 26
+ADRESAT: K-244 «NALIM» · REJ. 33°N 048°W
+
+ROZKAZ BOJOWY NR 071-A
+OPERACJA: PAŹDZIERNIK · ZADANIE: UDERZENIE
+
+PKTU-7/26-ALFA:
+  CEL A: 45.113°N 096.732°W  [ALFA]
+  CEL B: 41.285°N 096.004°W  [BRAVO]
+  CEL C: 38.924°N 094.358°W  [CHARLIE]
+
+KOD AUTH: DELTA-NINER-74-OMEGA
+WYKONANIE: NA ROZKAZ DOWÓDCY`;
+  const EAM_AUTH = [
+    [0.5, 'KOD ODEBRANY  (EAM):   DELTA-NINER-74-OMEGA', ''],
+    [1.2, 'KARTA PIECZĘTNA (PKP): DELTA-NINER-74-OMEGA', 'ok'],
+    [2.0, '────────── WERYFIKACJA: ██ ZGODNOŚĆ ██', 'mt'],
+    [2.7, 'ZEZWOLENIE PAŁ:         ODBLOKOWANE', 'ok'],
+    [3.3, 'CHEGET: POŁĄCZENIE AKTYWNE · KODYF. POTWIER.', 'ok'],
+    [3.9, 'UPRAWNIENIE DO UDERZENIA: POTWIERDZONE', 'ok'],
+  ];
+
+  function eamSetDot(n) {
+    eamDots.forEach((d,i) => {
+      d.classList.remove('act','dn');
+      if (i < n) d.classList.add('dn'); else if (i === n) d.classList.add('act');
+    });
+  }
+
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function drawEamSig(prog) {
+    if (!eamSigX) return;
+    const cW=eamSigCv.width, cH=eamSigCv.height;
+    eamSigX.fillStyle='#010a08'; eamSigX.fillRect(0,0,cW,cH);
+    eamSigX.strokeStyle='rgba(0,180,60,0.08)'; eamSigX.lineWidth=0.5;
+    for(let y=0;y<=cH;y+=cH/4){eamSigX.beginPath();eamSigX.moveTo(0,y);eamSigX.lineTo(cW,y);eamSigX.stroke();}
+    eamSigX.strokeStyle=`rgba(0,220,100,${0.45+prog*0.45})`; eamSigX.lineWidth=1.3;
+    eamSigX.beginPath();
+    const mid=cH/2;
+    for(let x=0;x<cW;x+=2){
+      const nx=x/cW;
+      const noise=(Math.random()-0.5)*cH*0.82*(1-prog);
+      const clean=Math.sin(nx*Math.PI*18+EAM.t*7)*cH*0.3*prog+Math.sin(nx*Math.PI*6+EAM.t*4.5)*cH*0.1*prog;
+      const y=mid+noise+clean; x===0?eamSigX.moveTo(x,y):eamSigX.lineTo(x,y);
+    }
+    eamSigX.stroke();
+    eamSigX.fillStyle='rgba(0,180,60,0.35)'; eamSigX.font='8px JetBrains Mono';
+    eamSigX.fillText('76 Hz · ELF/VLF KAVKAZ',6,cH-6);
+    eamSigX.fillText(`SNR: ${(prog*89).toFixed(0)}%`,cW-54,cH-6);
+  }
+
+  function drawEamMap() {
+    if (!eamMapX) return;
+    const mW=eamMapCv.width, mH=eamMapCv.height, mx=eamMapX;
+    mx.fillStyle='#010a0d'; mx.fillRect(0,0,mW,mH);
+    mx.strokeStyle='rgba(0,180,70,0.07)'; mx.lineWidth=0.5;
+    for(let x=0;x<=mW;x+=mW/12){mx.beginPath();mx.moveTo(x,0);mx.lineTo(x,mH);mx.stroke();}
+    for(let y=0;y<=mH;y+=mH/6) {mx.beginPath();mx.moveTo(0,y);mx.lineTo(mW,y);mx.stroke();}
+    const p=(lon,lat)=>[((lon+180)/360*mW)|0,((90-lat)/180*mH)|0];
+    mx.fillStyle='rgba(0,145,55,0.16)';
+    const NA=[[-170,70],[-60,70],[-55,50],[-75,45],[-60,44],[-70,42],[-80,25],[-90,15],[-85,10],[-77,8],[-105,20],[-120,32],[-125,48],[-140,58],[-170,65]];
+    const EA=[[5,60],[30,70],[70,72],[120,72],[140,68],[180,64],[180,50],[140,40],[120,30],[100,25],[60,20],[50,28],[40,36],[28,38],[10,38],[0,43],[5,60]];
+    const Af=[[-18,15],[5,5],[45,10],[52,12],[45,0],[40,-10],[35,-25],[20,-35],[15,-35],[10,-5],[0,5],[-18,15]];
+    const SA=[[-75,12],[-55,8],[-35,-5],[-50,-30],[-65,-35],[-70,-55],[-80,-50],[-80,-35],[-75,-20],[-75,12]];
+    [NA,EA,Af,SA].forEach(pts=>{mx.beginPath();pts.forEach(([ln,lt],i)=>{const[x,y]=p(ln,lt);i?mx.lineTo(x,y):mx.moveTo(x,y);});mx.closePath();mx.fill();});
+    const [sx,sy]=p(-48,33), [tx,ty]=p(-96.7,45.1);
+    const cx=(sx+tx)/2, cy=Math.min(sy,ty)-44;
+    mx.strokeStyle='rgba(232,65,58,0.8)'; mx.lineWidth=1.4; mx.setLineDash([4,3]);
+    mx.beginPath(); mx.moveTo(sx,sy); mx.quadraticCurveTo(cx,cy,tx,ty); mx.stroke(); mx.setLineDash([]);
+    mx.strokeStyle='rgba(0,220,100,0.65)'; mx.lineWidth=1; mx.beginPath(); mx.arc(sx,sy,5,0,Math.PI*2); mx.stroke();
+    mx.fillStyle='rgba(0,220,100,0.9)'; mx.beginPath(); mx.arc(sx,sy,2,0,Math.PI*2); mx.fill();
+    mx.strokeStyle='rgba(232,65,58,0.9)'; mx.lineWidth=1.5;
+    mx.beginPath(); mx.moveTo(tx-5,ty-5); mx.lineTo(tx+5,ty+5); mx.stroke();
+    mx.beginPath(); mx.moveTo(tx+5,ty-5); mx.lineTo(tx-5,ty+5); mx.stroke();
+    mx.fillStyle='rgba(0,220,100,0.62)'; mx.font='8px JetBrains Mono'; mx.fillText('K-244',sx+7,sy+3);
+    mx.fillStyle='rgba(232,65,58,0.8)'; mx.fillText('CEL-α',tx+6,ty-5); mx.fillText('~9840km',cx-20,cy-6);
+    mx.fillStyle='rgba(0,7,4,0.82)'; mx.fillRect(0,mH-26,mW,26);
+    mx.fillStyle='rgba(0,200,80,0.52)'; mx.font='8px JetBrains Mono';
+    mx.fillText('PKTU-7/26-ALFA  ·  TRAJEKT: SUBORBITAL h=1200km  ·  CEP: 38m  ·  CZAS LOTU: ~28min  ·  MIRV: 10×500kT',8,mH-10);
+  }
+
+  function startEAM() {
+    if (EAM.done || EAM.active) return;
+    EAM.active=true; EAM.phase='receive'; EAM.t=0;
+    eamOv.classList.add('vis');
+    eamSetDot(0); eamLblEl.textContent='ODBIÓR SYGNAŁU ELF/VLF';
+    eamMsgEl.innerHTML=''; eamAuthEl.innerHTML='';
+    eamAuthEl.style.display='none'; eamMapCv.style.display='none'; eamCfmRow.style.display='none';
+    slbmLog('◈ SZYFRANT: PILNY SYGNAŁ KAVKAZ-Ω ODEBRANY','cr');
+  }
+
+  function updateEAM(dt) {
+    if (!EAM.active) return;
+    EAM.t += dt;
+    if (EAM.phase === 'receive') {
+      drawEamSig(Math.min(1, EAM.t/2.6));
+      eamMsgEl.innerHTML = EAM_RCV.filter(([t])=>EAM.t>=t).map(([,m])=>`<div class="eam-line">${m}</div>`).join('');
+      if (EAM.t>=3.1) { EAM.phase='decrypt'; EAM.t=0; eamSetDot(1); eamLblEl.textContent='DESZYFROWANIE EAM'; eamMsgEl.innerHTML=''; slbmLog('SZYFRANT: DESZYFROWANIE KAVKAZ-Ω...','ok'); }
+    }
+    else if (EAM.phase === 'decrypt') {
+      drawEamSig(1);
+      if (EAM.t < 1.0) {
+        eamMsgEl.innerHTML = `<div class="eam-enc">NK22-ALFA-LIMA-74RR<br>XQ7F-Ω014-ROMEO-74XQ<br>AAB9-FOXTROT-BRAVO-11<br>KILO-88RR-SIERRA-DELTA<br>GOLF-Ω22-NOVEMBER-QQ19<br>YANKEE-Ω08-TANGO-55KK</div>`;
+      } else if (EAM.t < 4.2) {
+        const chars = Math.floor(EAM_DECODE.length * Math.min(1,(EAM.t-1.0)/3.2));
+        eamMsgEl.innerHTML = `<pre class="eam-dec">${esc(EAM_DECODE.substring(0,chars))}<span class="eam-cur">▮</span></pre>`;
+      } else {
+        eamMsgEl.innerHTML = `<pre class="eam-dec">${esc(EAM_DECODE)}</pre>`;
+        EAM.phase='auth'; EAM.t=0; eamSetDot(2); eamLblEl.textContent='UWIERZYTELNIENIE';
+        eamAuthEl.style.display='block'; slbmLog('SZYFRANT: DESZYFROWANIE OK · PORÓWNANIE KODÓW','ok');
+      }
+    }
+    else if (EAM.phase === 'auth') {
+      drawEamSig(1);
+      eamAuthEl.innerHTML = EAM_AUTH.filter(([t])=>EAM.t>=t).map(([,m,c])=>`<div class="eam-al ${c}">${m}</div>`).join('');
+      if (EAM.t>=4.8) { EAM.phase='target'; EAM.t=0; eamSetDot(3); eamLblEl.textContent='PAKIET CELÓW';
+        eamMapCv.style.display='block'; drawEamMap(); slbmLog('SZYFRANT: PKTU-7/26-ALFA → FCS ZAŁADOWANE','mj'); }
+    }
+    else if (EAM.phase === 'target') {
+      if (EAM.t>=2.4) { EAM.phase='confirm'; EAM.t=0; eamSetDot(4); eamLblEl.textContent='POTWIERDZENIE BOJOWE';
+        eamCfmRow.style.display='flex'; slbmLog('★ WYMAGANE: POTWIERDZENIE KDT + POL.ŚR.','cr'); }
+    }
+  }
+
+  function checkEamConfirm() {
+    if (!EAM.conf.cmd || !EAM.conf.xo) return;
+    EAM.done=true; EAM.active=false;
+    eamDots.forEach(d => { d.classList.remove('act','dn'); d.classList.add('dn'); });
+    eamLblEl.textContent = '★ AUTORYZACJA POTWIERDZONA · SILOSY ODBLOKOWANE';
+    setTimeout(() => { eamOv.classList.remove('vis'); rcvBtn.textContent='◈ ROZKAZ POTWIERDZONY'; rcvBtn.disabled=true; }, 1400);
+    slbmLog('★ EAM POTWIERDZONE · K-244 GOTOWA DO UDERZENIA','cr');
+    slbmLog('PKTU-7/26-ALFA AKTYWNE · SILOSY ODBLOKOWANE','ok');
+    refreshBtns();
+  }
+
+  eamCmdBtn?.addEventListener('click', () => {
+    if (EAM.phase !== 'confirm' || EAM.conf.cmd) return;
+    EAM.conf.cmd=true; eamCmdBtn.classList.add('ok');
+    eamCmdBtn.innerHTML = '✓ POTWIERDZONE<br>DOWÓDCA<span class="eam-cfm-sub">KDT · AUTHORIZED</span>';
+    slbmLog('KDT: ROZKAZ BOJOWY POTWIERDZONY','ok'); checkEamConfirm();
+  });
+  eamXoBtn?.addEventListener('click', () => {
+    if (EAM.phase !== 'confirm' || EAM.conf.xo) return;
+    EAM.conf.xo=true; eamXoBtn.classList.add('ok');
+    eamXoBtn.innerHTML = '✓ POTWIERDZONE<br>POL.ŚR.<span class="eam-cfm-sub">XO · AUTHORIZED</span>';
+    slbmLog('POL.ŚR.: ROZKAZ BOJOWY POTWIERDZONY','ok'); checkEamConfirm();
+  });
+  rcvBtn?.addEventListener('click', startEAM);
+
   // ── STAŁE SCENY ───────────────────────────────────────────────
   const SURF_Y = 260, SUB_CY = 510, SUB_CX = W / 2;
   const MAX_DEPTH = 55, MAX_SPD = 6;   // warunki odpalenia
@@ -3083,6 +3329,7 @@
                          empty:'PUSTA', launched:'WYSTZ.' }[s] || s);
 
   function selTube(id) {
+    if (!EAM.done) return;
     const t = tubes.find(t => t.id === id);
     if (!t || t.state === 'empty' || t.state === 'launched' || t.state === 'launching') return;
     if (S.selSet.has(id)) S.selSet.delete(id);
@@ -3099,6 +3346,11 @@
 
   // ── PRZYCISKI ─────────────────────────────────────────────────
   function refreshBtns() {
+    if (!EAM.done) {
+      armBtn.disabled=true; armHEl.textContent='OCZEKIWANIE NA ROZKAZ EAM';
+      fireBtn.disabled=true; fireHEl.textContent='BRAK AUTORYZACJI';
+      warnBar.classList.remove('vis'); return;
+    }
     const selReady  = [...S.selSet].filter(id => tubes.find(t=>t.id===id)?.state === 'ready');
     const selArmed  = [...S.selSet].filter(id => tubes.find(t=>t.id===id)?.state === 'armed');
     const anyArmed  = tubes.some(t => t.state === 'armed');
@@ -3277,6 +3529,7 @@
   // ── UPDATE ─────────────────────────────────────────────────────
   function slbmUpdate(dt) {
     _t += dt;
+    updateEAM(dt);
     const depth = window._sonar?.depth ?? 50;
     const spd   = window._sonar?.speed ?? 0;
     if (hdEl) hdEl.textContent = Math.round(depth);
@@ -3582,8 +3835,9 @@
   slbmLog('SYSTEM SLBM — INICJALIZACJA v2');
   slbmLog('K-244 «NALIM» · PANEL DOWÓDCZY');
   slbmLog('ZAŁADOWANO: 16/20 RSM-52 «WOIEWODA»');
-  slbmLog('CEL: CEL-α MINUTEMAN III BAZA');
   slbmLog('TRYB: SALWA WIELOKROTNA AKTYWNY', 'ok');
+  slbmLog('★ OCZEKIWANIE NA ROZKAZ CELOWANIA (EAM)', 'cr');
+  slbmLog('SZYFRANT: NASŁUCH CZĘST. 76Hz AKTYWNY');
 })();
 
 let _slbmActive = false;
