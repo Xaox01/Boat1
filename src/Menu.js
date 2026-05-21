@@ -262,6 +262,15 @@ function buildMenuHTML(saveInfo) {
         font-family: monospace; font-size: 9px; letter-spacing: 2px;
         opacity: 0.35; margin-top: 14px;
       }
+      .ms-section-hdr {
+        font-family: monospace; font-size: 9px; letter-spacing: 3px;
+        color: ${ACCENT}; opacity: 0.65;
+        margin-bottom: 14px; margin-top: 6px;
+      }
+      .ms-section-gap {
+        height: 8px; border-top: 1px solid ${ACCENT}22;
+        margin-bottom: 18px;
+      }
 
       @keyframes menu-pulse {
         0%,100% { opacity: 1; transform: scale(1); }
@@ -373,7 +382,9 @@ export class Menu {
     this._inSettings = false;
 
     this._settingsDefs = [
+      // ── ROZGRYWKA ─────────────────────────────────────────
       {
+        section: 'ROZGRYWKA',
         key: 'difficulty', label: 'TRUDNOŚĆ',
         options: [
           { v: { key:'easy',   label:'ŁATWY',   enemies:1, speedMult:0.75 }, label:'ŁATWY'   },
@@ -408,19 +419,55 @@ export class Menu {
         ],
         idx: 0,
       },
+      // ── GRAFIKA ───────────────────────────────────────────
+      {
+        section: 'GRAFIKA',
+        key: 'particles', label: 'CZĄSTECZKI',
+        options: [
+          { v: 0.35, label: 'NISKIE'   },
+          { v: 1.00, label: 'NORMALNE' },
+          { v: 1.70, label: 'WYSOKIE'  },
+        ],
+        idx: 1,
+      },
+      {
+        key: 'cameraShake', label: 'WSTRZĄSY KAMERY',
+        options: [
+          { v: true,  label: 'WŁ.' },
+          { v: false, label: 'WYŁ.' },
+        ],
+        idx: 0,
+      },
+      {
+        key: 'scanlines', label: 'EFEKT CRT',
+        options: [
+          { v: true,  label: 'WŁ.' },
+          { v: false, label: 'WYŁ.' },
+        ],
+        idx: 0,
+      },
     ];
   }
 
   _buildSettingsHTML() {
-    const rowsHTML = this._settingsDefs.map(def => {
-      const optsHTML = def.options.map((opt, oi) => {
-        return `<button class="ms-opt ${oi === def.idx ? 'on' : ''}" data-key="${def.key}" data-idx="${oi}">${opt.label}</button>`;
-      }).join('');
-      return `<div class="ms-row">
+    let rowsHTML = '';
+    let lastSection = null;
+    this._settingsDefs.forEach((def, i) => {
+      if (def.section && def.section !== lastSection) {
+        if (lastSection !== null) rowsHTML += '<div class="ms-section-gap"></div>';
+        rowsHTML += `<div class="ms-section-hdr">// ${def.section}</div>`;
+        lastSection = def.section;
+      } else if (i > 0) {
+        rowsHTML += '<hr class="ms-sep">';
+      }
+      const optsHTML = def.options.map((opt, oi) =>
+        `<button class="ms-opt ${oi === def.idx ? 'on' : ''}" data-key="${def.key}" data-idx="${oi}">${opt.label}</button>`
+      ).join('');
+      rowsHTML += `<div class="ms-row">
         <div class="ms-row-lbl">${def.label}</div>
         <div class="ms-opts">${optsHTML}</div>
       </div>`;
-    }).join('<hr class="ms-sep">');
+    });
 
     return `<div id="menu-settings">
       <div class="ms-hdr">// KONFIGURACJA PATROLU</div>
@@ -435,6 +482,13 @@ export class Menu {
       out[def.key] = def.options[def.idx].v;
     }
     return out;
+  }
+
+  _applyGraphicsSettings() {
+    const cfg = this._getSettings();
+    const scanlinesEl = this._el?.querySelector('#menu-scanlines');
+    if (scanlinesEl) scanlinesEl.style.display = cfg.scanlines ? '' : 'none';
+    document.body.classList.toggle('no-crt', !cfg.scanlines);
   }
 
   _showSettings() {
@@ -467,11 +521,13 @@ export class Menu {
           b.classList.toggle('on', i === idx);
         });
         window._gameSettings = this._getSettings();
+        this._applyGraphicsSettings();
       });
     });
 
     this._inSettings = true;
     window._gameSettings = this._getSettings();
+    this._applyGraphicsSettings();
   }
 
   _hideSettings() {

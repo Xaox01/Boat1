@@ -141,6 +141,8 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | 🟡 | Panel komputera torpedowego TMA (Track Motion Analysis) |
 | 🟢 | Peryskop — przełączalny widok z góry przy małej głębokości |
 | ✅ | Menu główne — ekran startowy z animowanym sonar PPI i schematem okrętu |
+| ✅ | Ustawienia gry (F5) — trudność, konwój, amunicja, opóźnienie wroga |
+| ✅ | Ustawienia grafiki (F5) — cząsteczki (3 poziomy), wstrząsy kamery, efekt CRT |
 | 🟢 | Menu pauzy z zapisem stanu gry |
 
 ---
@@ -175,7 +177,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 |--------|-----|
 | ✅ | ESC zamyka aktywną stację (sonar, peryskop) i wraca do CONN |
 | ✅ | CRT scanlines i winietowanie rogów (CSS) — jaśniejsza paleta kolorów UI |
-| ✅ | Screen shake przy eksplozjach i kolizjach |
+| ✅ | Screen shake przy eksplozjach i kolizjach (z opcją wyłączenia) |
 | ✅ | Animowane fale na powierzchni oceanu |
 | ✅ | Ślad olejowy niszczyciela podczas WITHDRAW |
 | ✅ | Efekt kawitacji — migający pasek hałasu |

@@ -4,6 +4,32 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.65] — 2026-05-21
+
+### Dodano — Ustawienia grafiki
+
+**src/Menu.js:**
+- Nowa sekcja `GRAFIKA` w panelu ustawień (F5) z nagłówkami sekcji `// ROZGRYWKA` i `// GRAFIKA`
+- **Cząsteczki** — trzy poziomy: Niskie (×0.35) / Normalne (×1.0) / Wysokie (×1.70)
+- **Wstrząsy kamery** — Wł. / Wył. (eliminuje tresączkę przy explozjach)
+- **Efekt CRT** — Wł. / Wył. (ukrywa scanlines na canvas i w menu)
+- `_buildSettingsHTML()`: przepisany — obsługuje właściwość `section` jako nagłówki grupujące
+- `_applyGraphicsSettings()`: nowa metoda — synchronizuje `#menu-scanlines` + klasę `.no-crt` na `<body>`
+- CSS: dodano `.ms-section-hdr` i `.ms-section-gap`
+
+**src/ImpactFX.js:**
+- `_spawnSurface()`: `fxMax` i `smMax` skalowane przez `window._gameSettings?.particles ?? 1.0`
+- `trigger()` / `triggerMissile()`: wstrząs kamery chroniony przez `window._gameSettings?.cameraShake !== false`
+
+**src/GameScene.js:**
+- `_shake(duration, intensity)`: nowy helper — respektuje `cameraShake === false`; wszystkie 10 wywołań `cameras.main.shake()` zastąpione
+- Naprawiono rekurencję w `_getCfg()` — zmieniono `this._getCfg()` na `this.registry.get('settings')`
+
+**index.html:**
+- CSS: `.no-crt #game-shell::before { display: none; }` — wyłącza scanlines na grze gdy efekt CRT jest wyłączony
+
+---
+
 ## [0.10.64] — 2026-05-21
 
 ### Dodano — Menu główne: panel ustawień gry

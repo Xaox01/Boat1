@@ -449,7 +449,7 @@ export class GameScene extends Phaser.Scene {
     if (this.sub.impactVelocity > 25) {
       const intensity = Phaser.Math.Clamp(this.sub.impactVelocity / 1400, 0.002, 0.016);
       const duration  = Phaser.Math.Clamp(this.sub.impactVelocity * 1.5, 80, 300);
-      this.cameras.main.shake(duration, intensity);
+      this._shake(duration, intensity);
     }
 
     if (this.sub.onFloor) { this._groundedTimer += dt; }
@@ -464,7 +464,7 @@ export class GameScene extends Phaser.Scene {
         const pr = this._rng(this.sub.x, this.sub.y, enemy.x, enemy.y);
         this._shipLog(`PING aktywny z ${enemy.label || 'niszczyciela'}. Nam. ${pb}°, dyst. ${pr}m. Pozycja ujawniona.`, 'danger');
         // Sonarne uderzenie — krótki błysk niebieski + lekki wstrząs
-        this.cameras.main.shake(90, 0.0045);
+        this._shake(90, 0.0045);
         this.cameras.main.flash(55, 0, 180, 255, false);
       }
       if (enemy.recentASROC) {
@@ -476,7 +476,7 @@ export class GameScene extends Phaser.Scene {
       for (const exp of enemy.recentExplosions) {
         const intensity = Phaser.Math.Clamp(1 - exp.dist / 85, 0, 1);
         if (intensity > 0.1) {
-          this.cameras.main.shake(200 + intensity * 300, 0.004 + intensity * 0.018);
+          this._shake(200 + intensity * 300, 0.004 + intensity * 0.018);
           if (intensity > 0.6) this.cameras.main.flash(120, 255, 200, 100, false);
           this._logEvent('ZARZUT GŁĘBINOWY!');
         }
@@ -486,7 +486,7 @@ export class GameScene extends Phaser.Scene {
       for (const ht of enemy.homingTorpedoes) {
         if (ht.recentHit) {
           this.sub.applyDamage(ht.recentHit.damage, 'TORPEDA ASROC');
-          this.cameras.main.shake(550, 0.025);
+          this._shake(550, 0.025);
           this.cameras.main.flash(180, 255, 140, 60, false);
           this._logEvent('TRAFIENIE — torpeda naprowadzana ASROC!');
           this._shipLog(`Trafienie torpedą samonaprowadzającą ASROC. Kadłub: ${Math.round(this.sub.hull * 100)}%.`, 'danger');
@@ -528,7 +528,7 @@ export class GameScene extends Phaser.Scene {
       mis.update(dt, allMissileTargets);
       if (mis.recentExplosion && !mis.recentHit) {
         this._impactFX.triggerMissile(mis.x, mis.y);
-        this.cameras.main.shake(220, 0.010);
+        this._shake(220, 0.010);
       }
       if (mis.recentHit) {
         const { enemy: target, damage } = mis.recentHit;
@@ -572,7 +572,7 @@ export class GameScene extends Phaser.Scene {
           target.hull -= dmg;
           target.onHit();
           this._impactFX.trigger(target.x, target.y);
-          this.cameras.main.shake(300, 0.008);
+          this._shake(300, 0.008);
           this.cameras.main.flash(120, 200, 255, 120, false);
           if (target.hull <= 0) {
             target.startSinking();
@@ -616,7 +616,7 @@ export class GameScene extends Phaser.Scene {
           m.hull -= dmg;
           m.onHit();
           this._impactFX.trigger(m.x, m.y);
-          this.cameras.main.shake(200, 0.006);
+          this._shake(200, 0.006);
           this.cameras.main.flash(100, 255, 200, 80, false);
           if (m.hull <= 0) {
             m.destroyed = true;
@@ -638,7 +638,7 @@ export class GameScene extends Phaser.Scene {
     for (const t of this.sub.torpedoes) {
       if (t.recentExplosion && !t.recentHit) {
         this._impactFX.trigger(t.x, t.y);
-        this.cameras.main.shake(180, 0.005);
+        this._shake(180, 0.005);
       }
     }
 
@@ -1708,12 +1708,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   _getCfg() {
-    return window._gameSettings || this._getCfg() || {};
+    return window._gameSettings || this.registry.get('settings') || {};
   }
 
   _getDifficulty() {
     const cfg = this._getCfg();
     return cfg.difficulty || this.registry.get('difficulty') || { enemies: 2, speedMult: 1.0 };
+  }
+
+  _shake(duration, intensity) {
+    if (this._getCfg().cameraShake === false) return;
+    this.cameras.main.shake(duration, intensity);
   }
 
   _spawnEnemies() {
@@ -2165,7 +2170,7 @@ export class GameScene extends Phaser.Scene {
       bubbles: [],
       exhaust: [],
     });
-    this.cameras.main.shake(280, 0.005);
+    this._shake(280, 0.005);
   }
 
   _updateSLBMMissiles(dt) {
@@ -2204,7 +2209,7 @@ export class GameScene extends Phaser.Scene {
           m.surfaced = true;
           m.y = SURF;
           this._impactFX.trigger(m.x, SURF);
-          this.cameras.main.shake(500, 0.016);
+          this._shake(500, 0.016);
           this.cameras.main.flash(160, 255, 245, 210, false);
         }
       }

@@ -62,7 +62,8 @@ export class ImpactFX {
         { delay: 9.0, done: false, ox: Phaser.Math.Between(-30, 30) },
       ],
     });
-    this.scene.cameras.main.shake(820, underwater ? 0.018 : 0.012);
+    if (window._gameSettings?.cameraShake !== false)
+      this.scene.cameras.main.shake(820, underwater ? 0.018 : 0.012);
   }
 
   // Trafienie rakietą przeciw-okrętową: większy ogień, mniej wody, więcej pożarów wtórnych
@@ -84,7 +85,8 @@ export class ImpactFX {
         { delay: 8.0,  done: false, ox: Phaser.Math.Between(-28, 28) },
       ],
     });
-    this.scene.cameras.main.shake(580, 0.020);
+    if (window._gameSettings?.cameraShake !== false)
+      this.scene.cameras.main.shake(580, 0.020);
   }
 
   _spawnDebris(ix, iy, underwater) {
@@ -176,9 +178,10 @@ export class ImpactFX {
 
   _spawnSurface(h, dt, t) {
     const ix = h.ix, iy = h.iy, surfY = h.surfY;
+    const pMul = window._gameSettings?.particles ?? 1.0;
 
     // Fireball — rakieta: większy, intensywniejszy
-    const fxMax = h.missile ? 320 : 220;
+    const fxMax = Math.round((h.missile ? 320 : 220) * pMul);
     const fxMul = h.missile ? 1.65 : 1.0;
     if (t < 2.0 && h.fire.length < fxMax) {
       const rateF = t < 0.05 ? 380 : t < 0.3 ? 150 : t < 0.7 ? 55 : t < 1.2 ? 22 : 8;
@@ -248,7 +251,7 @@ export class ImpactFX {
     }
 
     // Dym — rakieta: więcej czarnego dymu (paliwo rakietowe)
-    const smMax = h.missile ? 130 : 90;
+    const smMax = Math.round((h.missile ? 130 : 90) * pMul);
     if (t > 0.2 && h.smoke.length < smMax) {
       const rateS = t < 1.0 ? 14 : t < 3.0 ? 8 : t < 6.0 ? 4 : 1;
       const n     = Math.ceil(rateS * (h.missile ? 1.55 : 1.0) * dt);
