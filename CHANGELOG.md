@@ -4,6 +4,15 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.66] — 2026-05-21
+
+### Usunięto — przycisk "WYNURZ" z menu głównego
+
+**src/Menu.js:**
+- Usunięto pozycję `{ key: 'exit', label: 'WYNURZ', code: 'ESC' }` — niepotrzebna w grze przeglądarkowej
+
+---
+
 ## [0.10.65] — 2026-05-21
 
 ### Dodano — Ustawienia grafiki

@@ -63,12 +63,11 @@ const SUB_SVG = `
 function buildMenuHTML(saveInfo) {
   const hasSave = !!saveInfo;
   const items = [
-    { key: 'new',    label: 'NOWY PATROL',  code: 'F1',  disabled: false     },
-    { key: 'cont',   label: 'KONTYNUUJ',    code: 'F2',  disabled: !hasSave  },
-    { key: 'briefs', label: 'ARCHIWUM',     code: 'F3',  disabled: true      },
-    { key: 'fleet',  label: 'FLOTYLLA',     code: 'F4',  disabled: true      },
-    { key: 'set',    label: 'USTAWIENIA',   code: 'F5',  disabled: false     },
-    { key: 'exit',   label: 'WYNURZ',       code: 'ESC', disabled: true      },
+    { key: 'new',    label: 'NOWY PATROL',  code: 'F1',  disabled: false    },
+    { key: 'cont',   label: 'KONTYNUUJ',    code: 'F2',  disabled: !hasSave },
+    { key: 'briefs', label: 'ARCHIWUM',     code: 'F3',  disabled: true     },
+    { key: 'fleet',  label: 'FLOTYLLA',     code: 'F4',  disabled: true     },
+    { key: 'set',    label: 'USTAWIENIA',   code: 'F5',  disabled: false    },
   ];
 
   const itemsHTML = items.map((item, i) => `
