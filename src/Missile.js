@@ -28,23 +28,24 @@ export class Missile {
 
     this.phase        = 'boost';
     this.surfaced     = false;
-    this.exploded     = false;
-    this.explodeTimer = 0;
-    this.dead         = false;
-    this.recentHit    = null;
+    this.exploded        = false;
+    this.explodeTimer    = 0;
+    this.dead            = false;
+    this.recentHit       = null;
+    this.recentExplosion = false;
 
     this._lockedTarget = null;   // aktualnie śledzona jednostka
     this.smoke         = [];
   }
 
   update(dt, surfaceEnemies) {
-    this.recentHit = null;
+    this.recentHit       = null;
+    this.recentExplosion = false;
 
     if (this.exploded) {
       this.explodeTimer -= dt;
       if (this.explodeTimer <= 0) this.dead = true;
       this._drawSmoke();
-      this._drawExplosion();
       return;
     }
 
@@ -148,15 +149,17 @@ export class Missile {
   }
 
   _explode() {
-    this.exploded     = true;
-    this.explodeTimer = 1.1;
+    if (this.exploded) return;
+    this.exploded        = true;
+    this.explodeTimer    = 1.1;
+    this.recentExplosion = true;
   }
 
   destroy() { this.gfx.destroy(); }
 
   _draw() {
     this._drawSmoke();
-    if (this.exploded) { this._drawExplosion(); return; }
+    if (this.exploded) return;
 
     // Pod wodą — bąbelki startu
     if (this.y >= this.scene.SURFACE_Y && !this.surfaced) {

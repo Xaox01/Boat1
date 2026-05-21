@@ -520,6 +520,10 @@ export class GameScene extends Phaser.Scene {
     ];
     for (const mis of this.sub.missiles) {
       mis.update(dt, allMissileTargets);
+      if (mis.recentExplosion && !mis.recentHit) {
+        this._impactFX.triggerMissile(mis.x, mis.y);
+        this.cameras.main.shake(220, 0.010);
+      }
       if (mis.recentHit) {
         const { enemy: target, damage } = mis.recentHit;
         const isMerchant = this.merchants.includes(target);

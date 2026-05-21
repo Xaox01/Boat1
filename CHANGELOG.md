@@ -4,6 +4,22 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.62] — 2026-05-21
+
+### Zmieniono — Rakieta p/okrętowa: ImpactFX również przy chybieniu
+
+**src/Missile.js:**
+- Dodano flagę `recentExplosion` (reset do `false` każdą klatkę, ustawiany w `_explode()`)
+- Guard w `_explode()` — wyklucza podwójne wywołanie
+- Usunięto `_drawExplosion()` (prymitywne kółka) — ImpactFX przejmuje całą wizualizację
+- Usunięto `_drawExplosion()` z `_draw()` — rakieta po eksplozji rysuje tylko zanikającą smugę dymu
+
+**src/GameScene.js:**
+- Przy `mis.recentExplosion && !mis.recentHit` → `_impactFX.triggerMissile(mis.x, mis.y)` + shake
+- Zarówno trafienie jak i chybienie/wyczerpanie zasięgu używają tej samej animacji ImpactFX
+
+---
+
 ## [0.10.61] — 2026-05-21
 
 ### Dodano — Wybuch rakiety p/okrętowej: ImpactFX dostosowany do ASM
