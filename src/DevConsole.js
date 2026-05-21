@@ -451,8 +451,11 @@ export class DevConsole {
           this._print('  firetest [n]                 — spawnuj N palących się okrętów do obserwacji');
           this._print('  fire [0.4|0.3|0.1|off]       — ustaw poziom pożaru (hull wroga)');
           this._print('    0.4 = dziób  0.3 = dziób+rufa  0.1 = pełny inferno  off = gasi');
-          this._print('  boom [n] [spread]            — wyzwól N eksplozji ImpactFX');
-          this._print('    boom      = 1 wybuch w centrum  boom 5 = 5 wybuchów');
+          this._print('  boom [n] [spread] [surf|deep|floor] — wyzwól N eksplozji');
+          this._print('    boom          = 1 przy tafli');
+          this._print('    boom 3 200 deep  = 3 pod wodą, spread 200px');
+          this._print('    boom 1 0 floor   = 1 przy dnie (sediment+bąble)');
+          this._print('  testfx               — sekwencyjny test WSZYSTKICH efektów FX');
           break;
 
         case 'time': {
@@ -912,17 +915,80 @@ export class DevConsole {
         }
 
         case 'boom': {
+          // boom [n] [spread] [surf|deep|floor] [depth_px]
           const n      = Math.max(1, Math.min(20, parseInt(args[0]) || 1));
-          const spread = Math.max(0, parseInt(args[1]) || 180);
+          const spread = Math.max(0, parseFloat(args[1]) || 180);
+          const mode   = (args[2] ?? 'surf').toLowerCase();
           const centerX = s.camX + (s.scale?.width ?? 1200) / 2;
           const SURF    = s.SURFACE_Y;
+          const FLOOR   = s.OCEAN_FLOOR_Y;
+          const depthPx = mode === 'deep'  ? SURF + (FLOOR - SURF) * 0.55
+                        : mode === 'floor' ? FLOOR - 5
+                        :                   SURF;
           for (let i = 0; i < n; i++) {
             const ox = n === 1 ? 0 : (Math.random() - 0.5) * spread * 2;
-            s._impactFX.trigger(centerX + ox, SURF);
+            s._impactFX.trigger(centerX + ox, depthPx);
           }
+          const modeLabel = { surf: 'SURFACE', deep: 'UNDERWATER (~55% głębokości)', floor: 'SEAFLOOR' }[mode] ?? mode;
           const label = n === 1 ? 'Eksplozja' : `${n} eksplozji`;
           const spreadLabel = spread > 0 && n > 1 ? ` (spread ±${spread}px)` : '';
-          this._print(`${label} wyzwolona w centrum sceny${spreadLabel}`, WARN_CLR);
+          this._print(`${label} [${modeLabel}]${spreadLabel}`, WARN_CLR);
+          break;
+        }
+
+        case 'testfx': {
+          // Sekwencyjny test wszystkich efektów wizualnych
+          const centerX = s.camX + (s.scale?.width ?? 1200) / 2;
+          const SURF    = s.SURFACE_Y;
+          const FLOOR   = s.OCEAN_FLOOR_Y;
+          const delay   = (ms) => new Promise(r => setTimeout(r, ms));
+          this._print('═══ TESTFX ═══════════════════════════════════════════', HDR_CLR);
+
+          // Ustaw peryskop / blisko powierzchni żeby wszystko było widoczne
+          if (s.sub.depthMetres > 30) {
+            s.sub.y  = SURF + 15;
+            s.sub.vy = 0;
+            this._print('  Sub przesunięty blisko powierzchni', DIM_CLR);
+          }
+          if (!this._godMode) { this._godMode = s._godMode = true; }
+
+          (async () => {
+            this._print('  [1/5] Wybuch przy tafli (surface mode)…', VAL_CLR);
+            s._impactFX.trigger(centerX - 100, SURF);
+            s.cameras.main.shake(180, 0.010);
+            await delay(1800);
+
+            this._print('  [2/5] Wybuch podwodny ~55% głębokości (underwater mode)…', VAL_CLR);
+            s._impactFX.trigger(centerX + 80, SURF + (FLOOR - SURF) * 0.55);
+            s.cameras.main.shake(220, 0.018);
+            await delay(2200);
+
+            this._print('  [3/5] Wybuch przy dnie (underwater+sediment)…', VAL_CLR);
+            s._impactFX.trigger(centerX, FLOOR - 5);
+            s.cameras.main.shake(220, 0.018);
+            await delay(2500);
+
+            this._print('  [4/5] Salwa 3 wybuchów przy tafli…', VAL_CLR);
+            for (let i = 0; i < 3; i++) {
+              s._impactFX.trigger(centerX + (i - 1) * 200, SURF);
+              s.cameras.main.shake(120, 0.008);
+              await delay(450);
+            }
+            await delay(1500);
+
+            this._print('  [5/5] Okręt wroga w ogniu (hull=8%)…', VAL_CLR);
+            const { Enemy: EnemyCls } = await import('./Enemy.js');
+            const cx = Math.max(200, Math.min((s.WORLD_W ?? 12000) - 200, centerX + 250));
+            const e  = new EnemyCls(s, cx, cx - 20, cx + 20, 'TESTFX-SHIP');
+            e.hull = 0.08; e.revealTimer = 9999;
+            if (!s._prevEnemyState) s._prevEnemyState = new Map();
+            s.enemies.push(e); s._prevEnemyState.set(e, 0);
+            await delay(3000);
+
+            this._print('═══ TESTFX ZAKOŃCZONY ════════════════════════════════', HDR_CLR);
+            this._print('  ship spawnowany (hull 8% = pełne inferno)', DIM_CLR);
+            this._print('  kill — aby zatopić  |  fire off — aby zgasić', DIM_CLR);
+          })();
           break;
         }
 

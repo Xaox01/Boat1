@@ -118,6 +118,15 @@ export class GameScene extends Phaser.Scene {
     this._launchFX   = new TorpedoLaunchFX(this);
     this._impactFX   = new ImpactFX(this);
 
+    // API testowe dla Playwright / skryptów zewnętrznych
+    window.__gameTest = {
+      exec:    (cmd) => this._devConsole._exec(cmd),
+      ready:   () => true,
+      impactFX: (x, y) => this._impactFX.trigger(x, y),
+      subPos:  () => ({ x: this.sub.x, y: this.sub.y }),
+      camX:    () => this.camX,
+    };
+
     // Sonar pasywny — triangulacja
     this._bearingSamples = new Map();   // enemy → [{subX, subY, bearing}]
     this._triangulated   = new Map();   // enemy → {x, y, age, accurate}
