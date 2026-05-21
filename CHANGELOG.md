@@ -4,6 +4,17 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.67] — 2026-05-21
+
+### Dodano — przycisk powrotu w panelu ustawień
+
+**src/Menu.js:**
+- Przycisk `← POWRÓĆ` w stopce panelu ustawień — alternatywa dla ESC
+- Styl `.ms-back-btn` z efektem hover (podświetlenie na akcent przy najechaniu)
+- Tekst "ZMIANY ZAPISYWANE AUTOMATYCZNIE" przeniesiony do `.ms-save-note`
+
+---
+
 ## [0.10.66] — 2026-05-21
 
 ### Usunięto — przycisk "WYNURZ" z menu głównego

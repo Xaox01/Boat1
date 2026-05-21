@@ -258,9 +258,22 @@ function buildMenuHTML(saveInfo) {
         margin: 18px 0;
       }
       .ms-foot {
-        font-family: monospace; font-size: 9px; letter-spacing: 2px;
-        opacity: 0.35; margin-top: 14px;
+        display: flex; align-items: center; gap: 18px;
+        margin-top: 22px;
       }
+      .ms-save-note {
+        font-family: monospace; font-size: 9px; letter-spacing: 2px;
+        opacity: 0.32;
+      }
+      .ms-back-btn {
+        all: unset; cursor: pointer;
+        font-family: monospace; font-size: 9px; letter-spacing: 2px;
+        color: rgba(243,237,224,0.55);
+        border: 1px solid rgba(243,237,224,0.20);
+        padding: 5px 14px;
+        transition: color 110ms, border-color 110ms;
+      }
+      .ms-back-btn:hover { color: ${ACCENT}; border-color: ${ACCENT}; }
       .ms-section-hdr {
         font-family: monospace; font-size: 9px; letter-spacing: 3px;
         color: ${ACCENT}; opacity: 0.65;
@@ -471,7 +484,10 @@ export class Menu {
     return `<div id="menu-settings">
       <div class="ms-hdr">// KONFIGURACJA PATROLU</div>
       ${rowsHTML}
-      <div class="ms-foot">ESC — POWRÓĆ  ·  ZMIANY ZAPISYWANE AUTOMATYCZNIE</div>
+      <div class="ms-foot">
+        <button class="ms-back-btn">← POWRÓĆ</button>
+        <span class="ms-save-note">ZMIANY ZAPISYWANE AUTOMATYCZNIE</span>
+      </div>
     </div>`;
   }
 
@@ -523,6 +539,8 @@ export class Menu {
         this._applyGraphicsSettings();
       });
     });
+
+    panelEl.querySelector('.ms-back-btn')?.addEventListener('click', () => this._hideSettings());
 
     this._inSettings = true;
     window._gameSettings = this._getSettings();
