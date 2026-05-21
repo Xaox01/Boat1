@@ -86,7 +86,7 @@ export class GameScene extends Phaser.Scene {
 
     this.ocean = new Ocean(this);
     this.sub   = new Submarine(this, CAM_W / 2, SURFACE_Y + 225); // ~270m — poniżej termokliny (test sonaru)
-    this.sub.infiniteAmmo = (this.registry.get('settings') || {}).infiniteAmmo ?? false;
+    this.sub.infiniteAmmo = (this._getCfg() || {}).infiniteAmmo ?? false;
     // Alias dla EnemyASROC — torpedy sprawdzają ten array
     Object.defineProperty(this, 'noisemakers', { get: () => this.sub.noisemakers });
 
@@ -323,7 +323,7 @@ export class GameScene extends Phaser.Scene {
       { x: 10600, dir:  1, label: 'IRKUTSK' },
       { x: 12800, dir: -1, label: 'VLADIVOSTOK' },
     ];
-    const _merchantCount = (this.registry.get('settings') || {}).merchants ?? 4;
+    const _merchantCount = (this._getCfg() || {}).merchants ?? 4;
     const CONVOY = CONVOY_ALL.slice(0, _merchantCount);
     for (const c of CONVOY) this.merchants.push(new Merchant(this, c.x, c.dir, c.label));
 
@@ -369,7 +369,7 @@ export class GameScene extends Phaser.Scene {
     // Opóźnione pojawienie się niszczycieli (tylko po tutorialu)
     if (!this._enemiesSpawned && !this.tutorial) {
       this._enemySpawnTimer += dt;
-      const spawnDelay = (this.registry.get('settings') || {}).enemyDelay ?? 15;
+      const spawnDelay = (this._getCfg() || {}).enemyDelay ?? 15;
       if (this._enemySpawnTimer >= spawnDelay) this._spawnEnemies();
     }
 
@@ -1707,8 +1707,13 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  _getCfg() {
+    return window._gameSettings || this._getCfg() || {};
+  }
+
   _getDifficulty() {
-    return this.registry.get('difficulty') || { enemies: 3, speedMult: 1.0 };
+    const cfg = this._getCfg();
+    return cfg.difficulty || this.registry.get('difficulty') || { enemies: 2, speedMult: 1.0 };
   }
 
   _spawnEnemies() {
@@ -1774,7 +1779,7 @@ export class GameScene extends Phaser.Scene {
       { x: 10600, dir:  1, label: 'IRKUTSK' },
       { x: 12800, dir: -1, label: 'VLADIVOSTOK' },
     ];
-    const _mCnt = (this.registry.get('settings') || {}).merchants ?? 4;
+    const _mCnt = (this._getCfg() || {}).merchants ?? 4;
     for (const c of CONVOY_FULL.slice(0, _mCnt)) this.merchants.push(new Merchant(this, c.x, c.dir, c.label));
 
     // Start misji

@@ -67,7 +67,7 @@ function buildMenuHTML(saveInfo) {
     { key: 'cont',   label: 'KONTYNUUJ',    code: 'F2',  disabled: !hasSave  },
     { key: 'briefs', label: 'ARCHIWUM',     code: 'F3',  disabled: true      },
     { key: 'fleet',  label: 'FLOTYLLA',     code: 'F4',  disabled: true      },
-    { key: 'set',    label: 'USTAWIENIA',   code: 'F5',  disabled: true      },
+    { key: 'set',    label: 'USTAWIENIA',   code: 'F5',  disabled: false     },
     { key: 'exit',   label: 'WYNURZ',       code: 'ESC', disabled: true      },
   ];
 
@@ -232,6 +232,37 @@ function buildMenuHTML(saveInfo) {
       #menu-version { display: flex; gap: 20px; font-family: monospace; font-size: 10px; letter-spacing: 2px; opacity: 0.5; }
       #menu-version .v-accent { color: ${ACCENT}; }
 
+      /* ── Settings panel ── */
+      #menu-settings { padding-top: 6px; }
+      .ms-hdr {
+        font-family: monospace; font-size: 11px; letter-spacing: 2px;
+        color: ${ACCENT}; margin-bottom: 20px;
+      }
+      .ms-row { margin-bottom: 16px; }
+      .ms-row-lbl {
+        font-family: monospace; font-size: 9px; letter-spacing: 2.5px;
+        opacity: 0.45; margin-bottom: 7px;
+      }
+      .ms-opts { display: flex; gap: 7px; flex-wrap: wrap; }
+      .ms-opt {
+        all: unset; cursor: pointer;
+        font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.5px;
+        padding: 5px 13px;
+        border: 1px solid rgba(243,237,224,0.14);
+        color: rgba(243,237,224,0.38);
+        transition: all 110ms;
+      }
+      .ms-opt:hover  { border-color: rgba(243,237,224,0.38); color: rgba(243,237,224,0.82); }
+      .ms-opt.on     { border-color: ${ACCENT}; color: ${ACCENT}; background: ${ACCENT}22; }
+      .ms-sep {
+        border: none; border-top: 1px solid rgba(243,237,224,0.08);
+        margin: 18px 0;
+      }
+      .ms-foot {
+        font-family: monospace; font-size: 9px; letter-spacing: 2px;
+        opacity: 0.35; margin-top: 14px;
+      }
+
       @keyframes menu-pulse {
         0%,100% { opacity: 1; transform: scale(1); }
         50% { opacity: 0.5; transform: scale(0.9); }
@@ -339,6 +370,124 @@ export class Menu {
     this._sweepAngle = 0;
     this._startTime = 0;
     this._telem = { depth: 187, speed: 8, heading: 274, reactor: 62 };
+    this._inSettings = false;
+
+    this._settingsDefs = [
+      {
+        key: 'difficulty', label: 'TRUDNOŚĆ',
+        options: [
+          { v: { key:'easy',   label:'ŁATWY',   enemies:1, speedMult:0.75 }, label:'ŁATWY'   },
+          { v: { key:'normal', label:'NORMALNY', enemies:2, speedMult:1.00 }, label:'NORMALNY'},
+          { v: { key:'hard',   label:'TRUDNY',   enemies:3, speedMult:1.30 }, label:'TRUDNY'  },
+        ],
+        idx: 1,
+      },
+      {
+        key: 'merchants', label: 'KONWÓJ',
+        options: [
+          { v: 2, label: '2 STATKI'  },
+          { v: 4, label: '4 STATKI'  },
+          { v: 6, label: '6 STATKÓW' },
+        ],
+        idx: 1,
+      },
+      {
+        key: 'infiniteAmmo', label: 'AMUNICJA',
+        options: [
+          { v: false, label: 'STANDARDOWA'   },
+          { v: true,  label: 'NIEOGRANICZONA' },
+        ],
+        idx: 0,
+      },
+      {
+        key: 'enemyDelay', label: 'DO KONTAKTU',
+        options: [
+          { v: 15,  label: '15 SEK.'  },
+          { v: 60,  label: '1 MINUTA' },
+          { v: 300, label: '5 MINUT'  },
+        ],
+        idx: 0,
+      },
+    ];
+  }
+
+  _buildSettingsHTML() {
+    const rowsHTML = this._settingsDefs.map(def => {
+      const optsHTML = def.options.map((opt, oi) => {
+        return `<button class="ms-opt ${oi === def.idx ? 'on' : ''}" data-key="${def.key}" data-idx="${oi}">${opt.label}</button>`;
+      }).join('');
+      return `<div class="ms-row">
+        <div class="ms-row-lbl">${def.label}</div>
+        <div class="ms-opts">${optsHTML}</div>
+      </div>`;
+    }).join('<hr class="ms-sep">');
+
+    return `<div id="menu-settings">
+      <div class="ms-hdr">// KONFIGURACJA PATROLU</div>
+      ${rowsHTML}
+      <div class="ms-foot">ESC — POWRÓĆ  ·  ZMIANY ZAPISYWANE AUTOMATYCZNIE</div>
+    </div>`;
+  }
+
+  _getSettings() {
+    const out = {};
+    for (const def of this._settingsDefs) {
+      out[def.key] = def.options[def.idx].v;
+    }
+    return out;
+  }
+
+  _showSettings() {
+    if (!this._el) return;
+    const titleEl = this._el.querySelector('#menu-panel-title');
+    const hintEl  = this._el.querySelector('#menu-panel-hint');
+    const listEl  = this._el.querySelector('#menu-list');
+    const briefEl = this._el.querySelector('#menu-briefing');
+    const panelEl = this._el.querySelector('#menu-panel');
+
+    titleEl.textContent = 'USTAWIENIA GRY';
+    hintEl.textContent  = '← → ZMIEŃ OPCJĘ  ·  ESC WRÓĆ';
+    listEl.style.display  = 'none';
+    briefEl.style.display = 'none';
+
+    const settingsEl = document.createElement('div');
+    settingsEl.innerHTML = this._buildSettingsHTML();
+    panelEl.appendChild(settingsEl.firstElementChild);
+
+    // Klik na opcję
+    panelEl.querySelectorAll('.ms-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.key;
+        const idx = parseInt(btn.dataset.idx);
+        const def = this._settingsDefs.find(d => d.key === key);
+        if (!def) return;
+        def.idx = idx;
+        // Odśwież przyciski tej grupy
+        panelEl.querySelectorAll(`.ms-opt[data-key="${key}"]`).forEach((b, i) => {
+          b.classList.toggle('on', i === idx);
+        });
+        window._gameSettings = this._getSettings();
+      });
+    });
+
+    this._inSettings = true;
+    window._gameSettings = this._getSettings();
+  }
+
+  _hideSettings() {
+    if (!this._el) return;
+    const titleEl = this._el.querySelector('#menu-panel-title');
+    const hintEl  = this._el.querySelector('#menu-panel-hint');
+    const listEl  = this._el.querySelector('#menu-list');
+    const briefEl = this._el.querySelector('#menu-briefing');
+    const panelEl = this._el.querySelector('#menu-panel');
+
+    titleEl.textContent = 'MENU GŁÓWNE';
+    hintEl.textContent  = '↑ ↓ NAWIGACJA  ·  ⏎ WYBÓR';
+    listEl.style.display  = '';
+    briefEl.style.display = '';
+    panelEl.querySelector('#menu-settings')?.remove();
+    this._inSettings = false;
   }
 
   show() {
@@ -393,19 +542,26 @@ export class Menu {
   _activate(i) {
     const key = this._items[i]?.dataset.key;
     if (key === 'new') {
+      window._gameSettings = window._gameSettings || this._getSettings();
       SaveSystem.clear();
       this.hide();
       this._resolve?.({ fromSave: false });
     } else if (key === 'cont') {
+      window._gameSettings = window._gameSettings || this._getSettings();
       this.hide();
       this._resolve?.({ fromSave: true });
+    } else if (key === 'set') {
+      this._showSettings();
     }
   }
 
   _handleKey(e) {
+    if (this._inSettings) {
+      if (e.key === 'Escape') { e.preventDefault(); this._hideSettings(); }
+      return;
+    }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      // Pomiń zablokowane przy nawigacji klawiaturą
       let next = this._selected;
       do { next = (next + 1) % this._items.length; }
       while (this._items[next]?.disabled && next !== this._selected);
@@ -416,17 +572,21 @@ export class Menu {
       do { prev = (prev - 1 + this._items.length) % this._items.length; }
       while (this._items[prev]?.disabled && prev !== this._selected);
       this._setSelected(prev);
+    } else if (e.key === 'Escape' && this._inSettings) {
+      e.preventDefault();
+      this._hideSettings();
     } else if (e.key === 'Enter') {
       e.preventDefault();
       this._activate(this._selected);
     } else if (e.key === 'F1') {
       e.preventDefault();
-      this._setSelected(0);
-      this._activate(0);
+      this._setSelected(0); this._activate(0);
     } else if (e.key === 'F2' && !this._items[1]?.disabled) {
       e.preventDefault();
-      this._setSelected(1);
-      this._activate(1);
+      this._setSelected(1); this._activate(1);
+    } else if (e.key === 'F5') {
+      e.preventDefault();
+      this._setSelected(4); this._showSettings();
     }
   }
 
