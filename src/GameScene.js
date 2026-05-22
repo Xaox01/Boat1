@@ -239,16 +239,15 @@ export class GameScene extends Phaser.Scene {
 
     // ── Zapis / wczytanie ──────────────────────────────────────────────────
     const fromSave = SaveSystem.consumeLoadRequest();
-    // TYMCZASOWO: samouczek wyłączony do testów — przywrócić _startTutorial()
     if (fromSave) {
       const save = SaveSystem.load();
       if (save) {
         this._restoreFromSave(save);
       } else {
-        this._spawnTestEnemies();
+        this._startTutorial();
       }
     } else {
-      this._spawnTestEnemies();
+      this._startTutorial();
     }
 
     // Auto-zapis co 30s

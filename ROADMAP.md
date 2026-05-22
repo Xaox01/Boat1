@@ -158,7 +158,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Warunek porażki — zniszczenie kadłuba |
 | ✅ | System misji — konkretne cele (namierz + zniszcz) z panelem UI |
 | ✅ | Misja 1: Operacja Szlak Handlowy — konwój 4 statków, namierz i zatop 3 |
-| ✅ | Szkolenie taktyczne (7 faz) — modal wyjaśniający kroki, pauza gry podczas czytania |
+| ✅ | Szkolenie taktyczne (7 faz) — modal wyjaśniający kroki, pauza gry podczas czytania; przywrócone i zoptymalizowane (klasyfikacja head-start, usunięte martwe [M]) |
 | 🔴 | Misja 2: Śledzenie i identyfikacja nieznanego kontaktu — wymagane użycie peryskopu do potwierdzenia klasy |
 | 🔴 | Misja 3: Eskortowanie sojuszniczego okrętu przez strefę zagrożenia |
 | 🔴 | System reputacji — ocena taktyczna po misji (bez wykrycia = bonus, trafność sonarowa, czas peryskopowy) |

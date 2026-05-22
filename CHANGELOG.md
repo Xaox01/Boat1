@@ -4,6 +4,24 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.73] — 2026-05-22
+
+### Zmieniono — Przywrócono i zoptymalizowano samouczek gracza
+
+**src/GameScene.js:**
+- Przywrócono `_startTutorial()` jako domyślny punkt startowy (bez zapisu — uruchamia tutorial)
+- Usunięto komentarz TYMCZASOWO i wywołanie `_spawnTestEnemies()` na ścieżce normalnego startu
+
+**src/TutorialMission.js:**
+- Krok 5 (IDENTYFIKACJA CELU): dodano `onEnter` ustawiający head-start `classifyTimer=6` — klasyfikacja nie wymaga już ~20s czekania od zera
+- Krok 5: zaktualizowano opis — wyjaśniono że [Spacja]/NASŁUCH przyspiesza klasyfikację 2×; dodano binding
+- Krok 5: `check` akceptuje teraz zarówno `SURFACE` jak i `MERCHANT` (wcześniej zatrzymywał się przy `SURFACE` nawet jeśli cel już awansował)
+- Krok 6 (TORPEDA MK.48): przepisano intro — usunięto redundancję, dodano wzmiankę o [E] i [PPM]
+- Krok 7 (TORPEDA W DRODZE): usunięto martwe referencje do `[M]` (mapa taktyczna usunięta w 0.10.x); zastąpiono PPI i pingiem [Q] jako metodą śledzenia torpedy
+- Krok 7: usunięto `M` z listy klawiszy karty zadania
+
+---
+
 ## [0.10.72] — 2026-05-22
 
 ### Zmieniono — AI wrogów v3: role grupowe, velocity lead, sektory SEARCH

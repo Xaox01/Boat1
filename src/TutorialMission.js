@@ -99,21 +99,25 @@ const PHASES = [
     intro: {
       lines: [
         'DEMON waterfall (prawy panel) analizuje widmo akustyczne wody. Każdy okręt emituje unikalne linie tonalne — swoją "akustyczną sygnaturę".',
-        'Statek handlowy ma charakterystyczne linie w okolicach 11–18 Hz. Gdy DEMON je rozpozna, status zmienia się: UNK → SURFACE.',
-        'Nic nie rób — obserwuj jak system automatycznie klasyfikuje kontakt. Status widoczny w lewym panelu (KLASIF).',
+        'Statek handlowy ma charakterystyczne linie w okolicach 6–12 Hz. Gdy DEMON je rozpozna, status kontaktu zmienia się: UNK → SURFACE → MERCHANT.',
+        'Tryb NASŁUCH [Spacja] przyspiesza klasyfikację 2×. Status widoczny w lewym panelu (KLASIF) i na kole PPI jako kolor plamki.',
       ],
-      bindings: [],
-      goal: 'Poczekaj na zmianę statusu: UNK → SURFACE',
+      bindings: [['Spacja', 'NASŁUCH — 2× szybsza klasyfikacja']],
+      goal: 'Poczekaj na zmianę statusu kontaktu: UNK → SURFACE',
     },
-    keys: [],
-    instruction: 'Poczekaj — DEMON klasyfikuje kontakt',
-    hint: 'Obserwuj KLASIF w lewym panelu. Zmieni się na SURFACE.',
-    check: (_s, _st, _dt, tgt) => tgt?.contactClass === 'SURFACE',
+    keys: ['Spacja'],
+    instruction: 'Obserwuj KLASIF — cel zostanie zidentyfikowany',
+    hint: '[Spacja] dla trybu NASŁUCH — klasyfikacja szybsza 2×.',
+    onEnter(_s, tgt) {
+      // Daj head-start aby klasyfikacja nie trwała zbyt długo
+      if (tgt) tgt.classifyTimer = Math.max(tgt.classifyTimer || 0, 6);
+    },
+    check: (_s, _st, _dt, tgt) => tgt?.contactClass === 'SURFACE' || tgt?.contactClass === 'MERCHANT',
     progress: (_s, _st, _dt, tgt) => {
-      const done = tgt?.contactClass === 'SURFACE';
+      const done = tgt?.contactClass === 'SURFACE' || tgt?.contactClass === 'MERCHANT';
       return {
-        text: done ? '✓ KLASYFIKACJA: SURFACE' : `Analizuję... ${tgt?.contactClass ?? 'UNK'}`,
-        pct: done ? 1 : Math.min((tgt?.classifyTimer || 0) / 54, 0.88),
+        text: done ? `✓ KLASYFIKACJA: ${tgt.contactClass}` : `Analizuję... ${tgt?.contactClass ?? 'UNK'}`,
+        pct: done ? 1 : Math.min((tgt?.classifyTimer || 0) / 12, 0.95),
       };
     },
   },
@@ -122,10 +126,10 @@ const PHASES = [
     intro: {
       lines: [
         'Torpeda Mk.48 to główna broń ORP ORZEŁ. Najedź kursorem na cel i kliknij LEWYM PRZYCISKIEM MYSZY — torpeda poleci w tym kierunku.',
-        'Na ekranie widać celownik i punkt ołowiu (lead indicator) — pokazuje dokładnie gdzie kliknąć aby trafić w ruchomy cel.',
-        'CEL TRENINGOWY zatrzymał się i czeka. Najedź na niego kursorem i kliknij. Nie musisz być blisko.',
+        'Na ekranie widać celownik i punkt ołowiu (lead indicator) — pokazuje gdzie kliknąć aby trafić ruchomy cel. CEL TRENINGOWY zatrzymał się i czeka.',
+        '[E] detonuje torpedę zdalnie w dowolnym momencie. [PPM] odpala rakietę p/okrętową (do celów nawodnych).',
       ],
-      bindings: [['LPM', 'wystrzel torpedę'], ['E', 'detonacja zdalna'], ['PPM', 'rakieta p/okrętowa']],
+      bindings: [['LPM', 'wystrzel torpedę Mk.48'], ['E', 'detonacja zdalna'], ['PPM', 'rakieta p/okrętowa']],
       goal: 'Wystrzel torpedę Mk.48 klikając na cel',
     },
     keys: ['LPM'],
@@ -146,15 +150,15 @@ const PHASES = [
     intro: {
       lines: [
         'Torpeda jest w drodze! Naprowadza się akustycznie na sygnaturę celu gdy znajdzie się w zasięgu 240 px.',
-        '[E] detonuje torpedę zdalnie — gdy mija cel lub chcesz kontrolować moment wybuchu. Obserwuj torpedę na mapie [M].',
-        'Poczekaj na eksplozję — ćwiczenie zakończy się automatycznie po trafieniu lub po 45 sekundach.',
+        '[E] detonuje torpedę zdalnie — gdy mija cel lub chcesz kontrolować moment wybuchu.',
+        'Śledź torpedę na kole PPI (sonar) — widać ją jako szybko poruszający się punkt. Ćwiczenie kończy się po trafieniu lub 45 s.',
       ],
-      bindings: [['E', 'detonacja zdalna'], ['M', 'mapa taktyczna']],
+      bindings: [['E', 'detonacja zdalna torpedy'], ['Q', 'ping aktywny — torpeda na PPI']],
       goal: 'Poczekaj aż torpeda trafi w cel',
     },
-    keys: ['E', 'M'],
+    keys: ['E'],
     instruction: 'Obserwuj PPI — torpeda szuka celu',
-    hint: '[E] detonacja zdalna, [M] mapa taktyczna.',
+    hint: '[E] detonacja zdalna. Torpeda widoczna na kole PPI.',
     check(scene, st, dt, tgt) {
       st.timeout = (st.timeout || 0) + dt;
       return tgt?.destroyed || st.timeout >= 45;
