@@ -4,6 +4,75 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.71] — 2026-05-22
+
+### Dodano — Pełne tłumaczenie gry (PL/EN)
+
+**src/MissionSystem.js:**
+- Import `t as tr`, `tf` z `./i18n.js`
+- Zmiana struktury `active`: `name` → `nameKey`, `text` → `textKey` na celach
+- Wszystkie hardkodowane stringi misji zastąpione kluczami i18n: `mis1_name`, `mis1_obj_detect/destroy/destroy_prog`, `mis1_start_log`, `mis1_detected`, `mis1_sunk`, `mis_complete`, `mis_complete_star`, `mis_end_text`
+- `_updateUI()` używa `tr(obj.textKey)` i `tf()` do wyświetlania nazwy i celów
+- `_showEndScreen()` — tytuł i opis tłumaczone w czasie rzeczywistym
+
+**src/GameScene.js:**
+- `tr('bb_ready')` zamiast `'GOTOWY'` dla pingu HUD
+
+**src/i18n.js:**
+- Nowe klucze: `ds_status_dmg/deg/crit`, `peri_submerged`, `peri_fc_scan`, `peri_sinking`, `peri_too_deep/no_signal/surface_hint/inactive`, `log_sys_active`, `ws_fire_hdr`
+
+**index.html — skrypty inline:**
+- `_ssUpdateContactList()` — klasyfikacja (`cls_warship/merchant/surface/unknown`), trend (`trend_closing_s/opening_s`), liczba śledz. (`sonar_tracking`), brak kontaktów (`sonar_no_contacts`)
+- `_ssUpdateDemonMode()` — tryby sonaru (`sonar_listen_mode/active_mode/pas`)
+- `_ssUpdateBadges()` — liczba kontaktów
+- `_dsUpdateHeader()` — status panelu awarii (`ds_status_crit/dmg/deg/ok`)
+- `_dsUpdateCondition()` — kadłub/bateria/tlen (wszystkie klucze hull_*/bat_*/oxy_*)
+- `_dsUpdateLog()` — brak awarii (`ds_no_damage`)
+- `_psUpdateContactList()` — typy w polu widzenia, brak kontaktów, tonie (`peri_sinking`)
+- `_psUpdateTDC()` — brak celu (`peri_no_target`)
+- `_psUpdateESM()` — brak emisji (`peri_no_esm`)
+- Peryskop: status zanurzony/aktywny, badge PERYSK
+- Canvas peryskopu: tekst na ciemnym ekranie (`peri_too_deep/no_signal/surface_hint/inactive`)
+- FC radar ESM: `sonar_active_mode`/`peri_fc_scan`
+
+**index.html — statyczne atrybuty data-i18n:**
+- Sonar: nagłówki wodospadu, kontaktów; badge nasłuchu
+- Peryskop: nagłówki optyki/kontaktów/TDC/ESM; etykiety TDC (BRG/SPD/AOB/RNG/SOL); kurs obserwacji; STATUS/POWIĘKSZENIE
+- Stacja broni: nagłówek, zabezp. zdjęte, rury torpedowe, status GOTOWA (4×), zapasy, TORPEDY/RAKIETY/WABIE, sterowanie ogniem
+- Stacja awarii: tytuł panelu, status operacyjny, etykiety kondycji (KADŁUB/BATERIA/TLEN), podpisy stanu (INTEGRALNY/PEŁNA/NORMA), brak awarii
+- Dolny pasek: A.SONAR, FALA, PERYSK (jako spany z data-i18n), GOTOWY na pingu
+- System aktywny w logu bocznym
+
+---
+
+## [0.10.70] — 2026-05-22
+
+### Dodano — System i18n (wybór języka PL/ANG)
+
+**src/i18n.js** (nowy):
+- Słownik ~75 kluczy × 2 języki (PL/EN)
+- `t(key)` — tłumaczenie z fallbackiem do PL
+- `setLang(code)` — ustawia aktywny język, zapisuje do `window._currentLang`
+- `applyI18n()` — aktualizuje wszystkie `[data-i18n]` elementy DOM
+
+**src/Menu.js:**
+- Import `t`, `setLang`, `applyI18n` z `./i18n.js`
+- `_settingsDefs` refaktoryzacja: `label` → `labelKey`, `section` → klucz i18n
+- Nowa sekcja `// JĘZYK` z opcjami `POLSKI` / `ENGLISH`
+- `_buildSettingsHTML()` — generuje `data-i18n` atrybuty na każdym elemencie
+- `buildMenuHTML()` — menu items z `data-i18n` na etykietach
+- `_showSettings()` / `_hideSettings()` — używają `t()` i `dataset.i18n`
+- Nowa metoda `_applyLanguage()` — wywołuje `setLang()` + `applyI18n()`
+- Zmiana języka w ustawieniach natychmiast aktualizuje cały DOM
+
+**index.html:**
+- `data-i18n` dodane do: stacje (CONN/SONAR/PERYSKOP/BROŃ/SLBM/AWARIE), top bar (`tb_class`, `tb_patrol`), panel lewy (NAMIERZANIE, 6 etykiet, MISJA), sterowanie (10 opisów + 2 nagłówki), HUD dolny (9 etykiet: GŁĘBOKOŚĆ/PRĘDKOŚĆ/BALAST/HAŁAS/KADŁUB/BATERIA/TLEN/TORPEDY/RAKIETY/WABIA), radio overlay (nagłówek, OD/DO/UTC labels, dismiss hint)
+
+**src/GameScene.js:**
+- Import `applyI18n`; wywołanie w `create()` — stosuje język przy starcie gry
+
+---
+
 ## [0.10.69] — 2026-05-22
 
 ### Usunięto — mapa taktyczna [M]
@@ -24,15 +93,15 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 ## [0.10.68] — 2026-05-21
 
 ### Dodano — System łączności radiowej VLF/ELF
-
-**src/RadioComms.js** (nowy plik):
-- Pula 12 wiadomości osadzonych w realiach zimnej wojny 1983:
-  - Timed (8): patrol_start, nato_carrier (USS Enterprise CVN-65), kal_context, orion_warning (P-3C), able_archer (FLASH!), weather, friendly_forces (K-324), petrov (incydent Pietrowa), rtb
+rrier (USS Enterprise CVN-65), kal_context, orion_warning (P-3C), able_archer (FLASH!), weather, friendly_forces (K-324), petrov (incydent Pietrowa), rtb
   - Event-triggered (3): first_contact (pierwsze HUNT wroga), torpedo_hit (trafienie ASROC), merchant_sunk
 - Efekt maszyny do pisania (22 znaki/s); `R` pomija/potwierdza; kliknięcie = to samo
 - Wiadomości kolejkowane — pokazują się jedna po drugiej
 - Po odebraniu: wpis w dzienniku pokładowym z tagiem `[VLF]`
 
+**src/RadioComms.js** (nowy plik):
+- Pula 12 wiadomości osadzonych w realiach zimnej wojny 1983:
+  - Timed (8): patrol_start, nato_ca
 **index.html:**
 - `#radio-overlay` — terminalowy overlay VLF w stylu fosforowym (zielony na czarnym), aktywny przez CSS `.active`; z-index 160 (nad stacjami)
 - `#radio-badge` (`◈ VLF`) — migający wskaźnik w top barze przy nadchodzącej transmisji

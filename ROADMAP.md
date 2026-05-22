@@ -239,7 +239,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | 🟡 | Migracja do WebGL (Phaser WEBGL mode) dla efektów shader |
 | 🟡 | Shadery GLSL — podwodne kaustyki, promienie słońca |
 | 🟡 | Service Worker — gra dostępna offline |
-| 🟢 | Lokalizacja (PL/EN) |
+| ✅ | Lokalizacja (PL/EN) — system i18n, wybór w ustawieniach |
 | 🟢 | Responsywność — skalowanie do rozdzielczości ekranu |
 
 ---

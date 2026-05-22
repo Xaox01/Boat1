@@ -1,4 +1,6 @@
 // System misji — zarządza aktywnymi misjami i ich celami.
+import { t as tr, tf } from './i18n.js';
+
 export class MissionSystem {
   constructor(scene) {
     this.scene  = scene;
@@ -14,21 +16,21 @@ export class MissionSystem {
   startMission1() {
     this.active = {
       id:       1,
-      name:     'OP. SZLAK HANDLOWY',
+      nameKey:  'mis1_name',
       complete: false,
       failed:   false,
       objectives: [
         {
-          id:   'detect',
-          text: 'Namierz konwój (sklasyfikuj statek)',
-          done: false,
+          id:      'detect',
+          textKey: 'mis1_obj_detect',
+          done:    false,
         },
         {
-          id:     'destroy',
-          text:   'Zatop 3 statki handlowe',
-          done:   false,
-          count:  0,
-          target: 3,
+          id:      'destroy',
+          textKey: 'mis1_obj_destroy',
+          done:    false,
+          count:   0,
+          target:  3,
         },
       ],
     };
@@ -40,7 +42,7 @@ export class MissionSystem {
       'ROZKAZ BOJOWY: Konwój sowiecki kurs E–W. Namierzyć i zatopić min. 3 statki handlowe. Zniszczyć zaopatrzenie wroga.',
       'danger'
     );
-    this.scene._logEvent('MISJA: Zniszcz konwój wroga!');
+    this.scene._logEvent(tr('mis1_start_log'));
   }
 
   // ── Aktualizacja co klatkę ────────────────────────────────────────────────
@@ -49,7 +51,6 @@ export class MissionSystem {
     if (!this.active || this.active.complete || this.active.failed) return;
 
     const objDetect  = this.active.objectives[0];
-    const objDestroy = this.active.objectives[1];
 
     // Cel 1 — klasyfikacja: sprawdź czy jakikolwiek merchant dotarł do SURFACE
     if (!objDetect.done) {
@@ -57,7 +58,7 @@ export class MissionSystem {
       if (classified) {
         objDetect.done = true;
         this._updateUI();
-        this.scene._logEvent('Konwój namierzony — klasyfikacja: statek handlowy');
+        this.scene._logEvent(tr('mis1_detected'));
         this.scene._shipLog(
           'Klasyfikacja akustyczna: kontakt oznaczony jako statek handlowy. Zatwierdzono otwarcie ognia.',
           'good'
@@ -79,7 +80,7 @@ export class MissionSystem {
     obj.count++;
     const remaining = obj.target - obj.count;
 
-    this.scene._logEvent(`Statek handlowy zatopiony! (${obj.count}/${obj.target})`);
+    this.scene._logEvent(tf('mis1_sunk', { done: obj.count, total: obj.target }));
     this.scene._shipLog(
       `Cel zatopiony: ${merchant.label}. Postęp misji: ${obj.count}/${obj.target}. ` +
       (remaining > 0 ? `Pozostało ${remaining}.` : 'Cel osiągnięty!'),
@@ -98,6 +99,7 @@ export class MissionSystem {
     if (this.active.objectives.every(o => o.done)) {
       this.active.complete = true;
       const destroyed = this.active.objectives[1].count;
+      const total     = this.active.objectives[1].target;
       this.scene._shipLog(
         `MISJA WYKONANA — konwój zniszczony. Zatopiono ${destroyed} jednostki. Powrót do bazy.`,
         'good'
@@ -107,8 +109,8 @@ export class MissionSystem {
       this.scene.time.delayedCall(2500, () => {
         if (!this.scene._gameOver) {
           this.scene._showEndScreen(
-            'MISJA WYKONANA',
-            `Konwój zniszczony — ${destroyed}/${this.active.objectives[1].target} statki.`,
+            tr('mis_complete'),
+            tf('mis_end_text', { done: destroyed, total }),
             '#44ffaa'
           );
         }
@@ -121,16 +123,16 @@ export class MissionSystem {
   _updateUI() {
     if (!this._nameEl || !this._objEl || !this.active) return;
 
-    this._nameEl.textContent = this.active.name;
+    this._nameEl.textContent = tr(this.active.nameKey);
 
     this._objEl.innerHTML = '';
     for (const obj of this.active.objectives) {
       const div = document.createElement('div');
       div.className = 'mission-obj ' + (obj.done ? 'done' : 'pending');
 
-      let label = obj.text;
+      let label = tr(obj.textKey);
       if (obj.id === 'destroy' && !obj.done) {
-        label = `Zatop 3 statki (${obj.count}/3)`;
+        label = tf('mis1_obj_destroy_prog', { n: obj.target, done: obj.count });
       }
 
       div.textContent = (obj.done ? '✓ ' : '○ ') + label;
@@ -140,7 +142,7 @@ export class MissionSystem {
     if (this.active.complete) {
       const done = document.createElement('div');
       done.className = 'mission-obj done mission-complete';
-      done.textContent = '★ MISJA WYKONANA';
+      done.textContent = tr('mis_complete_star');
       this._objEl.appendChild(done);
     }
   }

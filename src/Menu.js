@@ -1,4 +1,5 @@
 import { SaveSystem } from './SaveSystem.js';
+import { t, setLang, applyI18n } from './i18n.js';
 
 const ACCENT = '#e8413a';
 
@@ -63,11 +64,11 @@ const SUB_SVG = `
 function buildMenuHTML(saveInfo) {
   const hasSave = !!saveInfo;
   const items = [
-    { key: 'new',    label: 'NOWY PATROL',  code: 'F1',  disabled: false    },
-    { key: 'cont',   label: 'KONTYNUUJ',    code: 'F2',  disabled: !hasSave },
-    { key: 'briefs', label: 'ARCHIWUM',     code: 'F3',  disabled: true     },
-    { key: 'fleet',  label: 'FLOTYLLA',     code: 'F4',  disabled: true     },
-    { key: 'set',    label: 'USTAWIENIA',   code: 'F5',  disabled: false    },
+    { key: 'new',    labelKey: 'menu_new',      code: 'F1', disabled: false    },
+    { key: 'cont',   labelKey: 'menu_cont',     code: 'F2', disabled: !hasSave },
+    { key: 'briefs', labelKey: 'menu_archive',  code: 'F3', disabled: true     },
+    { key: 'fleet',  labelKey: 'menu_fleet',    code: 'F4', disabled: true     },
+    { key: 'set',    labelKey: 'menu_settings', code: 'F5', disabled: false    },
   ];
 
   const itemsHTML = items.map((item, i) => `
@@ -79,7 +80,7 @@ function buildMenuHTML(saveInfo) {
     >
       <span class="mi-num">${String(i + 1).padStart(2, '0')}</span>
       <span class="mi-arrow">▸</span>
-      <span class="mi-label">${item.label}</span>
+      <span class="mi-label" data-i18n="${item.labelKey}">${t(item.labelKey)}</span>
       <span class="mi-code">${item.code}</span>
     </button>
   `).join('');
@@ -232,15 +233,25 @@ function buildMenuHTML(saveInfo) {
       #menu-version .v-accent { color: ${ACCENT}; }
 
       /* ── Settings panel ── */
-      #menu-settings { padding-top: 6px; }
+      #menu-settings {
+        padding-top: 6px;
+        max-height: calc(100vh - 290px);
+        overflow-y: auto;
+        padding-right: 8px;
+        scrollbar-width: thin;
+        scrollbar-color: ${ACCENT}44 transparent;
+      }
+      #menu-settings::-webkit-scrollbar { width: 3px; }
+      #menu-settings::-webkit-scrollbar-track { background: transparent; }
+      #menu-settings::-webkit-scrollbar-thumb { background: ${ACCENT}66; border-radius: 2px; }
       .ms-hdr {
         font-family: monospace; font-size: 11px; letter-spacing: 2px;
-        color: ${ACCENT}; margin-bottom: 20px;
+        color: ${ACCENT}; margin-bottom: 16px;
       }
-      .ms-row { margin-bottom: 16px; }
+      .ms-row { margin-bottom: 12px; }
       .ms-row-lbl {
         font-family: monospace; font-size: 9px; letter-spacing: 2.5px;
-        opacity: 0.45; margin-bottom: 7px;
+        opacity: 0.45; margin-bottom: 5px;
       }
       .ms-opts { display: flex; gap: 7px; flex-wrap: wrap; }
       .ms-opt {
@@ -255,11 +266,11 @@ function buildMenuHTML(saveInfo) {
       .ms-opt.on     { border-color: ${ACCENT}; color: ${ACCENT}; background: ${ACCENT}22; }
       .ms-sep {
         border: none; border-top: 1px solid rgba(243,237,224,0.08);
-        margin: 18px 0;
+        margin: 10px 0;
       }
       .ms-foot {
         display: flex; align-items: center; gap: 18px;
-        margin-top: 22px;
+        margin-top: 14px;
       }
       .ms-save-note {
         font-family: monospace; font-size: 9px; letter-spacing: 2px;
@@ -280,8 +291,8 @@ function buildMenuHTML(saveInfo) {
         margin-bottom: 14px; margin-top: 6px;
       }
       .ms-section-gap {
-        height: 8px; border-top: 1px solid ${ACCENT}22;
-        margin-bottom: 18px;
+        height: 4px; border-top: 1px solid ${ACCENT}22;
+        margin-bottom: 12px;
       }
 
       @keyframes menu-pulse {
@@ -328,8 +339,8 @@ function buildMenuHTML(saveInfo) {
         <div class="menu-corner bl"></div>
         <div class="menu-corner br"></div>
         <div id="menu-panel-header">
-          <div id="menu-panel-title">MENU GŁÓWNE</div>
-          <div id="menu-panel-hint">↑ ↓ NAWIGACJA  ·  ⏎ WYBÓR</div>
+          <div id="menu-panel-title" data-i18n="menu_main_title">${t('menu_main_title')}</div>
+          <div id="menu-panel-hint" data-i18n="menu_nav_hint">${t('menu_nav_hint')}</div>
         </div>
         <div id="menu-list">${itemsHTML}</div>
         <div id="menu-briefing">
@@ -396,65 +407,75 @@ export class Menu {
     this._settingsDefs = [
       // ── ROZGRYWKA ─────────────────────────────────────────
       {
-        section: 'ROZGRYWKA',
-        key: 'difficulty', label: 'TRUDNOŚĆ',
+        section: 'set_sec_gameplay',
+        key: 'difficulty', labelKey: 'set_difficulty',
         options: [
-          { v: { key:'easy',   label:'ŁATWY',   enemies:1, speedMult:0.75 }, label:'ŁATWY'   },
-          { v: { key:'normal', label:'NORMALNY', enemies:2, speedMult:1.00 }, label:'NORMALNY'},
-          { v: { key:'hard',   label:'TRUDNY',   enemies:3, speedMult:1.30 }, label:'TRUDNY'  },
+          { v: { key:'easy',   label:'ŁATWY',    enemies:1, speedMult:0.75 }, labelKey:'opt_easy'   },
+          { v: { key:'normal', label:'NORMALNY', enemies:2, speedMult:1.00 }, labelKey:'opt_normal' },
+          { v: { key:'hard',   label:'TRUDNY',   enemies:3, speedMult:1.30 }, labelKey:'opt_hard'   },
         ],
         idx: 1,
       },
       {
-        key: 'merchants', label: 'KONWÓJ',
+        key: 'merchants', labelKey: 'set_convoy',
         options: [
-          { v: 2, label: '2 STATKI'  },
-          { v: 4, label: '4 STATKI'  },
-          { v: 6, label: '6 STATKÓW' },
+          { v: 2, labelKey: 'opt_ships_2' },
+          { v: 4, labelKey: 'opt_ships_4' },
+          { v: 6, labelKey: 'opt_ships_6' },
         ],
         idx: 1,
       },
       {
-        key: 'infiniteAmmo', label: 'AMUNICJA',
+        key: 'infiniteAmmo', labelKey: 'set_ammo',
         options: [
-          { v: false, label: 'STANDARDOWA'   },
-          { v: true,  label: 'NIEOGRANICZONA' },
+          { v: false, labelKey: 'opt_ammo_std' },
+          { v: true,  labelKey: 'opt_ammo_inf' },
         ],
         idx: 0,
       },
       {
-        key: 'enemyDelay', label: 'DO KONTAKTU',
+        key: 'enemyDelay', labelKey: 'set_delay',
         options: [
-          { v: 15,  label: '15 SEK.'  },
-          { v: 60,  label: '1 MINUTA' },
-          { v: 300, label: '5 MINUT'  },
+          { v: 15,  labelKey: 'opt_15s'  },
+          { v: 60,  labelKey: 'opt_1min' },
+          { v: 300, labelKey: 'opt_5min' },
         ],
         idx: 0,
       },
       // ── GRAFIKA ───────────────────────────────────────────
       {
-        section: 'GRAFIKA',
-        key: 'particles', label: 'CZĄSTECZKI',
+        section: 'set_sec_graphics',
+        key: 'particles', labelKey: 'set_particles',
         options: [
-          { v: 0.35, label: 'NISKIE'   },
-          { v: 1.00, label: 'NORMALNE' },
-          { v: 1.70, label: 'WYSOKIE'  },
+          { v: 0.35, labelKey: 'opt_low'    },
+          { v: 1.00, labelKey: 'opt_medium' },
+          { v: 1.70, labelKey: 'opt_high'   },
         ],
         idx: 1,
       },
       {
-        key: 'cameraShake', label: 'WSTRZĄSY KAMERY',
+        key: 'cameraShake', labelKey: 'set_camshake',
         options: [
-          { v: true,  label: 'WŁ.' },
-          { v: false, label: 'WYŁ.' },
+          { v: true,  labelKey: 'opt_on'  },
+          { v: false, labelKey: 'opt_off' },
         ],
         idx: 0,
       },
       {
-        key: 'scanlines', label: 'EFEKT CRT',
+        key: 'scanlines', labelKey: 'set_scanlines',
         options: [
-          { v: true,  label: 'WŁ.' },
-          { v: false, label: 'WYŁ.' },
+          { v: true,  labelKey: 'opt_on'  },
+          { v: false, labelKey: 'opt_off' },
+        ],
+        idx: 0,
+      },
+      // ── JĘZYK ─────────────────────────────────────────────
+      {
+        section: 'set_sec_lang',
+        key: 'language', labelKey: 'set_language',
+        options: [
+          { v: 'PL', labelKey: 'opt_lang_pl' },
+          { v: 'EN', labelKey: 'opt_lang_en' },
         ],
         idx: 0,
       },
@@ -467,25 +488,25 @@ export class Menu {
     this._settingsDefs.forEach((def, i) => {
       if (def.section && def.section !== lastSection) {
         if (lastSection !== null) rowsHTML += '<div class="ms-section-gap"></div>';
-        rowsHTML += `<div class="ms-section-hdr">// ${def.section}</div>`;
+        rowsHTML += `<div class="ms-section-hdr" data-i18n="${def.section}">${t(def.section)}</div>`;
         lastSection = def.section;
       } else if (i > 0) {
         rowsHTML += '<hr class="ms-sep">';
       }
       const optsHTML = def.options.map((opt, oi) =>
-        `<button class="ms-opt ${oi === def.idx ? 'on' : ''}" data-key="${def.key}" data-idx="${oi}">${opt.label}</button>`
+        `<button class="ms-opt ${oi === def.idx ? 'on' : ''}" data-key="${def.key}" data-idx="${oi}" data-i18n="${opt.labelKey}">${t(opt.labelKey)}</button>`
       ).join('');
       rowsHTML += `<div class="ms-row">
-        <div class="ms-row-lbl">${def.label}</div>
+        <div class="ms-row-lbl" data-i18n="${def.labelKey}">${t(def.labelKey)}</div>
         <div class="ms-opts">${optsHTML}</div>
       </div>`;
     });
 
     return `<div id="menu-settings">
-      <div class="ms-hdr">// KONFIGURACJA PATROLU</div>
+      <div class="ms-hdr" data-i18n="menu_set_hdr">${t('menu_set_hdr')}</div>
       ${rowsHTML}
       <div class="ms-foot">
-        <span class="ms-save-note">ZMIANY ZAPISYWANE AUTOMATYCZNIE</span>
+        <span class="ms-save-note" data-i18n="menu_set_save">${t('menu_set_save')}</span>
       </div>
     </div>`;
   }
@@ -496,6 +517,12 @@ export class Menu {
       out[def.key] = def.options[def.idx].v;
     }
     return out;
+  }
+
+  _applyLanguage() {
+    const cfg = this._getSettings();
+    setLang(cfg.language ?? 'PL');
+    applyI18n();
   }
 
   _applyGraphicsSettings() {
@@ -513,8 +540,10 @@ export class Menu {
     const briefEl = this._el.querySelector('#menu-briefing');
     const panelEl = this._el.querySelector('#menu-panel');
 
-    titleEl.textContent = 'USTAWIENIA GRY';
-    hintEl.innerHTML    = '<button class="ms-back-btn">← POWRÓĆ</button><span style="opacity:0.55"> · ← → ZMIEŃ OPCJĘ</span>';
+    titleEl.textContent  = t('menu_set_title');
+    titleEl.dataset.i18n = 'menu_set_title';
+    hintEl.innerHTML     = `<button class="ms-back-btn" data-i18n="menu_set_back">${t('menu_set_back')}</button><span style="opacity:0.55" data-i18n="menu_set_hint"> · ${t('menu_set_hint')}</span>`;
+    hintEl.removeAttribute('data-i18n');
     listEl.style.display  = 'none';
     briefEl.style.display = 'none';
 
@@ -536,6 +565,7 @@ export class Menu {
         });
         window._gameSettings = this._getSettings();
         this._applyGraphicsSettings();
+        if (def.key === 'language') this._applyLanguage();
       });
     });
 
@@ -554,8 +584,10 @@ export class Menu {
     const briefEl = this._el.querySelector('#menu-briefing');
     const panelEl = this._el.querySelector('#menu-panel');
 
-    titleEl.textContent = 'MENU GŁÓWNE';
-    hintEl.textContent  = '↑ ↓ NAWIGACJA  ·  ⏎ WYBÓR';
+    titleEl.textContent  = t('menu_main_title');
+    titleEl.dataset.i18n = 'menu_main_title';
+    hintEl.textContent   = t('menu_nav_hint');
+    hintEl.dataset.i18n  = 'menu_nav_hint';
     listEl.style.display  = '';
     briefEl.style.display = '';
     panelEl.querySelector('#menu-settings')?.remove();
@@ -756,6 +788,7 @@ export class Menu {
       for (let k = 0; k < 3; k++) {
         const tK = (t + k / 3) % 1;
         const rK = tK * r;
+        if (rK <= 0) continue;
         const alpha = (1 - tK) * (k === 0 ? 0.7 : k === 1 ? 0.45 : 0.25);
         ctx.globalAlpha = alpha;
         ctx.lineWidth = k === 0 ? 1.2 : 0.8;

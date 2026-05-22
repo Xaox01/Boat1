@@ -12,6 +12,7 @@ import { DevConsole } from './DevConsole.js';
 import { TorpedoLaunchFX } from './TorpedoLaunchFX.js';
 import { ImpactFX } from './ImpactFX.js';
 import { RadioComms } from './RadioComms.js';
+import { applyI18n, t as tr, tf } from './i18n.js';
 
 const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
@@ -55,11 +56,11 @@ const tpThreat    = $('tp-threat');
 const shipLogEl   = $('ship-log-entries');
 const shipLogTime = $('ship-log-time');
 
-// Detection state labels + CSS classes
+// Detection state labels + CSS classes — textKey resolved via t() at render time
 const ALERT_CFG = {
-  hidden:  { text: '',                cls: '' },
-  warning: { text: 'NAMIERZONE',      cls: 'visible warning' },
-  danger:  { text: '!! WYKRYTO !!',   cls: 'visible danger'  },
+  hidden:  { textKey: '',               cls: '' },
+  warning: { textKey: 'alert_tracked',  cls: 'visible warning' },
+  danger:  { textKey: 'alert_detected', cls: 'visible danger'  },
 };
 
 export class GameScene extends Phaser.Scene {
@@ -119,6 +120,8 @@ export class GameScene extends Phaser.Scene {
     this._launchFX   = new TorpedoLaunchFX(this);
     this._impactFX   = new ImpactFX(this);
     this._radio      = new RadioComms(this);
+    window._radio    = this._radio;   // dev: dostęp z konsoli przeglądarki
+    applyI18n();                      // zastosuj aktualny język do DOM
 
     // SLBM — rakiety balistyczne z panelu F5
     this._slbmMissiles = [];
@@ -154,16 +157,16 @@ export class GameScene extends Phaser.Scene {
         const tubeId = this.sub.fireTorpedo(worldX, worldY);
         if (tubeId) {
           this._launchFX.onFire(this.sub.x + 48, this.sub.y);
-          this._logEvent('Torpeda odpalona!');
+          this._logEvent(tr('log_torp_fired'));
           const tb = this._brg(this.sub.x, this.sub.y, worldX, worldY);
           this._shipLog(`Odpalono: Mk.48 z rury nr ${tubeId}. Nam. ${tb}°, gł. ${this.sub.depthMetres}m. Rury gotowe: ${this.sub.torpedoCount}/4.`, 'info');
         } else {
           const salvo = this.sub._salvoCD || 0;
           if (salvo > 0) {
-            this._logEvent(`Cooldown salwy! (${Math.ceil(salvo)}s)`);
+            this._logEvent(tf('log_salvo_cd', { s: Math.ceil(salvo) }));
           } else {
             const wait = Math.ceil(this.sub.torpedoFireCD);
-            this._logEvent(`Wszystkie rury ładują się! (${wait}s)`);
+            this._logEvent(tf('log_tubes_loading', { s: wait }));
           }
         }
       }
@@ -171,13 +174,13 @@ export class GameScene extends Phaser.Scene {
       if (pointer.rightButtonDown()) {
         const result = this.sub.fireMissile(worldX);
         if (result === 'ok') {
-          this._logEvent('Rakieta odpalona!');
+          this._logEvent(tr('log_missile_fired'));
           const mb = worldX > this.sub.x ? 90 : 270;
           this._shipLog(`Odpalono: rakieta p/okrętowa. Kurs ${mb}°, gł. startowa ${this.sub.depthMetres}m.`, 'info');
         }
-        else if (result === 'brak')       this._logEvent('Brak rakiet!');
-        else if (result === 'za_gleboko') this._logEvent('Za głęboko! Wynurzyć (max 70m).');
-        else if (result === 'awaria')     { this._logEvent('SYS. RAKIETOWY — AWARIA!'); this._shipLog('Układ rakietowy zniszczony — start niemożliwy.', 'crit'); }
+        else if (result === 'brak')       this._logEvent(tr('log_no_missiles'));
+        else if (result === 'za_gleboko') this._logEvent(tr('log_too_deep'));
+        else if (result === 'awaria')     { this._logEvent(tr('log_missile_fail')); this._shipLog('Układ rakietowy zniszczony — start niemożliwy.', 'crit'); }
       }
     });
 
@@ -255,12 +258,12 @@ export class GameScene extends Phaser.Scene {
       callback: () => {
         if (!this._gameOver) {
           SaveSystem.save(this);
-          this._logEvent('AUTO-ZAPIS OK');
+          this._logEvent(tr('log_autosave'));
         }
       },
     });
 
-    this._logEvent('Zanurz się — wrogie jednostki w pobliżu!');
+    this._logEvent(tr('log_dive_enemies'));
     this._shipLog('ORP Orzeł — misja bojowa. Zanurzono na pozycję.', 'info');
   }
 
@@ -328,7 +331,7 @@ export class GameScene extends Phaser.Scene {
       this.mission._updateUI();
     }
 
-    this._logEvent('Wczytano zapis — kontynuujesz patrol');
+    this._logEvent(tr('log_save_loaded'));
     this._shipLog('System: dane pokładowe przywrócone z ostatniego zapisu.', 'info');
   }
 
@@ -357,16 +360,16 @@ export class GameScene extends Phaser.Scene {
     // E = zdalna detonacja najstarszej torpedy
     if (Phaser.Input.Keyboard.JustDown(this.keys.e)) {
       const t = this.sub.torpedoes.find(t => !t.exploded && t.armed);
-      if (t) { t.cmdDetonate = true; this._logEvent('Detonacja zdalna!'); }
+      if (t) { t.cmdDetonate = true; this._logEvent(tr('log_detonate')); }
     }
 
     // T = wyrzuć wabię akustyczną
     if (Phaser.Input.Keyboard.JustDown(this.keys.t)) {
       if (this.sub.deployNoisemaker()) {
-        this._logEvent('Wabia akustyczna wyrzucona!');
+        this._logEvent(tr('log_decoy_fired'));
         this._shipLog(`Wyrzucono wabię akustyczną. Pozostało: ${this.sub.noisemakerCount}.`, 'good');
       } else {
-        this._logEvent('Brak wabii akustycznych!');
+        this._logEvent(tr('log_no_decoys'));
       }
     }
 
@@ -375,7 +378,7 @@ export class GameScene extends Phaser.Scene {
       if (this._pingCD <= 0) {
         this._firePing();
       } else {
-        this._logEvent(`Ping — cooldown (${Math.ceil(this._pingCD)}s)`);
+        this._logEvent(tf('log_ping_cd', { s: Math.ceil(this._pingCD) }));
       }
     }
     this._pingCD = Math.max(0, this._pingCD - dt);
@@ -405,17 +408,17 @@ export class GameScene extends Phaser.Scene {
       const ptr    = this.input.mousePointer;
       const worldX = ptr.x + this.camX;
       const result = this.sub.fireMissile(worldX);
-      if      (result === 'ok')         this._logEvent('Rakieta odpalona!');
-      else if (result === 'brak')       this._logEvent('Brak rakiet!');
-      else if (result === 'za_gleboko') this._logEvent('Za głęboko! Wynurzyć (max 70m).');
-      else if (result === 'awaria')     { this._logEvent('SYS. RAKIETOWY — AWARIA!'); this._shipLog('Układ rakietowy zniszczony.', 'crit'); }
+      if      (result === 'ok')         this._logEvent(tr('log_missile_fired'));
+      else if (result === 'brak')       this._logEvent(tr('log_no_missiles'));
+      else if (result === 'za_gleboko') this._logEvent(tr('log_too_deep'));
+      else if (result === 'awaria')     { this._logEvent(tr('log_missile_fail')); this._shipLog('Układ rakietowy zniszczony.', 'crit'); }
     }
 
     this.sub.update(delta, this.cursors, this.keys);
 
     // Powiadomienie o załadowaniu rury torpedowej
     if (this.sub.recentTubeLoaded !== null) {
-      this._logEvent(`Rura ${this.sub.recentTubeLoaded} — GOTOWA`);
+      this._logEvent(tf('log_tube_ready', { n: this.sub.recentTubeLoaded }));
       this._shipLog(`Rura nr ${this.sub.recentTubeLoaded} załadowana. Mk.48 gotowa do odpalenia.`, 'good');
     }
 
@@ -433,7 +436,7 @@ export class GameScene extends Phaser.Scene {
     for (const enemy of this.enemies) {
       enemy.update(dt, this.sub);
       if (enemy.recentPingHit) {
-        this._logEvent('PING! Aktywny sonar — jesteśmy namierzeni!');
+        this._logEvent(tr('log_ping_active'));
         const pb = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
         const pr = this._rng(this.sub.x, this.sub.y, enemy.x, enemy.y);
         this._shipLog(`PING aktywny z ${enemy.label || 'niszczyciela'}. Nam. ${pb}°, dyst. ${pr}m. Pozycja ujawniona.`, 'danger');
@@ -442,7 +445,7 @@ export class GameScene extends Phaser.Scene {
         this.cameras.main.flash(55, 0, 180, 255, false);
       }
       if (enemy.recentASROC) {
-        this._logEvent('ASROC! Rakieta p/okrętowa odpalona!');
+        this._logEvent(tr('log_asroc'));
         const ab = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
         this._shipLog(`Wykryto odpalenie ASROC — ${enemy.label || 'niszczyciel'}. Nam. ${ab}°. Procedury unikania!`, 'danger');
       }
@@ -452,7 +455,7 @@ export class GameScene extends Phaser.Scene {
         if (intensity > 0.1) {
           this._shake(200 + intensity * 300, 0.004 + intensity * 0.018);
           if (intensity > 0.6) this.cameras.main.flash(120, 255, 200, 100, false);
-          this._logEvent('ZARZUT GŁĘBINOWY!');
+          this._logEvent(tr('log_depth_charge'));
         }
       }
 
@@ -462,7 +465,7 @@ export class GameScene extends Phaser.Scene {
           this.sub.applyDamage(ht.recentHit.damage, 'TORPEDA ASROC');
           this._shake(550, 0.025);
           this.cameras.main.flash(180, 255, 140, 60, false);
-          this._logEvent('TRAFIENIE — torpeda naprowadzana ASROC!');
+          this._logEvent(tr('log_torp_hit'));
           this._shipLog(`Trafienie torpedą samonaprowadzającą ASROC. Kadłub: ${Math.round(this.sub.hull * 100)}%.`, 'danger');
           this._radio.trigger('torpedo_hit');
         }
@@ -489,7 +492,7 @@ export class GameScene extends Phaser.Scene {
       hunter.needsReinforcement  = false;
       this._reinforceCooldown    = 85;
       this._shipLog(`SYGNAŁ RADIOWY — ${hunter.label || 'BPK'} wzywa posiłki! Nowy kontakt w rejonie.`, 'danger');
-      this._logEvent('Wróg wezwał posiłki radiowe!');
+      this._logEvent(tr('log_reinforcements'));
       this._spawnReinforcement(hunter);
       break;
     }
@@ -518,20 +521,20 @@ export class GameScene extends Phaser.Scene {
           const mb2 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
           const mr2 = this._rng(this.sub.x, this.sub.y, target.x, target.y);
           if (isMerchant) {
-            this._logEvent(`${target.label} zatopiony rakietą!`);
+            this._logEvent(tf('log_sunk_missile', { lbl: target.label }));
             this._shipLog(`Cel handlowy zatopiony rakietą — ${target.label}. Nam. ${mb2}°, dyst. ${mr2}m.`, 'good');
             this.mission?.onMerchantDestroyed(target);
           } else {
-            this._logEvent(`${target.label || 'Niszczyciel'} zatopiony rakietą!`);
+            this._logEvent(tf('log_sunk_missile', { lbl: target.label || tr('log_dd_hunt').split(' ')[0] }));
             this._shipLog(`Cel zatopiony rakietą — ${target.label || 'niszczyciel'}. Nam. ${mb2}°, dyst. ${mr2}m.`, 'good');
           }
         } else {
           const mb3 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
           if (isMerchant) {
-            this._logEvent(`Trafiono ${target.label} rakietą!`);
+            this._logEvent(tf('log_hit_missile', { lbl: target.label }));
             this._shipLog(`Trafienie rakietą — ${target.label}. Kadłub: ${Math.round(target.hull * 100)}%. Nam. ${mb3}°.`, 'warn');
           } else {
-            this._logEvent(`Rakieta trafiła — ${target.label || 'niszczyciel'} uszkodzony!`);
+            this._logEvent(tf('log_hit_missile', { lbl: target.label || 'DESTROYER' }));
             const withdrawMsg = target.hull < 0.5 ? ' Cel wycofuje się.' : '';
             this._shipLog(`Trafienie rakietą — ${target.label || 'niszczyciel'}. Nam. ${mb3}°.${withdrawMsg}`, 'warn');
           }
@@ -551,12 +554,12 @@ export class GameScene extends Phaser.Scene {
           this.cameras.main.flash(120, 200, 255, 120, false);
           if (target.hull <= 0) {
             target.startSinking();
-            this._logEvent(target.label ? `${target.label} zatopiony!` : 'Wróg zatopiony!');
+            this._logEvent(target.label ? tf('log_sunk_torp', { lbl: target.label }) : tr('log_enemy_sunk'));
             const tb2 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
             const tr2 = this._rng(this.sub.x, this.sub.y, target.x, target.y);
             this._shipLog(`Cel zatopiony torpedą Mk.48 — ${target.label || 'niszczyciel'}. Nam. ${tb2}°, dyst. ${tr2}m.`, 'good');
           } else {
-            this._logEvent('Trafienie! Wróg uszkodzony.');
+            this._logEvent(tr('log_hit_torp'));
             const tb3 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
             const withdrawMsg = target.hull < 0.5 ? ' Cel rozpoczął wycofywanie.' : '';
             this._shipLog(`Trafienie Mk.48 — ${target.label || 'niszczyciel'}. Nam. ${tb3}°.${withdrawMsg}`, 'warn');
@@ -595,7 +598,7 @@ export class GameScene extends Phaser.Scene {
           this.cameras.main.flash(100, 255, 200, 80, false);
           if (m.hull <= 0) {
             m.destroyed = true;
-            this._logEvent(`${m.label} — zatopiony!`);
+            this._logEvent(tf('log_merchant_sunk', { lbl: m.label }));
             const mb = this._brg(this.sub.x, this.sub.y, m.x, m.y);
             const mr = this._rng(this.sub.x, this.sub.y, m.x, m.y);
             this._shipLog(`Cel handlowy zatopiony torpedą — ${m.label}. Nam. ${mb}°, dyst. ${mr}m.`, 'good');
@@ -603,7 +606,7 @@ export class GameScene extends Phaser.Scene {
             this.mission?.onMerchantDestroyed(m);
           } else {
             const mb = this._brg(this.sub.x, this.sub.y, m.x, m.y);
-            this._logEvent(`Trafiono ${m.label}!`);
+            this._logEvent(tf('log_merchant_hit', { lbl: m.label }));
             this._shipLog(`Trafienie — ${m.label}. Kadłub: ${Math.round(m.hull * 100)}%. Nam. ${mb}°.`, 'warn');
           }
         }
@@ -640,7 +643,7 @@ export class GameScene extends Phaser.Scene {
     // Lose condition
     if (!this._gameOver && this.sub.hull <= 0) {
       this._gameOver = true;
-      this._showEndScreen('OKRĘT ZATOPIONY', 'Kadłub nie wytrzymał. Misja nieudana.', '#ff4a4a');
+      this._showEndScreen(tr('go_sunk_title'), tr('go_sunk_sub'), '#ff4a4a');
     }
 
     const targetCamX = this.sub.x - CAM_W / 2;
@@ -919,7 +922,7 @@ export class GameScene extends Phaser.Scene {
         this._setText(hudPing, `⟳ ${Math.ceil(pc)}s`);
         this._setCol(hudPing, pc > 8 ? '#ff6644' : '#ffaa44');
       } else {
-        this._setText(hudPing, 'GOTOWY');
+        this._setText(hudPing, tr('bb_ready'));
         this._setCol(hudPing, '#44ffdd');
       }
     }
@@ -957,7 +960,7 @@ export class GameScene extends Phaser.Scene {
     const anyHunt  = this.enemies.some(e => e.state === STATE.HUNT);
     const anyAlert = this.enemies.some(e => e.state === STATE.ALERT || e.state === STATE.SEARCH);
     const cfg = anyHunt ? ALERT_CFG.danger : anyAlert ? ALERT_CFG.warning : ALERT_CFG.hidden;
-    this._setText(alertBanner, cfg.text);
+    this._setText(alertBanner, cfg.textKey ? tr(cfg.textKey) : '');
     this._setCls(alertBanner, cfg.cls);
   }
 
@@ -1032,9 +1035,9 @@ export class GameScene extends Phaser.Scene {
 
       // Klasyfikacja i trend z danych sonarowych
       const cls = nearest.contactClass || 'UNK';
-      const clsText = cls === 'WARSHIP'  ? 'OKRĘT WOJ.' :
-                      cls === 'MERCHANT' ? 'JED. CYW.'  :
-                      cls === 'SURFACE'  ? 'NAWODNY'    : 'UNK';
+      const clsText = cls === 'WARSHIP'  ? tr('cls_warship_s') :
+                      cls === 'MERCHANT' ? tr('cls_merchant_s') :
+                      cls === 'SURFACE'  ? tr('cls_surface_s')  : tr('cls_unk_s');
       this._setText(tpClassif, clsText);
       this._setCls(tpClassif,
         cls === 'WARSHIP'  ? 'tp-value danger'   :
@@ -1044,10 +1047,10 @@ export class GameScene extends Phaser.Scene {
       const sc = this.sonar?.contacts?.find(c => c.enemy === nearest);
       const trend = sc?.approach ?? '';
       if (trend === 'ZBLIŻA') {
-        this._setText(tpTrend, '↗ ZBLIŻA SIĘ');
+        this._setText(tpTrend, tr('trend_closing'));
         this._setCls(tpTrend, 'tp-value danger');
       } else if (trend === 'ODDALA') {
-        this._setText(tpTrend, '↙ ODDALA SIĘ');
+        this._setText(tpTrend, tr('trend_opening'));
         this._setCls(tpTrend, 'tp-value');
       } else {
         this._setText(tpTrend, '---');
@@ -1077,9 +1080,9 @@ export class GameScene extends Phaser.Scene {
     const incomingTorps = this.enemies.flatMap(e => e.homingTorpedoes).filter(ht => ht.locked);
     const incomingASROC = this.enemies.flatMap(e => e.asrocs).filter(a => !a.dead && !a.splashed);
     if (incomingTorps.length > 0) {
-      this._setText(tpThreat, `▼ TORPEDA NAPROW. x${incomingTorps.length}`);
+      this._setText(tpThreat, tr('torp_threat') + incomingTorps.length);
     } else if (incomingASROC.length > 0) {
-      this._setText(tpThreat, `↑ ASROC W LOCIE x${incomingASROC.length}`);
+      this._setText(tpThreat, tr('asroc_threat') + incomingASROC.length);
     } else {
       this._setText(tpThreat, '');
     }
@@ -1090,40 +1093,40 @@ export class GameScene extends Phaser.Scene {
   _checkEvents() {
     const sub = this.sub;
 
-    if (this._prevBattery > 0.2  && sub.battery <= 0.2)  { this._logEvent('UWAGA: Niski poziom baterii'); this._shipLog('Mel. ładowni: baterie słabe. Zalecane wynurzenie na ładowanie.', 'warn'); }
-    if (this._prevBattery > 0.0  && sub.battery <= 0.0)  { this._logEvent('KRYTYCZNE: Bateria wyczerpana'); this._shipLog('Baterie wyczerpane. Okręt bez napędu elektrycznego.', 'danger'); }
-    if (this._prevOxygen  > 0.25 && sub.oxygen  <= 0.25) { this._logEvent('UWAGA: Niski poziom tlenu — wynurzyć!'); this._shipLog(`Tlen krytyczny — ${Math.round(sub.oxygen * 100)}%. Zarządzono wynurzenie awaryjne.`, 'warn'); }
-    if (this._prevOxygen  > 0.0  && sub.oxygen  <= 0.0)  { this._logEvent('KRYTYCZNE: Brak tlenu'); this._shipLog('Brak tlenu. Załoga w niebezpieczeństwie bezpośrednim.', 'danger'); }
-    if (this._prevHull    > 0.6  && sub.hull    <= 0.6)  { this._logEvent('UWAGA: Uszkodzenie kadłuba'); this._shipLog(`Uszkodzenia kadłuba — ${Math.round(sub.hull * 100)}%. Zredukować głębokość roboczą.`, 'warn'); }
-    if (this._prevHull    > 0.3  && sub.hull    <= 0.3)  { this._logEvent('KRYTYCZNE: Kadłub poważnie uszkodzony'); this._shipLog(`Poważne uszkodzenia kadłuba — ${Math.round(sub.hull * 100)}%. Ryzyko implozji. Wynurzyć.`, 'danger'); }
+    if (this._prevBattery > 0.2  && sub.battery <= 0.2)  { this._logEvent(tr('log_batt_low'));   this._shipLog('Mel. ładowni: baterie słabe. Zalecane wynurzenie na ładowanie.', 'warn'); }
+    if (this._prevBattery > 0.0  && sub.battery <= 0.0)  { this._logEvent(tr('log_batt_empty')); this._shipLog('Baterie wyczerpane. Okręt bez napędu elektrycznego.', 'danger'); }
+    if (this._prevOxygen  > 0.25 && sub.oxygen  <= 0.25) { this._logEvent(tr('log_oxy_low'));    this._shipLog(`Tlen krytyczny — ${Math.round(sub.oxygen * 100)}%. Zarządzono wynurzenie awaryjne.`, 'warn'); }
+    if (this._prevOxygen  > 0.0  && sub.oxygen  <= 0.0)  { this._logEvent(tr('log_oxy_empty'));  this._shipLog('Brak tlenu. Załoga w niebezpieczeństwie bezpośrednim.', 'danger'); }
+    if (this._prevHull    > 0.6  && sub.hull    <= 0.6)  { this._logEvent(tr('log_hull_60'));    this._shipLog(`Uszkodzenia kadłuba — ${Math.round(sub.hull * 100)}%. Zredukować głębokość roboczą.`, 'warn'); }
+    if (this._prevHull    > 0.3  && sub.hull    <= 0.3)  { this._logEvent(tr('log_hull_30'));    this._shipLog(`Poważne uszkodzenia kadłuba — ${Math.round(sub.hull * 100)}%. Ryzyko implozji. Wynurzyć.`, 'danger'); }
 
     if (!this._prevOnFloor && sub.onFloor) {
-      this._logEvent(sub.impactVelocity > 60 ? 'UDERZENIE W DNO — uszkodzenie!' : 'Kontakt z dnem');
+      this._logEvent(sub.impactVelocity > 60 ? tr('log_bottom_hard') : tr('log_bottom_soft'));
     }
     if (sub.onFloor && Math.floor(this._groundedTimer) === 4) {
-      this._logEvent('Łódź osiadła — wyrzuć balast!');
+      this._logEvent(tr('log_grounded'));
     }
     this._prevOnFloor = sub.onFloor;
 
     const depth = sub.depthMetres;
-    if (!this._warnedDepth300 && depth > 300) { this._logEvent('UWAGA: Przekroczono limit (300m)'); this._warnedDepth300 = true; }
+    if (!this._warnedDepth300 && depth > 300) { this._logEvent(tr('log_depth_300')); this._warnedDepth300 = true; }
     if (depth < 280) this._warnedDepth300 = false;
-    if (!this._warnedDepth400 && depth > 400) { this._logEvent('KRYTYCZNE: Głębokość krytyczna!'); this._warnedDepth400 = true; }
+    if (!this._warnedDepth400 && depth > 400) { this._logEvent(tr('log_depth_400')); this._warnedDepth400 = true; }
     if (depth < 380) this._warnedDepth400 = false;
 
     if (this._prevBelowThermo !== sub.belowThermocline && this._missionTime - this._lastThermoCrossT > 8) {
       this._lastThermoCrossT = this._missionTime;
       if (sub.belowThermocline) {
-        this._logEvent('Termoklina — hałas maskowany −42%');
+        this._logEvent(tr('log_thermo_down'));
         this._shipLog(`Termoklina przekroczona. Gł. ${sub.depthMetres}m — maskowanie akustyczne aktywne.`, 'info');
       } else {
-        this._logEvent('Powyżej termokliny — brak maskowania');
+        this._logEvent(tr('log_thermo_up'));
         this._shipLog(`Powyżej termokliny. Gł. ${sub.depthMetres}m — okręt bez maskowania akustycznego.`, 'warn');
       }
     }
     this._prevBelowThermo = sub.belowThermocline;
 
-    if (!this._prevCavitating && sub.cavitating) this._logEvent('KAWITACJA — zwolnij, jesteś głośny!');
+    if (!this._prevCavitating && sub.cavitating) this._logEvent(tr('log_cavitation'));
     this._prevCavitating = sub.cavitating;
 
     // Enemy state transitions — destroyers
@@ -1133,11 +1136,11 @@ export class GameScene extends Phaser.Scene {
       if (prev !== curr) {
         const eb = this._brg(this.sub.x, this.sub.y, enemy.x, enemy.y);
         const er = this._rng(this.sub.x, this.sub.y, enemy.x, enemy.y);
-        if (curr === STATE.ALERT)    { this._logEvent('Niszczyciel namierzył hałas — szuka...'); this._shipLog(`${enemy.label || 'Niszczyciel'} — ALERT. Wykryto sygnał akustyczny. Nam. ${eb}°, dyst. ${er}m.`, 'warn'); }
-        if (curr === STATE.HUNT)     { this._logEvent('NISZCZYCIEL ATAKUJE — zarzuty + ASROC!'); this._shipLog(`${enemy.label || 'Niszczyciel'} — ATAKUJE. Okręt namierzony. Nam. ${eb}°. Procedury unikania!`, 'danger'); this._radio.trigger('first_contact'); }
-        if (curr === STATE.SEARCH)   { this._logEvent('Niszczyciel przeszukuje obszar...'); this._shipLog(`${enemy.label || 'Niszczyciel'} — przeszukuje sektor. Nam. ${eb}°. Zachować ciszę.`, 'warn'); }
-        if (curr === STATE.WITHDRAW) { this._logEvent('Niszczyciel wycofuje się!'); this._shipLog(`${enemy.label || 'Niszczyciel'} — WYCOFYWANIE. Nam. ${eb}°, dyst. ${er}m. Ślad olejowy na powierzchni.`, 'info'); }
-        if (curr === STATE.PATROL && prev !== STATE.PATROL) { this._logEvent('Niszczyciel wrócił na patrol.'); this._shipLog(`${enemy.label || 'Niszczyciel'} — kontakt utracony. Powrót na patrol.`, 'info'); }
+        if (curr === STATE.ALERT)    { this._logEvent(tr('log_dd_alert'));    this._shipLog(`${enemy.label || 'Niszczyciel'} — ALERT. Wykryto sygnał akustyczny. Nam. ${eb}°, dyst. ${er}m.`, 'warn'); }
+        if (curr === STATE.HUNT)     { this._logEvent(tr('log_dd_hunt'));     this._shipLog(`${enemy.label || 'Niszczyciel'} — ATAKUJE. Okręt namierzony. Nam. ${eb}°. Procedury unikania!`, 'danger'); this._radio.trigger('first_contact'); }
+        if (curr === STATE.SEARCH)   { this._logEvent(tr('log_dd_search'));   this._shipLog(`${enemy.label || 'Niszczyciel'} — przeszukuje sektor. Nam. ${eb}°. Zachować ciszę.`, 'warn'); }
+        if (curr === STATE.WITHDRAW) { this._logEvent(tr('log_dd_withdraw')); this._shipLog(`${enemy.label || 'Niszczyciel'} — WYCOFYWANIE. Nam. ${eb}°, dyst. ${er}m. Ślad olejowy na powierzchni.`, 'info'); }
+        if (curr === STATE.PATROL && prev !== STATE.PATROL) { this._logEvent(tr('log_dd_patrol')); this._shipLog(`${enemy.label || 'Niszczyciel'} — kontakt utracony. Powrót na patrol.`, 'info'); }
         this._prevEnemyState.set(enemy, curr);
       }
     }

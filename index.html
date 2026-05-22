@@ -1111,32 +1111,32 @@
     <div id="tb-ship">
       <div id="tb-dot"></div>
       <span id="tb-name">ORP ORZEŁ</span>
-      <span id="tb-class">PROJEKT 641B · MISJA BOJOWA</span>
+      <span id="tb-class" data-i18n="tb_class">PROJEKT 877 · MISJA BOJOWA</span>
     </div>
 
     <div id="station-tabs">
       <div class="stab active" data-station="conn">
-        <span class="stab-lbl">CONN</span>
+        <span class="stab-lbl" data-i18n="station_conn">CONN</span>
         <span class="stab-code">F1</span>
       </div>
       <div class="stab" data-station="sonar">
-        <span class="stab-lbl">SONAR</span>
+        <span class="stab-lbl" data-i18n="station_sonar">SONAR</span>
         <span class="stab-code">F2</span>
       </div>
       <div class="stab" data-station="periscope">
-        <span class="stab-lbl">PERYSKOP</span>
+        <span class="stab-lbl" data-i18n="station_peri">PERYSKOP</span>
         <span class="stab-code">F3</span>
       </div>
       <div class="stab" data-station="weapon">
-        <span class="stab-lbl">BROŃ</span>
+        <span class="stab-lbl" data-i18n="station_weapon">BROŃ</span>
         <span class="stab-code">F4</span>
       </div>
       <div class="stab" data-station="slbm">
-        <span class="stab-lbl">SLBM</span>
+        <span class="stab-lbl" data-i18n="station_slbm">SLBM</span>
         <span class="stab-code">F5</span>
       </div>
       <div class="stab" data-station="damage">
-        <span class="stab-lbl">AWARIE</span>
+        <span class="stab-lbl" data-i18n="station_damage">AWARIE</span>
         <span class="stab-code">F6</span>
       </div>
     </div>
@@ -1144,7 +1144,7 @@
     <div id="tb-meta">
       <span id="tb-utc">UTC 00:00:00</span>
       <span id="radio-badge" onclick="document.getElementById('radio-overlay')?.classList.add('active')">◈ VLF</span>
-      <span id="tb-badge">● PATROL BOJOWY</span>
+      <span id="tb-badge" data-i18n="tb_patrol">● PATROL BOJOWY</span>
     </div>
   </div>
 
@@ -1155,29 +1155,29 @@
     <div id="left-panel">
 
       <div id="target-panel">
-        <div class="lp-section-title">NAMIERZANIE</div>
+        <div class="lp-section-title" data-i18n="lp_targeting">NAMIERZANIE</div>
         <div class="tp-row">
-          <span class="tp-label">KONTAKT</span>
+          <span class="tp-label" data-i18n="lp_contact">KONTAKT</span>
           <span class="tp-value" id="tp-bearing">---</span>
         </div>
         <div class="tp-row">
-          <span class="tp-label">DYSTANS</span>
+          <span class="tp-label" data-i18n="lp_range">DYSTANS</span>
           <span class="tp-value" id="tp-range">--- m</span>
         </div>
         <div class="tp-row">
-          <span class="tp-label">ROZWIĄZ.</span>
+          <span class="tp-label" data-i18n="lp_solution">ROZWIĄZ.</span>
           <span class="tp-value" id="tp-solution">---</span>
         </div>
         <div class="tp-row">
-          <span class="tp-label">TORP CD</span>
+          <span class="tp-label" data-i18n="lp_torp_cd">TORP CD</span>
           <span class="tp-value" id="tp-torpcd">GOTOWA</span>
         </div>
         <div class="tp-row">
-          <span class="tp-label">KLASIF</span>
+          <span class="tp-label" data-i18n="lp_class">KLASIF</span>
           <span class="tp-value nodata" id="tp-classif">---</span>
         </div>
         <div class="tp-row">
-          <span class="tp-label">TREND</span>
+          <span class="tp-label" data-i18n="lp_trend">TREND</span>
           <span class="tp-value nodata" id="tp-trend">---</span>
         </div>
         <div id="tp-threat" class="tp-threat"></div>
@@ -1186,7 +1186,7 @@
       <div class="lp-divider">────────────────────────</div>
 
       <div id="mission-panel">
-        <div class="lp-section-title">MISJA</div>
+        <div class="lp-section-title" data-i18n="lp_mission">MISJA</div>
         <div id="mission-name"></div>
         <div id="mission-objectives"></div>
       </div>
@@ -1194,44 +1194,44 @@
       <div class="lp-divider">────────────────────────</div>
 
       <div id="controls-panel">
-        <div class="ctrl-title">Sterowanie</div>
+        <div class="ctrl-title" data-i18n="ctrl_title">Sterowanie</div>
         <div class="ctrl-row">
           <div class="ctrl-keys"><kbd>W</kbd><kbd>S</kbd></div>
-          <span class="ctrl-desc">Wynurz / Zanurz</span>
+          <span class="ctrl-desc" data-i18n="ctrl_surface">Wynurz / Zanurz</span>
         </div>
         <div class="ctrl-row">
           <div class="ctrl-keys"><kbd>D</kbd><kbd>A</kbd></div>
-          <span class="ctrl-desc">Naprzód / Wstecz</span>
+          <span class="ctrl-desc" data-i18n="ctrl_fwd">Naprzód / Wstecz</span>
         </div>
         <div class="ctrl-row">
           <div class="ctrl-keys"><kbd>Shift</kbd></div>
-          <span class="ctrl-desc">Pełna moc</span>
+          <span class="ctrl-desc" data-i18n="ctrl_fullpower">Pełna moc</span>
         </div>
         <div class="ctrl-row">
           <div class="ctrl-keys"><kbd>Space</kbd></div>
-          <span class="ctrl-desc">Stop silnika</span>
+          <span class="ctrl-desc" data-i18n="ctrl_stop">Stop silnika</span>
         </div>
         <div class="ctrl-row">
           <div class="ctrl-keys"><kbd>LPM</kbd></div>
-          <span class="ctrl-desc">Torpeda Mk.48</span>
+          <span class="ctrl-desc" data-i18n="ctrl_torpedo">Torpeda Mk.48</span>
         </div>
         <div class="ctrl-row">
           <div class="ctrl-keys"><kbd>R</kbd><kbd>PPM</kbd></div>
-          <span class="ctrl-desc">Rakieta (max 70m)</span>
+          <span class="ctrl-desc" data-i18n="ctrl_missile">Rakieta (max 70m)</span>
         </div>
         <div class="ctrl-row">
           <div class="ctrl-keys"><kbd>T</kbd></div>
-          <span class="ctrl-desc">Wabia akustyczna</span>
+          <span class="ctrl-desc" data-i18n="ctrl_decoy">Wabia akustyczna</span>
         </div>
         <div class="ctrl-row">
           <div class="ctrl-keys"><kbd>E</kbd></div>
-          <span class="ctrl-desc">Det. torpedy</span>
+          <span class="ctrl-desc" data-i18n="ctrl_detonate">Det. torpedy</span>
         </div>
         <div class="ctrl-row">
           <div class="ctrl-keys"><kbd>Q</kbd></div>
-          <span class="ctrl-desc">Ping aktywny (14s CD)</span>
+          <span class="ctrl-desc" data-i18n="ctrl_ping">Ping aktywny (14s CD)</span>
         </div>
-        <div class="ctrl-title" style="margin-top:6px">Sonar</div>
+        <div class="ctrl-title" style="margin-top:6px" data-i18n="ctrl_sonar_hdr">Sonar</div>
         <div class="ctrl-row"><span style="color:var(--green);font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Patrol</span></div>
         <div class="ctrl-row"><span style="color:var(--amber);font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Wykryty</span></div>
         <div class="ctrl-row"><span style="color:var(--accent);font-size:9px">●</span>&nbsp;<span class="ctrl-desc">Atak</span></div>
@@ -1254,7 +1254,7 @@
         <div class="hud-item"><span class="hud-label">Torpedy</span><span class="hud-value" id="hud-torpedoes">4/4</span><span id="hud-torp-reload"></span></div>
         <div class="hud-item"><span class="hud-label">Rakiety</span><span class="hud-value" id="hud-missiles">2</span></div>
         <div class="hud-item"><span class="hud-label">Wabia</span><span class="hud-value" id="hud-noisemakers">3</span></div>
-        <div class="hud-item"><span class="hud-label">A.Sonar</span><span class="hud-value" id="hud-ping">GOTOWY</span></div>
+        <div class="hud-item"><span class="hud-label" data-i18n="bb_asonar">A.Sonar</span><span class="hud-value" id="hud-ping" data-i18n="bb_ready">GOTOWY</span></div>
         <div class="hud-item"><span class="hud-label">Fala</span><span class="hud-value" id="hud-wave">1</span></div>
         <div class="hud-item"><span class="hud-label">Czas</span><span class="hud-value" id="hud-clock" style="font-variant-numeric:tabular-nums;letter-spacing:1px">10:00</span></div>
       </div>
@@ -1276,7 +1276,7 @@
         <div id="ss-left">
           <div id="ss-header-row">
             <span class="ss-label">NAMIAR · DALEKOSIĘŻNY HYDROFON</span>
-            <span id="ss-listen-badge">◉ NASŁUCH</span>
+            <span id="ss-listen-badge" data-i18n="sonar_listen">◉ NASŁUCH</span>
           </div>
           <div id="ss-wheel-wrap">
             <canvas id="ss-wheel"></canvas>
@@ -1288,7 +1288,7 @@
 
           <div id="ss-wf-panel" class="ss-panel">
             <div class="ss-panel-header">
-              <span>WODOSPAD · KĄTY NAMIERZANIA (BTR)</span>
+              <span data-i18n="sonar_wf_hdr">WODOSPAD · KĄTY NAMIERZANIA (BTR)</span>
               <span style="color:var(--accent)">● REC</span>
             </div>
             <div id="ss-wf-inner">
@@ -1315,11 +1315,11 @@
 
           <div id="ss-contacts-panel" class="ss-panel">
             <div class="ss-panel-header">
-              <span>KONTAKTY · KLASYFIKACJA</span>
+              <span data-i18n="sonar_contacts_hdr">KONTAKTY · KLASYFIKACJA</span>
               <span id="ss-contact-count" style="color:var(--accent)">0 ŚLEDZ.</span>
             </div>
             <div id="ss-contact-list">
-              <div class="ss-empty">BRAK KONTAKTÓW SONAROWYCH</div>
+              <div class="ss-empty" data-i18n="sonar_no_contacts">BRAK KONTAKTÓW SONAROWYCH</div>
             </div>
           </div>
 
@@ -1332,7 +1332,7 @@
         <!-- Lewa kolumna: widok optyczny -->
         <div id="ps-left">
           <div id="ps-header-row">
-            <span class="ss-label">OPTYKA · PERYSKOP OBSERWACYJNY MK.18</span>
+            <span class="ss-label" data-i18n="peri_optics_hdr">OPTYKA · PERYSKOP OBSERWACYJNY MK.18</span>
             <div style="display:flex;align-items:center;gap:8px;">
               <button id="ps-night-btn" title="Tryb nocny (N)">NOC</button>
               <span id="ps-depth-badge" class="ss-label" style="color:var(--green)">GŁ: ---</span>
@@ -1349,18 +1349,18 @@
           <!-- Kurs obserwacji + status -->
           <div id="ps-brg-panel">
             <div id="ps-brg-num">000°</div>
-            <div id="ps-brg-sub">KURS OBSERWACJI · SCROLL — OBRÓT</div>
+            <div id="ps-brg-sub" data-i18n="peri_bearing_sub">KURS OBSERWACJI · SCROLL — OBRÓT</div>
             <div id="ps-status-row">
               <div class="ps-stat">
-                <div class="ps-stat-lbl">GŁĘBOKOŚĆ</div>
+                <div class="ps-stat-lbl" data-i18n="hud_depth">GŁĘBOKOŚĆ</div>
                 <div id="ps-s-depth" class="ps-stat-val">---</div>
               </div>
               <div class="ps-stat">
-                <div class="ps-stat-lbl">STATUS</div>
+                <div class="ps-stat-lbl" data-i18n="peri_status_lbl">STATUS</div>
                 <div id="ps-s-status" class="ps-stat-val">---</div>
               </div>
               <div class="ps-stat">
-                <div class="ps-stat-lbl">POWIĘKSZENIE</div>
+                <div class="ps-stat-lbl" data-i18n="peri_zoom_lbl">POWIĘKSZENIE</div>
                 <div id="ps-s-zoom" class="ps-stat-val ok">×1.5</div>
               </div>
             </div>
@@ -1369,40 +1369,40 @@
           <!-- Kontakty w polu widzenia -->
           <div id="ps-cv-panel" class="ss-panel">
             <div class="ss-panel-header">
-              <span>KONTAKTY · POLE WIDZENIA</span>
+              <span data-i18n="peri_cv_hdr">KONTAKTY · POLE WIDZENIA</span>
               <span id="ps-cv-count" style="color:var(--accent)">0 W WIDOKU</span>
             </div>
             <div id="ps-contact-list">
-              <div class="ss-empty">BRAK KONTAKTÓW W POLU WIDZENIA</div>
+              <div class="ss-empty" data-i18n="peri_no_cv">BRAK KONTAKTÓW W POLU WIDZENIA</div>
             </div>
           </div>
 
           <!-- TDC -->
           <div id="ps-tdc-panel" class="ss-panel">
             <div class="ss-panel-header">
-              <span>TDC · KOMPUTER DANYCH CELU</span>
-              <span id="ps-tdc-sel" style="color:var(--ink-faint)">BRAK CELU</span>
+              <span data-i18n="peri_tdc_hdr">TDC · KOMPUTER DANYCH CELU</span>
+              <span id="ps-tdc-sel" style="color:var(--ink-faint)" data-i18n="peri_no_target">BRAK CELU</span>
             </div>
             <div class="ps-tdc-grid">
               <div class="ps-tdc-cell">
-                <div class="ps-tdc-lbl">NAMIAR (BRG)</div>
+                <div class="ps-tdc-lbl" data-i18n="peri_tdc_brg">NAMIAR (BRG)</div>
                 <div id="ps-tdc-brg" class="ps-tdc-val na">---°</div>
               </div>
               <div class="ps-tdc-cell">
-                <div class="ps-tdc-lbl">PRĘDKOŚĆ</div>
+                <div class="ps-tdc-lbl" data-i18n="peri_tdc_spd">PRĘDKOŚĆ</div>
                 <div id="ps-tdc-spd" class="ps-tdc-val na">-- w</div>
               </div>
               <div class="ps-tdc-cell">
-                <div class="ps-tdc-lbl">KĄT NAT. (AOB)</div>
+                <div class="ps-tdc-lbl" data-i18n="peri_tdc_aob">KĄT NAT. (AOB)</div>
                 <div id="ps-tdc-aob" class="ps-tdc-val na">--°</div>
               </div>
               <div class="ps-tdc-cell">
-                <div class="ps-tdc-lbl">ZASIĘG</div>
+                <div class="ps-tdc-lbl" data-i18n="peri_tdc_rng">ZASIĘG</div>
                 <div id="ps-tdc-rng" class="ps-tdc-val na">---</div>
               </div>
             </div>
             <div id="ps-tdc-sol-row">
-              <span class="ps-tdc-sol-lbl">NAMIAR STRZAŁU</span>
+              <span class="ps-tdc-sol-lbl" data-i18n="peri_tdc_sol">NAMIAR STRZAŁU</span>
               <span id="ps-tdc-sol">---°</span>
             </div>
           </div>
@@ -1410,11 +1410,11 @@
           <!-- ESM -->
           <div id="ps-esm-panel" class="ss-panel">
             <div class="ss-panel-header">
-              <span>ESM · EMISJE EM</span>
-              <span id="ps-esm-status" style="color:var(--green);font-size:9px;letter-spacing:1.5px;">NASŁUCH</span>
+              <span data-i18n="peri_esm_hdr">ESM · EMISJE EM</span>
+              <span id="ps-esm-status" data-i18n="peri_esm_listen" style="color:var(--green);font-size:9px;letter-spacing:1.5px;">NASŁUCH</span>
             </div>
             <div id="ps-esm-list">
-              <div class="ss-empty">BRAK EMISJI W ZASIĘGU</div>
+              <div class="ss-empty" data-i18n="peri_no_esm">BRAK EMISJI W ZASIĘGU</div>
             </div>
           </div>
 
@@ -1427,35 +1427,35 @@
         <!-- Lewa kolumna: status operacyjny -->
         <div id="ws-left">
           <div id="ws-header-row">
-            <span class="ss-label">UZBROJENIE · KONTROLA OGNIA</span>
-            <span class="ss-label" style="color:var(--accent)">● ZABEZP. ZDJĘTE</span>
+            <span class="ss-label" data-i18n="ws_hdr">UZBROJENIE · KONTROLA OGNIA</span>
+            <span class="ss-label" data-i18n="ws_safety_off" style="color:var(--accent)">● ZABEZP. ZDJĘTE</span>
           </div>
 
           <!-- Rury torpedowe -->
           <div class="ss-panel">
             <div class="ss-panel-header">
-              <span>RURY TORPEDOWE</span>
+              <span data-i18n="ws_tubes_hdr">RURY TORPEDOWE</span>
               <span id="ws-tubes-ready" style="color:var(--green)">4/4 GOTOWE</span>
             </div>
             <div id="ws-tubes-list">
               <div class="ws-tube" id="ws-tube-1">
                 <span class="ws-tube-id">TRP-1</span>
-                <span class="ws-tube-status ready">GOTOWA</span>
+                <span class="ws-tube-status ready" data-i18n="ws_tube_ready">GOTOWA</span>
                 <span class="ws-tube-cd" id="ws-cd-1"></span>
               </div>
               <div class="ws-tube" id="ws-tube-2">
                 <span class="ws-tube-id">TRP-2</span>
-                <span class="ws-tube-status ready">GOTOWA</span>
+                <span class="ws-tube-status ready" data-i18n="ws_tube_ready">GOTOWA</span>
                 <span class="ws-tube-cd" id="ws-cd-2"></span>
               </div>
               <div class="ws-tube" id="ws-tube-3">
                 <span class="ws-tube-id">TRP-3</span>
-                <span class="ws-tube-status ready">GOTOWA</span>
+                <span class="ws-tube-status ready" data-i18n="ws_tube_ready">GOTOWA</span>
                 <span class="ws-tube-cd" id="ws-cd-3"></span>
               </div>
               <div class="ws-tube" id="ws-tube-4">
                 <span class="ws-tube-id">TRP-4</span>
-                <span class="ws-tube-status ready">GOTOWA</span>
+                <span class="ws-tube-status ready" data-i18n="ws_tube_ready">GOTOWA</span>
                 <span class="ws-tube-cd" id="ws-cd-4"></span>
               </div>
             </div>
@@ -1464,21 +1464,21 @@
           <!-- Zapasy bojowe -->
           <div class="ss-panel">
             <div class="ss-panel-header">
-              <span>ZAPASY BOJOWE</span>
+              <span data-i18n="ws_ammo_hdr">ZAPASY BOJOWE</span>
             </div>
             <div class="ws-inv-grid">
               <div class="ws-inv-item">
-                <span class="ws-inv-lbl">TORPEDY</span>
+                <span class="ws-inv-lbl" data-i18n="ws_inv_torpedoes">TORPEDY</span>
                 <span class="ws-inv-val" id="ws-inv-torp" style="color:var(--ink)">4</span>
                 <span class="ws-inv-sub">Mk.48</span>
               </div>
               <div class="ws-inv-item">
-                <span class="ws-inv-lbl">RAKIETY</span>
+                <span class="ws-inv-lbl" data-i18n="ws_inv_missiles">RAKIETY</span>
                 <span class="ws-inv-val" id="ws-inv-miss" style="color:var(--amber)">3</span>
                 <span class="ws-inv-sub">P-15</span>
               </div>
               <div class="ws-inv-item">
-                <span class="ws-inv-lbl">WABIE</span>
+                <span class="ws-inv-lbl" data-i18n="ws_inv_decoys">WABIE</span>
                 <span class="ws-inv-val" id="ws-inv-decoy" style="color:var(--blue)">5</span>
                 <span class="ws-inv-sub">ВГС-Н</span>
               </div>
@@ -1487,7 +1487,7 @@
 
           <!-- Sterowanie ogniem -->
           <div class="ss-panel" style="flex-shrink:0">
-            <div class="ss-panel-header"><span>STEROWANIE OGNIEM</span></div>
+            <div class="ss-panel-header"><span data-i18n="ws_fire_hdr">STEROWANIE OGNIEM</span></div>
             <div style="padding:10px 14px; display:flex; flex-direction:column; gap:7px;">
               <div style="display:flex; align-items:center; gap:8px;">
                 <kbd>LPM</kbd>
@@ -1603,8 +1603,8 @@
 
         <!-- Nagłówek -->
         <div id="ds-header">
-          <span id="ds-header-title">PANEL AWARII — ORP ORZEŁ</span>
-          <span id="ds-header-status" style="color:var(--green)">● OPERACYJNY</span>
+          <span id="ds-header-title" data-i18n="ds_title">PANEL AWARII — ORP ORZEŁ</span>
+          <span id="ds-header-status" data-i18n="ds_status_ok" style="color:var(--green)">● OPERACYJNY</span>
         </div>
 
         <!-- Schemat okrętu SVG -->
@@ -1718,26 +1718,26 @@
           <!-- Kondycja okrętu -->
           <div id="ds-condition-col">
             <div class="ds-cond-cell">
-              <span class="ds-cond-lbl">KADŁUB</span>
+              <span class="ds-cond-lbl" data-i18n="ds_cond_hull">KADŁUB</span>
               <span class="ds-cond-val" id="ds-hull">100<span style="font-size:11px">%</span></span>
-              <span class="ds-cond-sub" id="ds-hull-sub">INTEGRALNY</span>
+              <span class="ds-cond-sub" id="ds-hull-sub" data-i18n="hull_intact">INTEGRALNY</span>
             </div>
             <div class="ds-cond-cell">
-              <span class="ds-cond-lbl">BATERIA</span>
+              <span class="ds-cond-lbl" data-i18n="ds_cond_battery">BATERIA</span>
               <span class="ds-cond-val" id="ds-battery">100<span style="font-size:11px">%</span></span>
-              <span class="ds-cond-sub" id="ds-batt-sub">PEŁNA</span>
+              <span class="ds-cond-sub" id="ds-batt-sub" data-i18n="bat_full">PEŁNA</span>
             </div>
             <div class="ds-cond-cell">
-              <span class="ds-cond-lbl">TLEN</span>
+              <span class="ds-cond-lbl" data-i18n="ds_cond_oxygen">TLEN</span>
               <span class="ds-cond-val" id="ds-oxygen">100<span style="font-size:11px">%</span></span>
-              <span class="ds-cond-sub" id="ds-oxy-sub">NORMA</span>
+              <span class="ds-cond-sub" id="ds-oxy-sub" data-i18n="oxy_normal">NORMA</span>
             </div>
           </div>
 
           <!-- Dziennik awarii -->
           <div id="ds-log">
             <div id="ds-log-entries">
-              <div class="ds-log-empty">BRAK ZAREJESTROWANYCH AWARII</div>
+              <div class="ds-log-empty" data-i18n="ds_no_damage">BRAK ZAREJESTROWANYCH AWARII</div>
             </div>
           </div>
 
@@ -1896,7 +1896,7 @@
       <div id="ship-log-entries"></div>
 
       <div id="log-cursor-bar">
-        <span>SYSTEM AKTYWNY</span>
+        <span data-i18n="log_sys_active">SYSTEM AKTYWNY</span>
         <span id="log-blink">▮</span>
       </div>
 
@@ -1910,20 +1910,20 @@
     <!-- Readouts: depth / speed / ballast / noise -->
     <div class="hud-group">
       <div class="hud-item">
-        <span class="hud-label">GŁĘBOKOŚĆ</span>
+        <span class="hud-label" data-i18n="hud_depth">GŁĘBOKOŚĆ</span>
         <span class="hud-value" id="bb-depth">0 m</span>
       </div>
       <div class="hud-item">
-        <span class="hud-label" id="bb-lbl-speed">PRĘDKOŚĆ</span>
+        <span class="hud-label" id="bb-lbl-speed" data-i18n="hud_speed">PRĘDKOŚĆ</span>
         <span class="hud-value" id="bb-speed">0.0 w</span>
       </div>
       <div class="hud-item">
-        <span class="hud-label">BALAST</span>
+        <span class="hud-label" data-i18n="hud_ballast">BALAST</span>
         <div class="hud-bar"><div class="hud-bar-fill" id="bb-bar-ballast"></div></div>
         <span class="hud-value" id="bb-ballast">35%</span>
       </div>
       <div class="hud-item">
-        <span class="hud-label" id="bb-lbl-noise">HAŁAS</span>
+        <span class="hud-label" id="bb-lbl-noise" data-i18n="hud_noise">HAŁAS</span>
         <div class="hud-bar"><div class="hud-bar-fill" id="bb-bar-noise"></div></div>
         <span class="hud-value" id="bb-noise">0%</span>
       </div>
@@ -1934,17 +1934,17 @@
     <!-- System bars -->
     <div class="hud-group">
       <div class="hud-item">
-        <span class="hud-label">KADŁUB</span>
+        <span class="hud-label" data-i18n="hud_hull">KADŁUB</span>
         <div class="hud-bar"><div class="hud-bar-fill" id="bb-bar-hull"></div></div>
         <span class="hud-value" id="bb-hull">100%</span>
       </div>
       <div class="hud-item">
-        <span class="hud-label" id="bb-lbl-battery">BATERIA</span>
+        <span class="hud-label" id="bb-lbl-battery" data-i18n="hud_battery">BATERIA</span>
         <div class="hud-bar"><div class="hud-bar-fill" id="bb-bar-battery"></div></div>
         <span class="hud-value" id="bb-battery">100%</span>
       </div>
       <div class="hud-item">
-        <span class="hud-label">TLEN O₂</span>
+        <span class="hud-label" data-i18n="hud_oxygen">TLEN O₂</span>
         <div class="hud-bar"><div class="hud-bar-fill" id="bb-bar-oxygen"></div></div>
         <span class="hud-value" id="bb-oxygen">100%</span>
       </div>
@@ -1955,16 +1955,16 @@
     <!-- Weapons -->
     <div class="hud-group">
       <div class="hud-weapon">
-        <span class="hud-label">TORPEDY</span>
+        <span class="hud-label" data-i18n="hud_torpedoes">TORPEDY</span>
         <span class="hud-value" id="bb-torpedoes" style="color:var(--ink)">4/4</span>
         <span id="bb-torp-reload" style="font-size:8px;color:var(--ink-dim);min-height:11px;letter-spacing:0.5px"></span>
       </div>
       <div class="hud-weapon">
-        <span class="hud-label">RAKIETY</span>
+        <span class="hud-label" data-i18n="hud_missiles">RAKIETY</span>
         <span class="hud-value" id="bb-missiles" style="color:var(--amber)">3</span>
       </div>
       <div class="hud-weapon">
-        <span class="hud-label">WABIA</span>
+        <span class="hud-label" data-i18n="hud_decoy">WABIA</span>
         <span class="hud-value" id="bb-noisemakers" style="color:var(--blue)">5</span>
       </div>
     </div>
@@ -1974,13 +1974,13 @@
     <!-- Toggles -->
     <div class="hud-toggles">
       <div class="hud-toggle" id="bb-ping">
-        A.SONAR<br><span style="font-size:8px;color:var(--green)" id="bb-ping-lbl">GOTOWY</span>
+        <span data-i18n="bb_asonar">A.SONAR</span><br><span style="font-size:8px;color:var(--green)" id="bb-ping-lbl" data-i18n="bb_ready">GOTOWY</span>
       </div>
       <div class="hud-toggle" id="bb-wave-badge">
-        FALA<br><span style="font-size:14px;font-family:var(--fd)" id="bb-wave">1</span>
+        <span data-i18n="bb_wave_lbl">FALA</span><br><span style="font-size:14px;font-family:var(--fd)" id="bb-wave">1</span>
       </div>
       <div class="hud-toggle" id="bb-periscope" style="cursor:pointer" onclick="_switchStation('periscope')">
-        PERYSK<br><span style="font-size:8px" id="bb-peri-lbl">PASYWNY</span>
+        <span data-i18n="bb_peri_lbl">PERYSK</span><br><span style="font-size:8px" id="bb-peri-lbl">PASYWNY</span>
       </div>
     </div>
 
@@ -1989,14 +1989,14 @@
   <!-- ══ RADIO VLF OVERLAY ══ -->
   <div id="radio-overlay">
     <div id="radio-terminal">
-      <div id="radio-header-bar">◈ ◈ ◈  TRANSMISJA VLF / ELF — FLOTA PÓŁNOCNA  ◈ ◈ ◈</div>
+      <div id="radio-header-bar" data-i18n="radio_hdr">◈ ◈ ◈  TRANSMISJA VLF / ELF — FLOTA PÓŁNOCNA  ◈ ◈ ◈</div>
       <div id="radio-priority">RUTYNOWE</div>
-      <div class="radio-meta">OD: <span id="radio-from">SZTAB SF</span></div>
-      <div class="radio-meta">DO: <span id="radio-to">K-244 «NALIM»</span></div>
-      <div class="radio-meta">UTC: <span id="radio-utc">--:--:--</span></div>
+      <div class="radio-meta"><span data-i18n="radio_from_lbl">OD:</span> <span id="radio-from">SZTAB SF</span></div>
+      <div class="radio-meta"><span data-i18n="radio_to_lbl">DO:</span> <span id="radio-to">K-244 «NALIM»</span></div>
+      <div class="radio-meta"><span data-i18n="radio_utc_lbl">UTC:</span> <span id="radio-utc">--:--:--</span></div>
       <hr class="radio-sep">
       <div id="radio-body"></div><span id="radio-cursor"></span>
-      <div id="radio-dismiss-hint">[R] POTWIERDŹ ODBIÓR · KLIKNIJ ABY KONTYNUOWAĆ</div>
+      <div id="radio-dismiss-hint" data-i18n="radio_dismiss">[R] POTWIERDŹ ODBIÓR · KLIKNIJ ABY KONTYNUOWAĆ</div>
     </div>
   </div>
 
@@ -2006,6 +2006,10 @@
 
 <!-- Mirror HUD values from hidden #hud to bottom bar -->
 <script>
+// Fallback dopóki moduł ES i18n.js się nie załaduje (RAF może ruszyć wcześniej)
+if (!window._t)  window._t  = k => k;
+if (!window._tf) window._tf = k => k;
+
 (function() {
   const PAIRS = [
     ['hud-depth',      'bb-depth'],
@@ -2260,7 +2264,7 @@
     const cts = sn.contacts || [];
 
     const countEl = document.getElementById('ss-contact-count');
-    if (countEl) countEl.textContent = cts.length + ' ŚLEDZ.';
+    if (countEl) countEl.textContent = cts.length + ' ' + window._t('sonar_tracking');
 
     const listenEl = document.getElementById('ss-listen-badge');
     if (listenEl) listenEl.classList.toggle('active', !!sn.listenMode);
@@ -2269,7 +2273,7 @@
     if (!listEl) return;
 
     if (cts.length === 0) {
-      listEl.innerHTML = '<div class="ss-empty">BRAK KONTAKTÓW SONAROWYCH</div>';
+      listEl.innerHTML = '<div class="ss-empty">' + window._t('sonar_no_contacts') + '</div>';
       return;
     }
 
@@ -2283,13 +2287,16 @@
       const bars = [0, 1, 2, 3, 4].map(b =>
         `<div class="ss-bar" style="background:${b / 5 < c.sig ? col : 'rgba(243,237,224,0.08)'}"></div>`
       ).join('');
-      const clsLabel = c.cls === 'WARSHIP'  ? 'OKRĘT WOJENNY'
-                     : c.cls === 'MERCHANT' ? 'JEDNOSTKA CYW.'
-                     : c.cls === 'SURFACE'  ? 'NAWODNY'
-                     : 'NIEZNANY';
+      const clsLabel = c.cls === 'WARSHIP'  ? window._t('cls_warship')
+                     : c.cls === 'MERCHANT' ? window._t('cls_merchant')
+                     : c.cls === 'SURFACE'  ? window._t('cls_surface')
+                     : window._t('cls_unknown');
       const tCol = c.approach === 'ZBLIŻA' ? 'var(--accent)'
                  : c.approach === 'ODDALA' ? 'var(--blue)'
                  : 'var(--ink-dim)';
+      const trendLbl = c.approach === 'ZBLIŻA' ? window._t('trend_closing_s')
+                     : c.approach === 'ODDALA' ? window._t('trend_opening_s')
+                     : '—';
       const rngNm = (c.distFrac * 10).toFixed(1);
       return `<div class="ss-contact${sel ? ' sel' : ''}" data-cid="${c.id}"
                 style="border-left-color:${sel ? col : 'transparent'}">
@@ -2297,7 +2304,7 @@
         <span class="ss-cls" style="color:${c.cls !== 'UNK' ? 'var(--ink)' : 'var(--ink-dim)'}">${clsLabel}</span>
         <span class="ss-brg">${String(Math.round(c.bearing)).padStart(3, '0')}°</span>
         <span class="ss-rng">${rngNm}nm</span>
-        <span class="ss-trend" style="color:${tCol}">${c.approach || '—'}</span>
+        <span class="ss-trend" style="color:${tCol}">${trendLbl}</span>
         <div class="ss-bars">${bars}</div>
       </div>`;
     }).join('');
@@ -2329,11 +2336,11 @@
     const el = document.getElementById('ss-demon-mode');
     if (!el) return;
     if (sn.listenMode) {
-      el.textContent = 'NASŁUCH'; el.style.color = 'var(--blue)';
+      el.textContent = window._t('sonar_listen_mode'); el.style.color = 'var(--blue)';
     } else if (sn.activeSonar) {
-      el.textContent = 'AKTYWNY'; el.style.color = 'var(--accent)';
+      el.textContent = window._t('sonar_active_mode'); el.style.color = 'var(--accent)';
     } else {
-      el.textContent = 'PAS.'; el.style.color = 'var(--blue)';
+      el.textContent = window._t('sonar_pas'); el.style.color = 'var(--blue)';
     }
   }
 
@@ -2674,7 +2681,7 @@
     const listenEl = document.getElementById('ss-listen-badge');
     if (listenEl) listenEl.classList.toggle('active', !!sn.listenMode);
     const countEl = document.getElementById('ss-contact-count');
-    if (countEl) countEl.textContent = (sn.contacts || []).length + ' ŚLEDZ.';
+    if (countEl) countEl.textContent = (sn.contacts || []).length + ' ' + window._t('sonar_tracking');
     // Synchronizuj wybrany kontakt z oknem gry
     if (sn) sn.selectedId = _ssSelContact;
   }
@@ -2842,7 +2849,7 @@
           ctx.fillStyle = '#5fffb0';
           ctx.font = `${Math.round(6 + prox * 4)}px "JetBrains Mono"`;
           ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-          const lbl = c.cls === 'WARSHIP' ? 'OKRĘT WOJ.' : c.cls === 'MERCHANT' ? 'JED. CYW.' : c.cls;
+          const lbl = c.cls === 'WARSHIP' ? window._t('cls_warship_s') : c.cls === 'MERCHANT' ? window._t('cls_merchant_s') : c.cls;
           ctx.fillText(lbl + ' ✓', px, py - sh * (c.cls === 'WARSHIP' ? 2.15 : 1.05) - 4);
           ctx.globalAlpha = 1;
         }
@@ -2893,10 +2900,10 @@
       ctx.fillStyle = tooDeep ? '#e8413a' : '#886644';
       ctx.font = `bold ${Math.round(R * 0.088)}px "Bebas Neue","Oswald"`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(tooDeep ? 'ZBYT GŁĘBOKO' : 'BRAK SYGNAŁU', cx, cy);
+      ctx.fillText(tooDeep ? window._t('peri_too_deep') : window._t('peri_no_signal'), cx, cy);
       ctx.fillStyle = 'rgba(243,237,224,0.35)';
       ctx.font = `${Math.round(R * 0.052)}px "JetBrains Mono"`;
-      ctx.fillText(tooDeep ? 'WYNURZYĆ DO ≤12m' : 'PERYSKOP NIEAKTYWNY', cx, cy + R * 0.13);
+      ctx.fillText(tooDeep ? window._t('peri_surface_hint') : window._t('peri_inactive'), cx, cy + R * 0.13);
     }
 
     ctx.restore();
@@ -3115,7 +3122,7 @@
            || (active.length ? active[0] : null);
     const setNA = el => { el.className = 'ps-tdc-val na'; };
     if (!c) {
-      _psTDC.sel.textContent = 'BRAK CELU';
+      _psTDC.sel.textContent = window._t('peri_no_target');
       _psTDC.sel.style.color = 'var(--ink-faint)';
       _psTDC.brg.textContent = '---°'; setNA(_psTDC.brg);
       _psTDC.spd.textContent = '-- w'; setNA(_psTDC.spd);
@@ -3164,7 +3171,7 @@
   function _psUpdateESM(inView) {
     const emitters = inView.filter(c => !c.sinking);
     if (emitters.length === 0) {
-      _psEsmList.innerHTML = '<div class="ss-empty">BRAK EMISJI W ZASIĘGU</div>';
+      _psEsmList.innerHTML = '<div class="ss-empty">' + window._t('peri_no_esm') + '</div>';
       return;
     }
     const t = Date.now() * 0.001;
@@ -3187,7 +3194,7 @@
       if (isWarship) {
         const fcStr  = Math.max(0, rawStr - 1);
         const fcBars = '█'.repeat(fcStr) + '░'.repeat(5 - fcStr);
-        const fcLbl  = Math.sin(t * 2.2) > 0.35 ? 'AKTYWNY' : 'SKAN';
+        const fcLbl  = Math.sin(t * 2.2) > 0.35 ? window._t('sonar_active_mode') : window._t('peri_fc_scan');
         html += `<div class="ps-esm-row" style="border-left-color:var(--accent)">
           <span class="ps-esm-id" style="color:var(--accent)">FC</span>
           <span class="ps-esm-sig">I/J-PASMO · R.OGN. · ${fcLbl}</span>
@@ -3201,13 +3208,18 @@
 
   // ── Lista kontaktów w widoku ──────────────────────────
   function _psUpdateContactList(inView) {
-    _psCvCount.textContent = `${inView.length} W WIDOKU`;
+    _psCvCount.textContent = `${inView.length} ${window._t('peri_cv_count')}`;
     if (inView.length === 0) {
-      _psCvList.innerHTML = '<div class="ss-empty">BRAK KONTAKTÓW W POLU WIDZENIA</div>';
+      _psCvList.innerHTML = '<div class="ss-empty">' + window._t('peri_no_cv') + '</div>';
       return;
     }
     const colMap = { WARSHIP:'var(--amber)', MERCHANT:'var(--blue)', SURFACE:'#ffcc55', UNK:'var(--ink-dim)' };
-    const lblMap = { WARSHIP:'OKRĘT WOJ.', MERCHANT:'JED. CYW.', SURFACE:'NAWODNY', UNK:'NIEZNANY' };
+    const lblMap = {
+      WARSHIP:  window._t('cls_warship_s'),
+      MERCHANT: window._t('cls_merchant_s'),
+      SURFACE:  window._t('cls_surface_s'),
+      UNK:      window._t('cls_unk_s'),
+    };
     _psCvList.innerHTML = inView.map(c => {
       const angDiff = Math.round(((c.bearing - _pBearing + 540) % 360) - 180);
       const sign  = angDiff >= 0 ? '+' : '';
@@ -3215,11 +3227,11 @@
       const flash = (Date.now() - (_pClassifyFlash[c.id] || 0)) < 1800;
 
       let col = colMap[c.cls] || 'var(--ink-dim)';
-      let lbl = lblMap[c.cls] || 'NIEZNANY';
+      let lbl = lblMap[c.cls] || window._t('cls_unknown');
       let suffix = flash ? ' ✓' : '';
       let rowStyle = '';
       if (c.sinking) {
-        col = 'var(--accent)'; lbl = 'TONIE'; suffix = ' ▼'; rowStyle = 'opacity:0.75;';
+        col = 'var(--accent)'; lbl = window._t('peri_sinking'); suffix = ' ▼'; rowStyle = 'opacity:0.75;';
       } else if (c.onFire || (c.hull ?? 1) < 0.5) {
         col = '#ff8822'; suffix = ' ▲';
       }
@@ -3276,7 +3288,7 @@
       const dTxt = isNaN(depth) ? '---' : `${Math.round(depth)}m`;
       _psSDepth.textContent = dTxt;
       _psSDepth.className   = 'ps-stat-val ' + (tooDeep ? 'bad' : depth > 8 ? 'warn' : 'ok');
-      _psSStatus.textContent = tooDeep ? 'ZANURZONY' : 'AKTYWNY';
+      _psSStatus.textContent = tooDeep ? window._t('peri_submerged') : window._t('sonar_active_mode');
       _psSStatus.className   = 'ps-stat-val ' + (tooDeep ? 'bad' : 'ok');
       _psDepthBadge.textContent = `GŁ: ${dTxt}`;
       _psDepthBadge.style.color = tooDeep ? 'var(--accent)' : 'var(--green)';
@@ -3298,7 +3310,7 @@
         bbPeriLbl.style.color = 'var(--green)';
       } else {
         bbPeri.style.color    = '';
-        bbPeriLbl.textContent = 'PASYWNY';
+        bbPeriLbl.textContent = window._t('bb_passive');
         bbPeriLbl.style.color = 'var(--ink-dim)';
       }
     }
@@ -3420,19 +3432,19 @@
     const hEl = document.getElementById('ds-header-status');
     if (!hEl) return;
     if (hasFail || hull < 0.2) {
-      hEl.textContent = '■ KRYTYCZNE';
+      hEl.textContent = window._t('ds_status_crit');
       hEl.className = 'crit';
       hEl.style.color = '#ff2222';
     } else if (hasCrit || hull < 0.4) {
-      hEl.textContent = '▲ USZKODZONY';
+      hEl.textContent = window._t('ds_status_dmg');
       hEl.className = 'warn';
       hEl.style.color = 'var(--amber)';
     } else if (!allOk) {
-      hEl.textContent = '◆ ZDEGRADOWANY';
+      hEl.textContent = window._t('ds_status_deg');
       hEl.className = '';
       hEl.style.color = 'var(--amber)';
     } else {
-      hEl.textContent = '● OPERACYJNY';
+      hEl.textContent = window._t('ds_status_ok');
       hEl.className = 'ok';
       hEl.style.color = 'var(--green)';
     }
@@ -3454,17 +3466,17 @@
       hEl.innerHTML = `${hullPct}<span style="font-size:12px">%</span>`;
       hEl.style.color = hull >= 0.6 ? 'var(--ink)' : hull >= 0.3 ? 'var(--amber)' : '#ff4444';
     }
-    if (hsEl) hsEl.textContent = hull >= 0.8 ? 'INTEGRALNY' : hull >= 0.5 ? 'USZKODZONY' : hull >= 0.25 ? 'KRYTYCZNY' : 'IMPLOZJA';
+    if (hsEl) hsEl.textContent = hull >= 0.8 ? window._t('hull_intact') : hull >= 0.5 ? window._t('hull_damaged') : hull >= 0.25 ? window._t('hull_critical') : window._t('hull_imploded');
     if (bEl) {
       bEl.innerHTML = `${battPct}<span style="font-size:12px">%</span>`;
       bEl.style.color = battery >= 0.4 ? 'var(--ink)' : battery >= 0.15 ? 'var(--amber)' : '#ff4444';
     }
-    if (bsEl) bsEl.textContent = battery >= 0.6 ? 'PEŁNA' : battery >= 0.3 ? 'NORMALNA' : battery >= 0.1 ? 'SŁABA' : 'KRYTYCZNA';
+    if (bsEl) bsEl.textContent = battery >= 0.6 ? window._t('bat_full') : battery >= 0.3 ? window._t('bat_normal') : battery >= 0.1 ? window._t('bat_low') : window._t('bat_critical');
     if (oEl) {
       oEl.innerHTML = `${oxyPct}<span style="font-size:12px">%</span>`;
       oEl.style.color = oxygen >= 0.4 ? 'var(--ink)' : oxygen >= 0.2 ? 'var(--amber)' : '#ff4444';
     }
-    if (osEl) osEl.textContent = oxygen >= 0.6 ? 'NORMA' : oxygen >= 0.3 ? 'OBNIŻONY' : oxygen >= 0.1 ? 'KRYTYCZNY' : 'BRAK TLENU';
+    if (osEl) osEl.textContent = oxygen >= 0.6 ? window._t('oxy_normal') : oxygen >= 0.3 ? window._t('oxy_low') : oxygen >= 0.1 ? window._t('oxy_critical') : window._t('oxy_empty');
   }
 
   function _dsUpdateLog(log) {
@@ -3473,7 +3485,7 @@
     const el = document.getElementById('ds-log-entries');
     if (!el) return;
     if (!log.length) {
-      el.innerHTML = '<div class="ds-log-empty">BRAK ZAREJESTROWANYCH AWARII</div>';
+      el.innerHTML = '<div class="ds-log-empty">' + window._t('ds_no_damage') + '</div>';
       return;
     }
     el.innerHTML = log.map(e => `
