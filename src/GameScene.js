@@ -482,6 +482,13 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // Przydział ról grupowych — aktualizuj co ~1.5s
+    this._roleTimer = (this._roleTimer || 0) - dt;
+    if (this._roleTimer <= 0) {
+      this._roleTimer = 1.5;
+      this._assignEnemyRoles();
+    }
+
     // Posiłki — gdy niszczyciel ściga zbyt długo i nie likwiduje łodzi
     this._reinforceCooldown = (this._reinforceCooldown || 0) - dt;
     for (const hunter of this.enemies.filter(e => !e.destroyed)) {
@@ -1787,6 +1794,52 @@ export class GameScene extends Phaser.Scene {
       this._logEvent(`Poziom zagrożenia: ${this._wave}`);
       this._shipLog(`Dowództwo: Wzrost aktywności wroga. Zagrożenie: poziom ${this._wave}.`, 'warn');
       this._setText($('hud-wave'), `${this._wave}`);
+    }
+  }
+
+  _assignEnemyRoles() {
+    const hunters = this.enemies.filter(e => !e.destroyed && !e._sinking && e.state === STATE.HUNT);
+    if (hunters.length === 0) return;
+
+    if (hunters.length === 1) {
+      hunters[0]._role        = 'SOLO';
+      hunters[0]._blockTarget = null;
+      hunters[0]._searchSide  = 'center';
+      return;
+    }
+
+    const subX = hunters[0].lastKnownSubX;
+    const subVX = hunters[0]._lastKnownVX || 0;
+
+    // DRIVER — najbliższy łodzie podwodnej, agresywny pościg
+    hunters.sort((a, b) => Math.abs(a.x - subX) - Math.abs(b.x - subX));
+    const driver   = hunters[0];
+    driver._role        = 'DRIVER';
+    driver._blockTarget = null;
+
+    // BLOCKER — drugi co do odległości, zajmuje pozycję na przewidywanej trasie ucieczki
+    if (hunters.length >= 2) {
+      const blocker = hunters[1];
+      blocker._role = 'BLOCKER';
+      // Blokuje w kierunku przewidywanego ruchu — pred. 4s ruchu łodzi
+      const escapeDir = Math.sign(subVX) || -Math.sign(driver.x - subX);
+      blocker._blockTarget = subX + escapeDir * 480;
+    }
+
+    // LISTENER — pozostałe, jeśli są — utrzymują peryferia sensoryczną
+    for (let i = 2; i < hunters.length; i++) {
+      hunters[i]._role        = 'LISTENER';
+      hunters[i]._blockTarget = null;
+    }
+
+    // Sektory SEARCH — podziel przestrzeń między wszystkich
+    const searching = this.enemies.filter(e => !e.destroyed && !e._sinking && e.state === STATE.SEARCH);
+    if (searching.length >= 2) {
+      const sides = ['left', 'center', 'right'];
+      searching.sort((a, b) => a.x - b.x);
+      searching.forEach((e, i) => {
+        e._searchSide = sides[Math.min(i, sides.length - 1)];
+      });
     }
   }
 

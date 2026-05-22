@@ -98,7 +98,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Flanking — drugi niszczyciel podchodzi z przeciwnej strony (efekt kleszczy) |
 | ✅ | Wezwanie posiłków — po 18s HUNT bez likwidacji: nowy BPK z przeciwnego kierunku w ALERT |
 | ✅ | Dead reckoning — HUNT przewiduje ruch łodzi na bazie prędkości (do 9s projekcji) |
-| ✅ | SEARCH dwufazowy — faza konwergencji (0–11s) + rozszerzający się sweep |
+| ✅ | SEARCH sektorowy — sektor 'left'/'center'/'right' przydzielany przez GameScene (max swing 240–400px) |
 | ✅ | Szybsza utrata kontaktu pod termoklinem (decay 0.55 vs 0.35) — nagroda za ukrycie |
 | ✅ | Prędkość HUNT +18% gdy kontakt świeży (< 3s) |
 | ✅ | Szok po trafieniu — spowolnienie 15%→100% przez kilka sekund |
@@ -107,8 +107,10 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Strefa ciszy akustycznej — pod kilem okrętu detekcja 18% (własna śruba blokuje hydrofor) |
 | ✅ | Hałas własny prędkości — HUNT -38% zasięgu, nasłuch +12% (sprint-and-listen obustronne) |
 | ✅ | Natychmiastowe radiowanie kontaktu — wejście w HUNT = broadcast do wszystkich okrętów |
-| ✅ | 5-zarzutowy bracket głębokości — pokrycie głębokości ±42px, lepsza predykcja vy |
+| ✅ | 5-zarzutowy bracket głębokości — predykcja głębokości blenduje bieżące vy z zapamiętanym _lastKnownVY |
 | ✅ | Hedgehog / RBU-6000 — strzela przed okrętem, kontaktowy zapalnik, 10 pocisków w salwie |
+| ✅ | Role grupowe: DRIVER (pościg) / BLOCKER (przechwyt ucieczki) / LISTENER (sfera sensoryczna) |
+| ✅ | ASROC velocity lead — kompensuje ruch łodzi podczas lotu (VX×0.72, VY×0.55) |
 | 🔴 | Okręt podwodny wroga (EnemySub) — detekcja tylko sonarowa, brak widoczności |
 | 🔴 | Helikopter ZOP — szybkie przemieszczanie, spuszczany hydrofor, torpedy |
 | 🔴 | Samolot patrolowy P-3 Orion — boje sonarowe, torpedy, szeroki zasięg |

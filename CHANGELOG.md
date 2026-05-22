@@ -4,6 +4,26 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.72] — 2026-05-22
+
+### Zmieniono — AI wrogów v3: role grupowe, velocity lead, sektory SEARCH
+
+**src/Enemy.js:**
+- `_assignEnemyRoles()` przeniesione z GameScene — metoda przydziału ról taktycznych
+- HUNT movement — BLOCKER blokuje przewidywaną trasę ucieczki (4s dead-reckoning subVX)
+- HUNT movement — LISTENER utrzymuje optymalny dystans sensoryczny 400–900px
+- HUNT movement — DRIVER/SOLO: dwufazowy sprint (×1.18 < 3s kontaktu, ×0.52 > 6s)
+- SEARCH case — sektorowy sweep oparty na `_searchSide` ('left'/'center'/'right'), max swing 240–400px
+- `_updateASROC()` — velocity lead: `leadX = lastKnownSubX + _lastKnownVX * flightTime * 0.72`, `leadY` z `_lastKnownVY * 0.55`
+- `_dropPattern()` — blend `_lastKnownVY` z bieżącym `sub.vy` do predykcji głębokości zarzutów (blend 55/45)
+
+**src/GameScene.js:**
+- `_assignEnemyRoles()` — co 1.5s przydziela role: DRIVER (najbliższy), BLOCKER (drugi, blokuje ucieczkę), LISTENER (pozostałe)
+- Podział sektorów SEARCH między okręty w trybie SEARCH (left/center/right sortowane po X)
+- `_roleTimer` — throttle 1.5s między przeliczenimi ról
+
+---
+
 ## [0.10.71] — 2026-05-22
 
 ### Dodano — Pełne tłumaczenie gry (PL/EN)

@@ -146,9 +146,16 @@ export class Enemy {
     // AI v2 — dead reckoning + koordynacja
     this._contactAge      = 0;      // sekundy od ostatniego świeżego kontaktu sonarowego
     this._lastKnownVX     = 0;      // prędkość x łodzi w momencie ostatniego kontaktu
+    this._lastKnownVY     = 0;      // prędkość y łodzi w momencie ostatniego kontaktu
     this._huntDuration    = 0;      // ile czasu (s) ciągłego HUNT — do wezwania posiłków
     this.needsReinforcement = false; // flaga — GameScene odczytuje i spawna posiłki
     this._flankApproach   = false;  // czy obchodzić z flanki (koordinacja)
+
+    // Role bojowe — koordynacja grupowa (przydzielane przez GameScene)
+    this._role          = 'SOLO';   // 'SOLO' | 'DRIVER' | 'BLOCKER' | 'LISTENER'
+    this._blockTarget   = null;     // BLOCKER: pozycja X przechwytująca ucieczkę
+    this._searchSide    = 'center'; // SEARCH: 'left' | 'center' | 'right'
+    this._drListenTimer = 0;        // czas spędzony na pozycji blokującej
 
     // Cząsteczkowy system ognia (additive blending)
     this.fireGfx    = scene.add.graphics().setDepth(4).setBlendMode(Phaser.BlendModes.ADD);
@@ -265,7 +272,8 @@ export class Enemy {
   // ── Aktywny sonar ──────────────────────────────────────────────────────────
 
   _updateActiveSonar(dt, sub) {
-    const interval = this.state === STATE.PATROL ? 22
+    const interval = this._role === 'LISTENER'   ?  3   // aktywny nasłuch — częste pingi
+                   : this.state === STATE.PATROL ? 22
                    : this.state === STATE.ALERT  ?  9 : 5;
 
     this.pingTimer -= dt;
@@ -344,6 +352,7 @@ export class Enemy {
       this.lastKnownSubY    = sub.y;
       this._contactAge      = 0;
       this._lastKnownVX     = sub.vx || 0;
+      this._lastKnownVY     = sub.vy || 0;
     } else {
       this._contactAge += dt;
 
@@ -393,7 +402,9 @@ export class Enemy {
     if (prev === STATE.HUNT && this.state !== STATE.HUNT && this.state !== STATE.WITHDRAW) {
       this.searchTimer  = SEARCH_DURATION;
       this.overshootX   = null;
-      this._contactAge  = 0;  // reset DR przy utracie — szuka od ostatniej pozycji
+      this._contactAge  = 0;
+      this._drListenTimer = 0;
+      this.pingTimer = Math.min(this.pingTimer, 1.8); // ping burst tuż po utracie kontaktu
     }
 
     // Wycofanie nadpisuje inne stany gdy okręt krytycznie uszkodzony
@@ -461,26 +472,58 @@ export class Enemy {
         break;
       }
       case STATE.HUNT: {
-        // Dead reckoning — przewiduj gdzie łódź odpłynęła od ostatniego kontaktu
         const drAge   = Math.min(this._contactAge, 9);
         const drTargX = this.lastKnownSubX + this._lastKnownVX * drAge * DR_VX_WEIGHT;
         let   dx      = drTargX - this.x;
         if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
 
-        // Prędkość: wyższa gdy kontakt świeży (< 3s), normalna gdy stracimy na chwilę
-        const huntSpd = this._contactAge < 3 ? HUNT_SPEED * 1.18 : HUNT_SPEED;
-
-        if (this.overshootX === null) {
-          if (Math.abs(dx) > 20) this.dir = Math.sign(dx);
-          this.x += this.dir * huntSpd * dmgMult * dt;
+        if (this._role === 'BLOCKER' && this._blockTarget !== null) {
+          // BLOCKER: zajmij pozycję przechwytującą na przewidywanej trasie ucieczki
+          const bd    = this._blockTarget - this.x;
+          const atPos = Math.abs(bd) < 65;
+          if (!atPos) {
+            this.dir = Math.sign(bd);
+            this.x  += this.dir * HUNT_SPEED * 0.92 * dmgMult * dt;
+            this._drListenTimer = 0;
+          } else {
+            // Na pozycji — nasłuchuj 5s, potem zaatakuj od tej strony (zaciskanie)
+            this._drListenTimer += dt;
+            if (this._drListenTimer >= 5) {
+              this.dir = Math.sign(dx) || this.dir;
+              this.x  += this.dir * HUNT_SPEED * 1.08 * dmgMult * dt;
+            }
+            // Inaczej: stój i słuchaj (pełni rolę sensoryczną)
+          }
+        } else if (this._role === 'LISTENER') {
+          // LISTENER: utrzymuj optymalny dystans sensoryczny (500–900px), pinguj często
+          const absDx = Math.abs(dx);
+          if (absDx > 900) {
+            this.dir = Math.sign(dx);
+            this.x  += this.dir * ALERT_SPEED * 0.85 * dmgMult * dt;
+          } else if (absDx < 400) {
+            this.dir = -Math.sign(dx);
+            this.x  += this.dir * ALERT_SPEED * 0.55 * dmgMult * dt;
+          }
+          // else: optymalna strefa — nie ruszaj się, tylko pinguj
         } else {
-          this.x += this.dir * huntSpd * dmgMult * dt;
-          const reached = this.dir > 0
-            ? this.x >= this.overshootX
-            : this.x <= this.overshootX;
-          if (reached) {
-            this.overshootX = null;
-            this.dir        = -this.dir;
+          // DRIVER lub SOLO — agresywny pościg, dwufazowy DR
+          // Faza 1 (contactAge < 3s): sprint; Faza 2 (>6s DR): spowolnienie + nasłuch
+          const huntSpd = this._contactAge < 3  ? HUNT_SPEED * 1.18
+                        : this._contactAge > 6  ? HUNT_SPEED * 0.52
+                        : HUNT_SPEED;
+
+          if (this.overshootX === null) {
+            if (Math.abs(dx) > 20) this.dir = Math.sign(dx);
+            this.x += this.dir * huntSpd * dmgMult * dt;
+          } else {
+            this.x += this.dir * HUNT_SPEED * dmgMult * dt;
+            const reached = this.dir > 0
+              ? this.x >= this.overshootX
+              : this.x <= this.overshootX;
+            if (reached) {
+              this.overshootX = null;
+              this.dir        = -this.dir;
+            }
           }
         }
         this.x = Phaser.Math.Clamp(this.x, 0, WORLD_W);
@@ -489,17 +532,21 @@ export class Enemy {
       case STATE.SEARCH: {
         const elapsed = SEARCH_DURATION - this.searchTimer;
         if (elapsed < 11) {
-          // Faza 1: konwergencja — pędź do ostatniej pozycji (zrzuć zarzuty)
+          // Faza 1: konwergencja — pędź do ostatniej pozycji
           let cdx = this.lastKnownSubX - this.x;
           if (Math.abs(cdx) > WORLD_W / 2) cdx -= Math.sign(cdx) * WORLD_W;
           if (Math.abs(cdx) > 25) this.dir = Math.sign(cdx);
           this.x += this.dir * ALERT_SPEED * dmgMult * dt;
         } else {
-          // Faza 2: rozszerzający się sweep od ostatniej pozycji
-          const swing = Math.min(80 + (elapsed - 11) * 16, 420);
-          const left  = this.lastKnownSubX - swing;
-          const right = this.lastKnownSubX + swing;
-          this.x += this.dir * ALERT_SPEED * 0.78 * dmgMult * dt;
+          // Faza 2: sektorowy sweep — środek przesuwa się wg przydzielonej roli
+          const secBase  = this._searchSide === 'left'  ? this.lastKnownSubX - 340
+                         : this._searchSide === 'right' ? this.lastKnownSubX + 340
+                         : this.lastKnownSubX;
+          const maxSwing = this._searchSide === 'center' ? 240 : 400;
+          const swing = Math.min(80 + (elapsed - 11) * 14, maxSwing);
+          const left  = secBase - swing;
+          const right = secBase + swing;
+          this.x += this.dir * ALERT_SPEED * 0.72 * dmgMult * dt;
           if (this.x > right) this.dir = -1;
           if (this.x < left)  this.dir =  1;
         }
@@ -586,9 +633,11 @@ export class Enemy {
   _dropPattern(sub) {
     const SURF    = this.scene.SURFACE_Y;
     const FLOOR   = this.scene.OCEAN_FLOOR_Y;
-    const fallTime = (sub.y - SURF) / CHARGE_FALL_SPD;
+    const fallTime = (this.lastKnownSubY - SURF) / CHARGE_FALL_SPD;
+    // Blend: bieżące vy z ostatnio zapamiętanym — DR głębokości
+    const blendVY = (sub.vy || 0) * 0.55 + (this._lastKnownVY || 0) * 0.45;
     const predY   = Phaser.Math.Clamp(
-      sub.y + sub.vy * fallTime * 0.65,   // lepsza predykcja głębokości niż 0.42
+      this.lastKnownSubY + blendVY * fallTime * 0.68,
       SURF + 30, FLOOR - 30
     );
     // 5-zarzutowy bracket głębokości — gracz nie może „siedzieć" na jednej głębokości
@@ -629,11 +678,19 @@ export class Enemy {
                   && this.hull > 0.1;   // nie odpala gdy prawie zatopiony
 
     if (canFire) {
+      // Velocity lead — kompensuje ruch łodzi podczas lotu rakiety
+      const flightTime = dist / 420;   // ~420px/s prędkość ASROC w poziomie
+      const leadX = this.lastKnownSubX + this._lastKnownVX * flightTime * 0.72;
+      const leadY = Phaser.Math.Clamp(
+        this.lastKnownSubY + this._lastKnownVY * flightTime * 0.55,
+        this.scene.SURFACE_Y + 40,
+        this.scene.OCEAN_FLOOR_Y - 40
+      );
       this.asrocs.push(new ASROC(
         this.scene,
         this.x,
-        this.lastKnownSubX + Phaser.Math.Between(-60, 60),  // lekki rozrzut
-        this.lastKnownSubY
+        leadX + Phaser.Math.Between(-45, 45),  // lekki rozrzut
+        leadY
       ));
       this.asrocCD     = ASROC_COOLDOWN;
       this.recentASROC = true;
