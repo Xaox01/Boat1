@@ -4,6 +4,23 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.69] — 2026-05-22
+
+### Usunięto — mapa taktyczna [M]
+
+**src/GameScene.js:**
+- Usunięto inicjalizację `_mapGfx`, `_mapTxt`, `_mapKmTxt`, `_mapOpen`, `_playerTrail`, `_trailTimer`
+- Usunięto binding klawisza `M` z `this.keys`
+- Usunięto nagrywanie trasy gracza co 2s
+- Usunięto toggle M + wywołanie `_drawTacticalMap()` z pętli update
+- Usunięto metodę `_drawTacticalMap()` (230 linii)
+
+**index.html:**
+- Usunięto CSS `#eam-map-cv`
+- Usunięto wiersz `M — Mapa taktyczna` z listy sterowania
+
+---
+
 ## [0.10.68] — 2026-05-21
 
 ### Dodano — System łączności radiowej VLF/ELF

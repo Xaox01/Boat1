@@ -132,7 +132,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Klasyfikacja i trend kontaktu w panelu namierzania |
 | ✅ | System fal — numer bieżącej fali w HUD |
 | ✅ | CRT scanlines i winietowanie rogów |
-| ✅ | Mapa taktyczna [M] — live overlay z terenem, trasą, kontaktami, zasięgami |
+| ❌ | ~~Mapa taktyczna [M]~~ — usunięta (zbędna w obecnej formie) |
 | ✅ | Stacja BROŃ (F4) — rury torpedowe, zapasy bojowe, 3 karty uzbrojenia, live sync z HUD |
 | 🔴 | Zegar prawdziwy 24h — pora dnia wpływa na widoczność (peryskop) |
 | ✅ | Panel AWARIE (F6) — lista 8 systemów z paskami zdrowia, badge statusu, dziennik awarii 5Hz |
