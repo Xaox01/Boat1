@@ -1,6 +1,20 @@
 import Phaser from 'phaser';
 
 const STEP = 8;   // px między próbkami terenu
+const P    = 2;   // rozmiar bloku pixel-art
+
+// Paleta pixel-art (z pliku design "Dno Oceanu Pixel")
+const PAL = {
+  sand1:    0x7a6d4a,
+  sand2:    0x5a5034,
+  sand3:    0x3e3622,
+  sand4:    0x2a2418,
+  glow:     0x5fcf7a,
+  glowDim:  0x2a5a3a,
+  plankton: 0x3a6a7a,
+  bubble:   0xd4e0e8,
+  bubbleD:  0x8aa0b0,
+};
 
 export class Ocean {
   constructor(scene) {
@@ -11,16 +25,19 @@ export class Ocean {
     this.THERMO_Y  = scene.THERMO_Y;
     this.FLOOR_Y   = scene.OCEAN_FLOOR_Y;
 
-    // Generuj teren i udostępnij przez scene.floorAt(x)
     this._samples = this._buildTerrain();
     scene.floorAt = (x) => this._sampleAt(x);
 
     this.bg          = scene.add.graphics().setDepth(0);
-    this.skyOverlay  = scene.add.graphics().setDepth(1);   // dynamiczne niebo
+    this.skyOverlay  = scene.add.graphics().setDepth(1);
+    this.floorGfx    = scene.add.graphics().setDepth(2);
     this.waveGfx     = scene.add.graphics().setDepth(4);
-    this.darkOverlay = scene.add.graphics().setDepth(9);   // nocne przyciemnienie
+    this.darkOverlay = scene.add.graphics().setDepth(9);
     this.particles   = this._initParticles();
+    this._bubbles    = this._initBubbles();
     this._stars      = this._buildStars();
+    this._glowSpots  = this._buildGlowSpots();
+    this._rocks      = this._buildRocks();
 
     this._bakeBg();
   }
@@ -51,18 +68,53 @@ export class Ocean {
     return this._samples[i0] * (1 - t) + this._samples[i0 + 1] * t;
   }
 
-  // ── Statyczne tło (rysowane raz) ─────────────────────────────────────────
+  // Hash deterministyczny do dithering / rozmieszczeń
+  _hash(x, y) {
+    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return n - Math.floor(n);
+  }
+
+  // ── Skały (pre-generowane, rysowane per-klatka tylko widoczne) ────────────
+
+  _buildRocks() {
+    const list   = [];
+    const THRESH = this.SURFACE_Y + 415;
+
+    // Duże seamounty — co 660–1240 px
+    for (let x = 220; x < this.W - 80; x += 660 + Math.abs(Math.sin(x * 0.0031)) * 580) {
+      const fy = this._sampleAt(x);
+      if (fy < THRESH) {
+        const rh = Math.min(70, (THRESH - fy) * 0.78 + 18) | 0;
+        list.push({ wx: x, fy, rh, kind: 'mount' });
+      }
+    }
+
+    // Małe kamienie proceduralne
+    for (let i = 0; i < 140; i++) {
+      const wx = (this._hash(i, 500) * this.W) | 0;
+      const fy = this._sampleAt(wx);
+      list.push({
+        wx, fy,
+        sz:   1 + (this._hash(i, 501) * 5) | 0,
+        kind: 'rock',
+        seed: i,
+      });
+    }
+    return list;
+  }
+
+  // ── Tło statyczne ─────────────────────────────────────────────────────────
 
   _bakeBg() {
     const g  = this.bg;
     const { W, SURFACE_Y, THERMO_Y, FLOOR_Y } = this;
     const H  = this.scene.scale.height + 30;
 
-    // Niebo (nadpisane przez skyOverlay każdą klatkę — brak koloru stałego)
+    // Niebo
     g.fillStyle(0x001428);
     g.fillRect(0, 0, W, SURFACE_Y);
 
-    // Strefa epipelagiczna (powierzchnia → termoklina)
+    // Strefa epipelagiczna
     g.fillGradientStyle(0x00558a, 0x00558a, 0x0072a8, 0x0072a8, 1);
     g.fillRect(0, SURFACE_Y, W, THERMO_Y - SURFACE_Y);
 
@@ -74,8 +126,8 @@ export class Ocean {
     g.fillGradientStyle(0x003566, 0x003566, 0x001e3a, 0x001e3a, 1);
     g.fillRect(0, THERMO_Y, W, H - THERMO_Y);
 
-    // Wielokąt terenu
-    g.fillStyle(0x3e2a14);
+    // Wielokąt dna — ciemna baza (PAL.sand4)
+    g.fillStyle(PAL.sand4);
     g.beginPath();
     g.moveTo(0, H);
     g.lineTo(0, this._sampleAt(0));
@@ -83,33 +135,6 @@ export class Ocean {
     g.lineTo(W, H);
     g.closePath();
     g.fillPath();
-
-    // Tekstura powierzchni dna
-    for (let x = 0; x <= W; x += 26) {
-      const fy = this._sampleAt(x);
-      const bh = 4 + Math.sin(x * 0.09) * 3 + Math.sin(x * 0.23) * 2;
-      g.fillStyle(0x503a1e, 0.75);
-      g.fillRect(x, fy, 17, Math.max(2, bh));
-    }
-
-    // Skały i seamounty
-    const ROCK_THRESHOLD = SURFACE_Y + 415;
-    for (let x = 220; x < W - 80; x += 660 + Math.abs(Math.sin(x * 0.0031)) * 580) {
-      const fy = this._sampleAt(x);
-      if (fy < ROCK_THRESHOLD) {
-        const rh = Math.min(70, (ROCK_THRESHOLD - fy) * 0.78 + 18);
-        g.fillStyle(0x4a3020, 0.95);
-        g.fillTriangle(x - 32, fy + 1, x + 32, fy + 1, x, fy - rh);
-        g.fillStyle(0x684e35, 0.68);
-        g.fillTriangle(x - 10, fy + 1, x + 28, fy + 1, x + 10, fy - rh * 0.70);
-        if (x + 60 < W) {
-          g.fillStyle(0x4a3020, 0.80);
-          g.fillTriangle(x + 30, fy + 1, x + 58, fy + 1, x + 44, fy - rh * 0.44);
-        }
-        g.fillStyle(0x503010, 0.50);
-        g.fillEllipse(x, fy + 3, 80, 10);
-      }
-    }
 
     // Linijka głębokości
     g.lineStyle(1, 0x359966, 0.75);
@@ -120,7 +145,21 @@ export class Ocean {
     }
   }
 
-  // ── Cząsteczki ────────────────────────────────────────────────────────────
+  // ── Glow spots (bioluminescencja) ─────────────────────────────────────────
+
+  _buildGlowSpots() {
+    const list = [];
+    for (let i = 0; i < 30; i++) {
+      list.push({
+        wx:    (this._hash(i, 700) * this.W) | 0,
+        phase: this._hash(i, 701) * Math.PI * 2,
+        freq:  0.5 + this._hash(i, 702) * 1.2,
+      });
+    }
+    return list;
+  }
+
+  // ── Cząsteczki (plankton) ─────────────────────────────────────────────────
 
   _initParticles() {
     const list = [];
@@ -137,7 +176,24 @@ export class Ocean {
     return list;
   }
 
-  // ── Gwiazdy (predefiniowane — brak random każdą klatkę) ──────────────────
+  // ── Bąble (oddzielna pula, wynurzają się z dna) ───────────────────────────
+
+  _initBubbles() {
+    const list = [];
+    for (let i = 0; i < 25; i++) {
+      const x = Math.random() * this.W;
+      list.push({
+        x,
+        y:     this._sampleAt(x) - 2,
+        vy:    -8 - Math.random() * 14,
+        vx:    (Math.random() - 0.5) * 0.8,
+        alpha: 0.4 + Math.random() * 0.5,
+      });
+    }
+    return list;
+  }
+
+  // ── Gwiazdy ───────────────────────────────────────────────────────────────
 
   _buildStars() {
     return Array.from({ length: 58 }, (_, i) => ({
@@ -148,7 +204,7 @@ export class Ocean {
     }));
   }
 
-  // ── Cykl dnia i nocy — paleta kolorów ────────────────────────────────────
+  // ── Paleta dnia / nocy ────────────────────────────────────────────────────
 
   _lerpCol(a, b, t) {
     const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
@@ -159,7 +215,6 @@ export class Ocean {
   }
 
   _getDayPalette(dt) {
-    // Klatki kluczowe: [pora, kolor_nieba_góra, kolor_nieba_dół, kolor_fal, ciemność]
     const K = [
       { t: 0.00, top: 0x060e22, bot: 0x0d1e3a, wave: 0x2a4878, dark: 0.12 },
       { t: 0.21, top: 0x08042a, bot: 0x100e38, wave: 0x263868, dark: 0.08 },
@@ -171,14 +226,13 @@ export class Ocean {
       { t: 0.79, top: 0x08042a, bot: 0x100e38, wave: 0x263858, dark: 0.08 },
       { t: 1.00, top: 0x060e22, bot: 0x0d1e3a, wave: 0x2a4878, dark: 0.12 },
     ];
-
     const n = ((dt % 1) + 1) % 1;
     let k0 = K[0], k1 = K[K.length - 1];
     for (let i = 0; i < K.length - 1; i++) {
       if (n >= K[i].t && n < K[i + 1].t) { k0 = K[i]; k1 = K[i + 1]; break; }
     }
     const raw = k1.t > k0.t ? (n - k0.t) / (k1.t - k0.t) : 0;
-    const s   = raw * raw * (3 - 2 * raw);   // smoothstep
+    const s   = raw * raw * (3 - 2 * raw);
     return {
       top:  this._lerpCol(k0.top,  k1.top,  s),
       bot:  this._lerpCol(k0.bot,  k1.bot,  s),
@@ -188,17 +242,15 @@ export class Ocean {
     };
   }
 
-  // ── Rysowanie nieba (screen-space) ────────────────────────────────────────
+  // ── Niebo (screen-space) ──────────────────────────────────────────────────
 
   _drawSky(g, pal) {
     const { CAM_W, SURFACE_Y } = this;
     const { top, bot, dark, n } = pal;
 
-    // Gradient nieba
     g.fillGradientStyle(top, top, bot, bot, 1.0);
     g.fillRect(0, 0, CAM_W, SURFACE_Y);
 
-    // Gwiazdy (widoczne w nocy)
     if (dark > 0.06) {
       const starA = Math.min(1, dark * 3.2);
       const ts    = Date.now() * 0.001;
@@ -209,14 +261,13 @@ export class Ocean {
       }
     }
 
-    // Słońce / księżyc — ten sam arc przez cały dzień (n=0→1)
     const bodyX   = CAM_W * n;
-    const bodyArc = Math.sin(n * Math.PI);               // 0 na horyzontach, 1 w zenicie
+    const bodyArc = Math.sin(n * Math.PI);
     const bodyY   = SURFACE_Y * 0.90 - bodyArc * (SURFACE_Y * 0.82);
     const isDay   = n > 0.265 && n < 0.735;
 
     if (isDay) {
-      const noon  = Math.sin((n - 0.265) / 0.47 * Math.PI);   // 0 horyzonty, 1 południe
+      const noon  = Math.sin((n - 0.265) / 0.47 * Math.PI);
       const sunR  = 7  + (1 - noon) * 6;
       const haloR = 15 + (1 - noon) * 20;
       const haloA = 0.18 + (1 - noon) * 0.32;
@@ -225,19 +276,103 @@ export class Ocean {
       g.fillStyle(noon > 0.55 ? 0xffffcc : 0xffbb55, 0.92);
       g.fillCircle(bodyX, bodyY, sunR);
     } else {
-      // Księżyc
       g.fillStyle(0xdde8ff, 0.16);
       g.fillCircle(bodyX, bodyY, 12);
       g.fillStyle(0xeeeeff, 0.80);
       g.fillCircle(bodyX, bodyY, 6);
-      // Delikatna poświata wokół księżyca
       g.fillStyle(0xaabbdd, 0.06);
       g.fillCircle(bodyX, bodyY, 20);
     }
 
-    // Linia horyzontu (świetlny kontur między niebem a wodą)
     g.lineStyle(1.2, top, 0.40);
     g.strokeLineShape(new Phaser.Geom.Line(0, SURFACE_Y - 1, CAM_W, SURFACE_Y - 1));
+  }
+
+  // ── Pixel-art dno (per-klatka, world-space) ───────────────────────────────
+
+  _drawFloor(camX, t) {
+    const g  = this.floorGfx;
+    const CW = this.CAM_W;
+
+    // Warstwy kolorów: co P pikseli w poziomie
+    for (let sx = 0; sx <= CW; sx += P) {
+      const wx = camX + sx;
+      const fy = Math.floor(this._sampleAt(wx));
+
+      // Krawędź — highlight (sand1)
+      g.fillStyle(PAL.sand1);
+      g.fillRect(wx, fy, P, P);
+
+      // Dither sand1 / sand2
+      g.fillStyle(this._hash(wx, fy + 1) > 0.45 ? PAL.sand1 : PAL.sand2);
+      g.fillRect(wx, fy + P, P, P);
+
+      // Pas sand2
+      g.fillStyle(PAL.sand2);
+      g.fillRect(wx, fy + P * 2, P, P * 2);
+
+      // Dither sand2 / sand3
+      g.fillStyle(this._hash(wx + 3, fy + 5) > 0.45 ? PAL.sand2 : PAL.sand3);
+      g.fillRect(wx, fy + P * 4, P, P);
+
+      // Pas sand3
+      g.fillStyle(PAL.sand3);
+      g.fillRect(wx, fy + P * 5, P, P * 4);
+
+      // Ripple piasku — jasna linia co ~18 px
+      if (Math.sin(wx * 0.35) > 0.82) {
+        g.fillStyle(PAL.sand1);
+        g.fillRect(wx, fy + P, P, P);
+      }
+    }
+
+    // Skały (proceduralne) — rysuj tylko widoczne
+    for (const r of this._rocks) {
+      if (r.wx < camX - 80 || r.wx > camX + CW + 80) continue;
+      const fy = Math.floor(r.fy);
+
+      if (r.kind === 'mount') {
+        const rh = r.rh;
+        for (let h = 0; h <= rh; h++) {
+          const w   = Math.round((1 - h / rh) * 30);
+          const col = h < rh * 0.3 ? PAL.sand2
+                    : h < rh * 0.7 ? PAL.sand3
+                    : PAL.sand4;
+          g.fillStyle(col);
+          g.fillRect(r.wx - w, fy - h, w * 2, P);
+        }
+        // Highlight szczytu
+        g.fillStyle(PAL.sand1);
+        g.fillRect(r.wx - 4, fy - rh + 2, 8, P);
+      } else {
+        // Mały kamień — kopczyk
+        const sz = r.sz;
+        for (let dy = 0; dy <= sz; dy++) {
+          const w   = Math.max(0, sz - dy);
+          const col = dy === 0         ? PAL.sand1
+                    : dy < sz * 0.5   ? PAL.sand2
+                    : PAL.sand3;
+          g.fillStyle(col);
+          g.fillRect(r.wx - w, fy - dy, w * 2 + 1, P);
+        }
+      }
+    }
+
+    // Bioluminescencja — rzadkie animowane punkty na dnie
+    for (const gs of this._glowSpots) {
+      if (gs.wx < camX - P || gs.wx > camX + CW + P) continue;
+      const pulse = Math.sin(t * gs.freq + gs.phase) * 0.5 + 0.5;
+      if (pulse < 0.5) continue;
+      const gy = Math.floor(this._sampleAt(gs.wx)) - P;
+      g.fillStyle(PAL.glow, pulse * 0.75);
+      g.fillRect(gs.wx, gy, P, P);
+      if (pulse > 0.8) {
+        g.fillStyle(PAL.glowDim, 0.4);
+        g.fillRect(gs.wx - P, gy, P, P);
+        g.fillRect(gs.wx + P, gy, P, P);
+        g.fillRect(gs.wx, gy - P, P, P);
+      }
+    }
   }
 
   // ── Aktualizacja (każda klatka) ───────────────────────────────────────────
@@ -249,18 +384,22 @@ export class Ocean {
     const CW  = this.CAM_W;
     const t   = Date.now() * 0.001;
 
-    // ── Niebo (screen-space — nie przesuwane z kamerą) ────────────────────
+    // Niebo (screen-space)
     this.skyOverlay.clear();
     this._drawSky(this.skyOverlay, pal);
 
-    // ── Nocne przyciemnienie (screen-space) ───────────────────────────────
+    // Nocne przyciemnienie (screen-space)
     this.darkOverlay.clear();
     if (pal.dark > 0.01) {
       this.darkOverlay.fillStyle(0x000008, pal.dark);
       this.darkOverlay.fillRect(0, 0, CW, this.scene.scale.height);
     }
 
-    // ── Fala powierzchniowa ───────────────────────────────────────────────
+    // Pixel-art dno
+    this.floorGfx.clear();
+    this._drawFloor(camX, t);
+
+    // Fala powierzchniowa
     g.clear();
     g.lineStyle(1.8, pal.wave, 0.82);
     g.beginPath();
@@ -273,7 +412,7 @@ export class Ocean {
     }
     g.strokePath();
 
-    // ── Cząsteczki ────────────────────────────────────────────────────────
+    // Plankton
     for (const p of this.particles) {
       p.y += p.vy * dt;
       if (p.y < this.SURFACE_Y || p.y > this._sampleAt(p.x)) {
@@ -281,12 +420,29 @@ export class Ocean {
         p.x = Math.random() * this.W;
       }
       if (p.x >= camX - 100 && p.x <= camX + CW + 100) {
-        g.fillStyle(pal.wave, p.alpha * 1.4);
+        g.fillStyle(PAL.plankton, p.alpha * 1.4);
         g.fillCircle(p.x, p.y, p.size);
       }
     }
 
-    // ── Poświata termokliny ───────────────────────────────────────────────
+    // Bąble wynurzające się z dna
+    for (const b of this._bubbles) {
+      b.y += b.vy * dt;
+      b.x += b.vx * dt;
+      if (b.y < this.SURFACE_Y || b.y > this._sampleAt(b.x)) {
+        b.y  = this._sampleAt(b.x) - 2;
+        b.x  = Math.random() * this.W;
+        b.vy = -8 - Math.random() * 14;
+      }
+      if (b.x >= camX - 4 && b.x <= camX + CW + 4) {
+        g.fillStyle(PAL.bubble, b.alpha * 0.65);
+        g.fillRect(b.x, b.y, 1, 1);
+        g.fillStyle(PAL.bubbleD, b.alpha * 0.35);
+        g.fillRect(b.x + 1, b.y, 1, 1);
+      }
+    }
+
+    // Poświata termokliny
     const thermoCol  = pal.dark < 0.08 ? 0x00bbdd : 0x004a88;
     const thermoAlph = 0.18 + Math.sin(t * 2) * 0.07;
     g.lineStyle(1.5, thermoCol, thermoAlph);

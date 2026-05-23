@@ -18,6 +18,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | Hotel load — pasywne zużycie baterii |
 | ✅ | System tlenowy — wyczerpanie pod wodą (~15 min na 270m, regeneracja przez snorchel) |
 | ✅ | Proceduralny teren dna — 6 oktaw sinusoidalnych, iglice skalne |
+| ✅ | Pixel-art dno oceanu — paleta sand1–4, dithering warstw, ripples, bioluminescencja, bąble |
 | ✅ | Kolizja z terenem — łódź uderza w zmienne dno, nie płaski prostokąt |
 | ✅ | Świat 12 000px (~14.4km) zamiast 4 096px |
 | 🔴 | Prądy oceanu — poziome znoszenie w zależności od głębokości |

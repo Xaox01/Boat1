@@ -4,6 +4,27 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.75] — 2026-05-23
+
+### Zmieniono — Pixel-art dno oceanu (Ocean.js)
+
+**Wizualizacja dna — całkowita wymiana na styl pixel-art (z pliku design "Dno Oceanu Pixel"):**
+- Paleta PAL: sand1–sand4 (piasek), glow/glowDim (bioluminescencja), plankton, bubble/bubbleD
+- Wielokąt dna bakowany w ciemnej bazie (PAL.sand4), bez starych brązowych pasków tekstury
+- Nowa warstwa `floorGfx` (depth 2) rysowana per-klatka w world-space:
+  - 4 warstwy kolorów: sand1 highlight → dither → sand2 → dither → sand3
+  - Dithering deterministyczny (`_hash(wx, fy)`) na granicach warstw
+  - Ripple piasku: jasna linia co ~18px (sin(wx*0.35) > 0.82)
+- Skały proceduralne per-klatka (tylko widoczne w camX+CW):
+  - Duże seamounty — bryła z pętli fillRect, gradient sand2→sand3→sand4 + highlight szczytu
+  - 140 małych kamieni rozmieszczonych deterministycznie (hash)
+- Bioluminescencja — 30 punktów glow, animowane pulsem (sin), tylko gdy pulse > 0.5
+- Nowa pula bąbli (`_initBubbles`, 25 szt.) — wynurzają się z dna, reset po dotarciu do powierzchni
+- Plankton zaktualizowany do PAL.plankton (0x3a6a7a) zamiast starego koloru fali
+- Usunięto stary brązowy polygon tekstury (26px strip loop) i stare skały z `_bakeBg()`
+
+---
+
 ## [0.10.74] — 2026-05-23
 
 ### Zmieniono — Samouczek od nowa (5 faz) + Misja 1: Operacja Neptun + zmiana nazwy okrętu
