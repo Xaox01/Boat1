@@ -4,16 +4,18 @@ import { t as tr, tf } from './i18n.js';
 export class MissionSystem {
   constructor(scene) {
     this.scene  = scene;
-    this.active = null;   // aktywna misja lub null
+    this.active = null;
 
     this._panelEl = document.getElementById('mission-panel');
     this._nameEl  = document.getElementById('mission-name');
     this._objEl   = document.getElementById('mission-objectives');
   }
 
-  // ── Misja 1 ───────────────────────────────────────────────────────────────
+  // ── Misja 1: Operacja Neptun ──────────────────────────────────────────────
 
-  startMission1() {
+  startMission1(targetEnemy) {
+    this._targetEnemy = targetEnemy;
+
     this.active = {
       id:       1,
       nameKey:  'mis1_name',
@@ -29,8 +31,6 @@ export class MissionSystem {
           id:      'destroy',
           textKey: 'mis1_obj_destroy',
           done:    false,
-          count:   0,
-          target:  3,
         },
       ],
     };
@@ -39,7 +39,8 @@ export class MissionSystem {
     this._updateUI();
 
     this.scene._shipLog(
-      'ROZKAZ BOJOWY: Konwój sowiecki kurs E–W. Namierzyć i zatopić min. 3 statki handlowe. Zniszczyć zaopatrzenie wroga.',
+      'ROZKAZ OPERACYJNY — OPERACJA NEPTUN: BPK «NIEUSTRASZONY» przechwycony na ŁB-22/N. ' +
+      'Cel: zlokalizuj sonarowo i zatop niszczyciel przed wejściem w strefę ochronną. Cisza radiowa.',
       'danger'
     );
     this.scene._logEvent(tr('mis1_start_log'));
@@ -50,17 +51,17 @@ export class MissionSystem {
   update() {
     if (!this.active || this.active.complete || this.active.failed) return;
 
-    const objDetect  = this.active.objectives[0];
+    const objDetect = this.active.objectives[0];
 
-    // Cel 1 — klasyfikacja: sprawdź czy jakikolwiek merchant dotarł do SURFACE
-    if (!objDetect.done) {
-      const classified = this.scene.merchants.some(m => !m.destroyed && m.contactClass === 'SURFACE');
-      if (classified) {
+    // Cel 1 — klasyfikacja sonarowa: WARSHIP
+    if (!objDetect.done && this._targetEnemy) {
+      const cls = this._targetEnemy.contactClass;
+      if (cls === 'WARSHIP' || cls === 'SURFACE') {
         objDetect.done = true;
         this._updateUI();
         this.scene._logEvent(tr('mis1_detected'));
         this.scene._shipLog(
-          'Klasyfikacja akustyczna: kontakt oznaczony jako statek handlowy. Zatwierdzono otwarcie ognia.',
+          'Klasyfikacja sonarowa potwierdzona: BPK «NIEUSTRASZONY» — okręt wojenny. Zatwierdzone otwarcie ognia.',
           'good'
         );
       }
@@ -70,24 +71,21 @@ export class MissionSystem {
     this._updateUI();
   }
 
-  // Wywołaj z GameScene gdy merchant zostaje zatopiony
-  onMerchantDestroyed(merchant) {
+  // Wywołaj z GameScene gdy wróg zostaje zatopiony
+  onEnemyDestroyed(enemy) {
     if (!this.active || this.active.complete) return;
+    if (enemy !== this._targetEnemy) return;
 
     const obj = this.active.objectives.find(o => o.id === 'destroy');
     if (!obj || obj.done) return;
 
-    obj.count++;
-    const remaining = obj.target - obj.count;
-
-    this.scene._logEvent(tf('mis1_sunk', { done: obj.count, total: obj.target }));
+    obj.done = true;
+    this.scene._logEvent(tr('mis1_sunk'));
     this.scene._shipLog(
-      `Cel zatopiony: ${merchant.label}. Postęp misji: ${obj.count}/${obj.target}. ` +
-      (remaining > 0 ? `Pozostało ${remaining}.` : 'Cel osiągnięty!'),
+      'BPK «NIEUSTRASZONY» zatopiony. Cel operacyjny wyeliminowany. ORP KONDOR — opuść rejon operacji.',
       'good'
     );
 
-    if (obj.count >= obj.target) obj.done = true;
     this._checkComplete();
     this._updateUI();
   }
@@ -98,19 +96,12 @@ export class MissionSystem {
     if (!this.active || this.active.complete) return;
     if (this.active.objectives.every(o => o.done)) {
       this.active.complete = true;
-      const destroyed = this.active.objectives[1].count;
-      const total     = this.active.objectives[1].target;
-      this.scene._shipLog(
-        `MISJA WYKONANA — konwój zniszczony. Zatopiono ${destroyed} jednostki. Powrót do bazy.`,
-        'good'
-      );
       this._updateUI();
-      // Opóźnienie ekranu sukcesu — daj czas na przeczytanie loga
-      this.scene.time.delayedCall(2500, () => {
+      this.scene.time.delayedCall(2800, () => {
         if (!this.scene._gameOver) {
           this.scene._showEndScreen(
             tr('mis_complete'),
-            tf('mis_end_text', { done: destroyed, total }),
+            tf('mis_end_text', {}),
             '#44ffaa'
           );
         }
@@ -129,13 +120,7 @@ export class MissionSystem {
     for (const obj of this.active.objectives) {
       const div = document.createElement('div');
       div.className = 'mission-obj ' + (obj.done ? 'done' : 'pending');
-
-      let label = tr(obj.textKey);
-      if (obj.id === 'destroy' && !obj.done) {
-        label = tf('mis1_obj_destroy_prog', { n: obj.target, done: obj.count });
-      }
-
-      div.textContent = (obj.done ? '✓ ' : '○ ') + label;
+      div.textContent = (obj.done ? '✓ ' : '○ ') + tr(obj.textKey);
       this._objEl.appendChild(div);
     }
 

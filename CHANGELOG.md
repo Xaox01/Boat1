@@ -4,6 +4,40 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.10.74] — 2026-05-23
+
+### Zmieniono — Samouczek od nowa (5 faz) + Misja 1: Operacja Neptun + zmiana nazwy okrętu
+
+**Okręt gracza: ORP KONDOR (Projekt 641)**
+- Zmiana nazwy z "ORP ORZEŁ" na "ORP KONDOR" we wszystkich plikach
+- index.html: top-bar, log-panel, ds-header, opis torpedy, klasa Projekt 641
+- i18n.js: `ds_title` PL i EN, klucze misji PL i EN
+
+**TutorialMission.js — przepisany od nowa (5 faz zamiast 7):**
+- Faza 1: GŁĘBOKOŚĆ I NAPĘD — zanurz do 50m I osiągnij ≥20px/s (jedno zadanie połączone)
+- Faza 2: TERMOKLINA — zejdź poniżej 200m, wyjaśnienie maskowania akustycznego
+- Faza 3: TRYB NASŁUCH — aktywuj przez 3 sekundy, wyjaśnienie sprint-and-listen
+- Faza 4: SONAR AKTYWNY — wyślij ping [Q], wyjaśnienie ryzyka wykrycia
+- Faza 5: TORPEDA MK.48 — odpal i poczekaj na trafienie (łączenie kroków 6+7)
+- Ekran zakończenia wyświetla brief Operacji Neptun przed startem misji
+- Nowe intro: "ORP KONDOR — ĆWICZENIA BOJOWE · STREFA ĆWICZEŃ C-7"
+
+**MissionSystem.js — nowa Misja 1: Operacja Neptun:**
+- `startMission1(targetEnemy)` — przyjmuje konkretny obiekt wroga jako cel
+- Cel 1: namierz BPK «NIEUSTRASZONY» (klasyfikacja sonarowa WARSHIP/SURFACE)
+- Cel 2: zatop BPK «NIEUSTRASZONY»
+- `onEnemyDestroyed(enemy)` — reaguje tylko na cel misji
+- Usunięto `onMerchantDestroyed` — nie ma już konwoju cywilnego w Misji 1
+
+**GameScene.js:**
+- `_startMission1Combat()` — spawni BPK «NIEUSTRASZONY» 2800-3600px od gracza (losowa strona)
+  zamiast konwoju 6 statków handlowych; wolniejszy patrol (×0.65) dla czasu na polowanie
+- Escort pojawia się po 35s (opóźniony spawn)
+- `mission?.onEnemyDestroyed(target)` podpięty do trafień torpedą i rakietą
+- `_shipLog` z nową nazwą: "ORP KONDOR — gotowość bojowa"
+
+---
+
 ## [0.10.73] — 2026-05-22
 
 ### Zmieniono — Przywrócono i zoptymalizowano samouczek gracza

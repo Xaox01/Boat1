@@ -148,7 +148,7 @@ const DICT = {
     ws_inv_missiles:  'RAKIETY',
     ws_inv_decoys:    'WABIE',
 
-    ds_title:         'PANEL AWARII — ORP ORZEŁ',
+    ds_title:         'PANEL AWARII — ORP KONDOR',
     ds_status_ok:     '● OPERACYJNY',
     ds_status_dmg:    '▲ USZKODZONY',
     ds_status_deg:    '◆ ZDEGRADOWANY',
@@ -202,16 +202,16 @@ const DICT = {
     oxy_empty:        'BRAK TLENU',
 
     // ── Misja ─────────────────────────────────────────────────────────────────
-    mis1_name:        'OP. SZLAK HANDLOWY',
-    mis1_obj_detect:  'Namierz konwój (sklasyfikuj statek)',
-    mis1_obj_destroy: 'Zatop {n} statki handlowe',
-    mis1_obj_destroy_prog: 'Zatop {n} statki ({done}/{n})',
-    mis1_start_log:   'MISJA: Zniszcz konwój wroga!',
-    mis1_detected:    'Konwój namierzony — klasyfikacja: statek handlowy',
-    mis1_sunk:        'Statek handlowy zatopiony! ({done}/{total})',
+    mis1_name:        'OP. NEPTUN',
+    mis1_obj_detect:  'Namierz BPK «NIEUSTRASZONY» (klasyfikacja sonarowa)',
+    mis1_obj_destroy: 'Zatop BPK «NIEUSTRASZONY»',
+    mis1_obj_destroy_prog: 'Zatop BPK «NIEUSTRASZONY»',
+    mis1_start_log:   'ROZKAZ: Wyeliminuj BPK «NIEUSTRASZONY»!',
+    mis1_detected:    'Cel namierzony — klasyfikacja: okręt wojenny',
+    mis1_sunk:        'BPK «NIEUSTRASZONY» ZATOPIONY!',
     mis_complete:     'MISJA WYKONANA',
     mis_complete_star: '★ MISJA WYKONANA',
-    mis_end_text:     'Konwój zniszczony — {done}/{total} statki.',
+    mis_end_text:     'BPK «NIEUSTRASZONY» wyeliminowany. ORP KONDOR — powrót do bazy.',
 
     // ── Event log ─────────────────────────────────────────────────────────────
     log_torp_fired:   'Torpeda odpalona!',
@@ -416,7 +416,7 @@ const DICT = {
     ws_inv_missiles:  'MISSILES',
     ws_inv_decoys:    'DECOYS',
 
-    ds_title:         'DAMAGE PANEL — ORP ORZEŁ',
+    ds_title:         'DAMAGE PANEL — ORP KONDOR',
     ds_status_ok:     '● OPERATIONAL',
     ds_status_dmg:    '▲ DAMAGED',
     ds_status_deg:    '◆ DEGRADED',
@@ -470,16 +470,16 @@ const DICT = {
     oxy_empty:        'NO OXYGEN',
 
     // ── Mission ───────────────────────────────────────────────────────────────
-    mis1_name:        'OP. TRADE ROUTE',
-    mis1_obj_detect:  'Locate convoy (classify vessel)',
-    mis1_obj_destroy: 'Sink {n} merchant vessels',
-    mis1_obj_destroy_prog: 'Sink {n} vessels ({done}/{n})',
-    mis1_start_log:   'MISSION: Destroy enemy convoy!',
-    mis1_detected:    'Convoy located — classified: merchant vessel',
-    mis1_sunk:        'Merchant sunk! ({done}/{total})',
+    mis1_name:        'OP. NEPTUNE',
+    mis1_obj_detect:  'Locate BPK «NIEUSTRASZONY» (sonar classification)',
+    mis1_obj_destroy: 'Sink BPK «NIEUSTRASZONY»',
+    mis1_obj_destroy_prog: 'Sink BPK «NIEUSTRASZONY»',
+    mis1_start_log:   'ORDER: Eliminate BPK «NIEUSTRASZONY»!',
+    mis1_detected:    'Target located — classified: warship',
+    mis1_sunk:        'BPK «NIEUSTRASZONY» SUNK!',
     mis_complete:     'MISSION COMPLETE',
     mis_complete_star: '★ MISSION COMPLETE',
-    mis_end_text:     'Convoy destroyed — {done}/{total} vessels.',
+    mis_end_text:     'BPK «NIEUSTRASZONY» eliminated. ORP KONDOR — return to base.',
 
     // ── Event log ─────────────────────────────────────────────────────────────
     log_torp_fired:   'Torpedo fired!',

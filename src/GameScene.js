@@ -268,7 +268,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this._logEvent(tr('log_dive_enemies'));
-    this._shipLog('ORP Orzeł — misja bojowa. Zanurzono na pozycję.', 'info');
+    this._shipLog('ORP KONDOR — gotowość bojowa. Zanurzono na pozycję patrolową.', 'info');
   }
 
   _restoreFromSave(save) {
@@ -534,10 +534,10 @@ export class GameScene extends Phaser.Scene {
           if (isMerchant) {
             this._logEvent(tf('log_sunk_missile', { lbl: target.label }));
             this._shipLog(`Cel handlowy zatopiony rakietą — ${target.label}. Nam. ${mb2}°, dyst. ${mr2}m.`, 'good');
-            this.mission?.onMerchantDestroyed(target);
           } else {
             this._logEvent(tf('log_sunk_missile', { lbl: target.label || tr('log_dd_hunt').split(' ')[0] }));
             this._shipLog(`Cel zatopiony rakietą — ${target.label || 'niszczyciel'}. Nam. ${mb2}°, dyst. ${mr2}m.`, 'good');
+            this.mission?.onEnemyDestroyed(target);
           }
         } else {
           const mb3 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
@@ -569,6 +569,7 @@ export class GameScene extends Phaser.Scene {
             const tb2 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
             const tr2 = this._rng(this.sub.x, this.sub.y, target.x, target.y);
             this._shipLog(`Cel zatopiony torpedą Mk.48 — ${target.label || 'niszczyciel'}. Nam. ${tb2}°, dyst. ${tr2}m.`, 'good');
+            this.mission?.onEnemyDestroyed(target);
           } else {
             this._logEvent(tr('log_hit_torp'));
             const tb3 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
@@ -1743,34 +1744,33 @@ export class GameScene extends Phaser.Scene {
   }
 
   _startMission1Combat() {
-    // Usuń cel treningowy (zniszczony lub nie)
-    for (const m of this.merchants) {
-      if (m.gfx) m.gfx.destroy();
-    }
+    // Usuń cel treningowy
+    for (const m of this.merchants) { if (m.gfx) m.gfx.destroy(); }
     this.merchants = [];
 
-    // Dodaj konwój
-    const CONVOY_FULL = [
-      { x: 2200,  dir:  1, label: 'LENSKY' },
-      { x: 4000,  dir: -1, label: 'KALININ' },
-      { x: 6200,  dir:  1, label: 'TBLISI' },
-      { x: 8400,  dir: -1, label: 'NOVOROSSIYSK' },
-      { x: 10600, dir:  1, label: 'IRKUTSK' },
-      { x: 12800, dir: -1, label: 'VLADIVOSTOK' },
-    ];
-    const _mCnt = (this._getCfg() || {}).merchants ?? 4;
-    for (const c of CONVOY_FULL.slice(0, _mCnt)) this.merchants.push(new Merchant(this, c.x, c.dir, c.label));
+    // Cel misji — BPK «NIEUSTRASZONY»: pozycjonuj ~2800-3600px od gracza
+    const subX = this.sub.x;
+    const side  = Math.random() < 0.5 ? 1 : -1;
+    const dist  = 2800 + Math.random() * 800;
+    const tX    = Phaser.Math.Clamp(subX + side * dist, 400, WORLD_W - 400);
+    const hw    = 900 + Math.random() * 600;
+    const pL    = Math.max(80, tX - hw);
+    const pR    = Math.min(WORLD_W - 80, tX + hw);
+
+    this._missionTarget = new Enemy(this, tX, pL, pR, 'BPK «NIEUSTRASZONY»');
+    this._missionTarget.patrolSpeed *= 0.65;   // wolniejszy patrol — łatwiej namierzyć sonarowo
+    this.enemies.push(this._missionTarget);
 
     // Start misji
     this.mission = new MissionSystem(this);
-    this.mission.startMission1();
+    this.mission.startMission1(this._missionTarget);
 
-    // Zresetuj i spawniaj wrogów
+    // Reset i spawn dodatkowych wrogów (escort) po opóźnieniu
     this.tutorial          = null;
     this._enemiesSpawned   = false;
-    this._enemySpawnTimer  = 14;   // spawn przy następnej klatce
+    this._enemySpawnTimer  = 35;   // escort pojawia się po 35s — daj czas na polowanie
 
-    this._logEvent('ROZKAZ: Konwój sowiecki wykryty — przystąp do ataku!');
+    this._logEvent('OPERACJA NEPTUN — BPK «NIEUSTRASZONY» w sektorze. Zlokalizuj i zniszcz.');
   }
 
   // ── Tryb piaskownicy — ciągłe uzupełnianie i eskalacja ────────────────────
