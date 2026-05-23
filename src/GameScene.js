@@ -238,14 +238,19 @@ export class GameScene extends Phaser.Scene {
     this.tutorial  = null;
 
     // ── Zapis / wczytanie ──────────────────────────────────────────────────
-    const fromSave = SaveSystem.consumeLoadRequest();
+    const fromSave   = SaveSystem.consumeLoadRequest();
+    const skipTutUrl = new URLSearchParams(window.location.search).has('notutorial');
     if (fromSave) {
       const save = SaveSystem.load();
       if (save) {
         this._restoreFromSave(save);
+      } else if (skipTutUrl) {
+        this._spawnTestEnemies();
       } else {
         this._startTutorial();
       }
+    } else if (skipTutUrl) {
+      this._spawnTestEnemies();
     } else {
       this._startTutorial();
     }

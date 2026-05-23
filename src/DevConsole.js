@@ -438,6 +438,8 @@ export class DevConsole {
           this._print('  god           — nieśmiertelność toggle');
           this._print('  speed <n>     — mnożnik czasu (0.1–5)');
           this._print('  clear         — wyczyść log');
+          this._print('── TESTOWANIE ───────────────────────────────────────────', DIM_CLR);
+          this._print('  skiptut       — pomiń samouczek i przejdź do walki (też: notut)');
           this._print('── MAPA TESTOWA ─────────────────────────────────────────', DIM_CLR);
           this._print('  testmap       — załaduj mapę testową (5 stref, god mode)');
           this._print('  resetmap      — wyjdź z trybu testowego');
@@ -989,6 +991,20 @@ export class DevConsole {
             this._print('  ship spawnowany (hull 8% = pełne inferno)', DIM_CLR);
             this._print('  kill — aby zatopić  |  fire off — aby zgasić', DIM_CLR);
           })();
+          break;
+        }
+
+        case 'skiptut':
+        case 'notut': {
+          if (s.tutorial) {
+            s.tutorial.skip();
+            this._print('Samouczek pominięty — trwa ładowanie misji bojowej.', HDR_CLR);
+          } else if (!s._enemiesSpawned || s.enemies.length === 0) {
+            s._spawnTestEnemies();
+            this._print('Brak aktywnego samouczka — spawnowano wrogów testowych.', DIM_CLR);
+          } else {
+            this._print('Samouczek już nieaktywny.', DIM_CLR);
+          }
           break;
         }
 
