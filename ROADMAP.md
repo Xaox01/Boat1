@@ -19,6 +19,7 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | System tlenowy — wyczerpanie pod wodą (~15 min na 270m, regeneracja przez snorchel) |
 | ✅ | Proceduralny teren dna — 6 oktaw sinusoidalnych, iglice skalne |
 | ✅ | Pixel-art dno oceanu — paleta sand1–4, dithering warstw, ripples, bioluminescencja, bąble |
+| ✅ | Głębokość kruszenia — narastające uszkodzenia >400m, trzaski kadłuba, flash ciśnieniowy |
 | ✅ | Kolizja z terenem — łódź uderza w zmienne dno, nie płaski prostokąt |
 | ✅ | Świat 12 000px (~14.4km) zamiast 4 096px |
 | 🔴 | Prądy oceanu — poziome znoszenie w zależności od głębokości |
@@ -114,7 +115,8 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ✅ | ASROC velocity lead — kompensuje ruch łodzi podczas lotu (VX×0.72, VY×0.55) |
 | 🔴 | Okręt podwodny wroga (EnemySub) — detekcja tylko sonarowa, brak widoczności |
 | 🔴 | Helikopter ZOP — szybkie przemieszczanie, spuszczany hydrofor, torpedy |
-| 🔴 | Samolot patrolowy P-3 Orion — boje sonarowe, torpedy, szeroki zasięg |
+| ✅ | Samolot patrolowy — wykrycie wzrokowe/MAD/kawitacja, 4 bomby głębinowe, pixel-art sylwetka |
+| 🔴 | Samolot patrolowy P-3 Orion v2 — boje sonarowe, torpedy, szeroki zasięg |
 | 🟡 | Formacje — niszczyciele operujące w szyku `V` lub `line-abreast` |
 | 🟡 | Wymiana danych taktycznych — okręty dzielą się pozycją kontaktu |
 | 🟡 | Dezinformacja — fałszywe manewry wabiące gracza w pułapkę |
@@ -165,7 +167,10 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | 🔴 | System reputacji — ocena taktyczna po misji (bez wykrycia = bonus, trafność sonarowa, czas peryskopowy) |
 | 🔴 | Samouczek peryskopu — dedykowana faza w szkoleniu (głębokość, FOV, klasyfikacja wizualna) |
 | 🟡 | Mechanika ciszy — bonus za misję ukończoną bez aktywnego sonaru i bez unoszenia masztu w zasięgu wroga |
-| 🟡 | Kampania — 6–8 misji z narastającym napięciem zimnej wojny |
+| ✅ | Kampania 5 misji: M1 Neptun → M2 Kontakt → M3 Eskorta → M4 Miny → M5 Ostatni Rozkaz |
+| ✅ | System reputacji (Warszawa/Moskwa) — wpływa na zakończenie M5 |
+| ✅ | Ekrany odpraw misji, dialogi wyboru, dwa zakończenia finałowe |
+| ✅ | Pole minowe w M4 — grafika min, blastR/detectR, awaria silnika po 90s |
 | 🟡 | Ukryte rozkazy — dodatkowe cele odkrywane podczas misji (np. sfotografuj okręt przez peryskop) |
 | 🟡 | Wydarzenie historyczne — intro tekstowe przed misją |
 | 🟡 | Sonar kontekstowy — po triangulacji kontaktu odblokuj opcję „identyfikuj przez peryskop" w panelu namierzania |
@@ -226,6 +231,19 @@ Priorytety oznaczone: 🔴 wysoki · 🟡 średni · 🟢 niski · ✅ gotowe
 | ❌ | Skrzypienie kadłuba pod ciśnieniem przy głębokości > 300m |
 | ❌ | Muzyka ambientowa — napięcie narastające wg stanu ALERT/HUNT |
 | ❌ | Wiadomości radiowe — synteza mowy lub nagrania aktorskie |
+
+---
+
+## Narzędzia deweloperskie
+
+| Status | Cel |
+|--------|-----|
+| ✅ | DevConsole (`~`) — panel stanu sub, wrogów, pocisków + komendy testowe |
+| ✅ | TestBot (`B`) — bot ćwiczący sterowanie sub (istniejący) |
+| ✅ | TutorialBot (`?tutbot` / `tbot`) — autonomiczny bot przechodzący przez wszystkie 5 faz samouczka, mierzy czas i raportuje PASS/TIMEOUT przez `console.table()` |
+| ✅ | DevConsole: `testmap`, `firetest`, `testfx`, `sim`, `boom` — scenariusze testowe |
+| 🟡 | Playwright/Puppeteer smoke test — headless CI dla kluczowych ścieżek gry |
+| 🟢 | Automatyczne screenshoty per-commit — regresja wizualna |
 
 ---
 

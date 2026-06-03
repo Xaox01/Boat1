@@ -13,6 +13,9 @@ import { TorpedoLaunchFX } from './TorpedoLaunchFX.js';
 import { ImpactFX } from './ImpactFX.js';
 import { RadioComms } from './RadioComms.js';
 import { applyI18n, t as tr, tf } from './i18n.js';
+import { PatrolPlane } from './PatrolPlane.js';
+import { TutorialBot } from './TutorialBot.js';
+import { CampaignManager } from './CampaignManager.js';
 
 const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
@@ -116,6 +119,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     this._bot        = new TestBot(this);
+    this._tutBot     = new TutorialBot(this);
     this._devConsole = new DevConsole(this);
     this._launchFX   = new TorpedoLaunchFX(this);
     this._impactFX   = new ImpactFX(this);
@@ -227,6 +231,11 @@ export class GameScene extends Phaser.Scene {
 
     this._missionTime = 0;   // sekundy od startu misji
 
+    // Samoloty patrolowe
+    this._planes      = [];
+    this._planeTimer  = 50;   // pierwszy samolot po 50s od startu wrogów
+    this._crushShakeT = 0;    // cooldown trzasków kadłuba przy ciśnieniu kruszącym
+
     // Aktywny sonar gracza [Q]
     this._pingGfx     = this.add.graphics().setDepth(16);
     this._activePings = [];   // { subX, subY, r, maxR, alpha, echoedEnemies, echoes }
@@ -236,10 +245,13 @@ export class GameScene extends Phaser.Scene {
     this.merchants = [];
     this.mission   = null;
     this.tutorial  = null;
+    this.campaign  = null;
 
     // ── Zapis / wczytanie ──────────────────────────────────────────────────
-    const fromSave   = SaveSystem.consumeLoadRequest();
-    const skipTutUrl = new URLSearchParams(window.location.search).has('notutorial');
+    const fromSave    = SaveSystem.consumeLoadRequest();
+    const urlParams   = new URLSearchParams(window.location.search);
+    const skipTutUrl  = urlParams.has('notutorial');
+    const tutBotUrl   = urlParams.has('tutbot');
     if (fromSave) {
       const save = SaveSystem.load();
       if (save) {
@@ -248,11 +260,13 @@ export class GameScene extends Phaser.Scene {
         this._spawnTestEnemies();
       } else {
         this._startTutorial();
+        if (tutBotUrl) this.time.delayedCall(400, () => this._tutBot.start());
       }
     } else if (skipTutUrl) {
       this._spawnTestEnemies();
     } else {
       this._startTutorial();
+      if (tutBotUrl) this.time.delayedCall(400, () => this._tutBot.start());
     }
 
     // Auto-zapis co 30s
@@ -360,6 +374,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this._bot.update(dt);
+    this._tutBot.update(dt);
 
     // E = zdalna detonacja najstarszej torpedy
     if (Phaser.Input.Keyboard.JustDown(this.keys.e)) {
@@ -435,6 +450,53 @@ export class GameScene extends Phaser.Scene {
 
     if (this.sub.onFloor) { this._groundedTimer += dt; }
     else                  { this._groundedTimer  = 0;  }
+
+    // ── Głębokość kruszenia — narastające uszkodzenia ciśnieniowe >400m ───
+    {
+      const crushDepth = this.sub.depthMetres;
+      if (crushDepth > 400) {
+        const excess  = (crushDepth - 400) / 200;          // 0 @ 400m → 1 @ 600m
+        const dmgRate = excess * excess * 0.014;            // kwadratowy — rośnie dramatycznie
+        this.sub.applyDamage(dmgRate * dt, 'CIŚNIENIE');
+
+        // Trzaski kadłuba — co coraz krótszy interwał
+        this._crushShakeT -= dt;
+        if (this._crushShakeT <= 0) {
+          const interval    = Math.max(1.2, 9 - excess * 7.5);
+          this._crushShakeT = interval;
+          this._shake(70 + excess * 130, 0.003 + excess * 0.012);
+          if (excess > 0.4) this.cameras.main.flash(50, 220, 60, 40, false);
+          if (excess > 0.6) this._logEvent('Kadłub skrzypi — ciśnienie kruszące. Wynurzyć natychmiast!');
+        }
+      } else {
+        this._crushShakeT = 0;
+      }
+    }
+
+    // ── Samoloty patrolowe ─────────────────────────────────────────────────
+    if (this._enemiesSpawned) {
+      this._planeTimer -= dt;
+      if (this._planeTimer <= 0) {
+        this._planeTimer  = 85 + Math.random() * 55;
+        const fromLeft    = Math.random() < 0.5;
+        this._planes.push(new PatrolPlane(this, fromLeft));
+        this._logEvent('Kontakt powietrzny — samolot patrolowy w sektorze.');
+        this._shipLog('Samolot patrolowy wykryty. Zejść poniżej 120m lub zachować ciszę radiową.', 'warn');
+      }
+    }
+    for (const plane of this._planes) {
+      plane.update(dt, this.sub);
+      for (const exp of plane.recentExplosions) {
+        const intensity = Phaser.Math.Clamp(1 - exp.dist / 85, 0, 1);
+        if (intensity > 0.08) {
+          this._shake(200 + intensity * 280, 0.004 + intensity * 0.016);
+          if (intensity > 0.55) this.cameras.main.flash(120, 255, 200, 100, false);
+          this._logEvent('Bomba głębinowa z powietrza!');
+          this._shipLog(`Trafienie bombą lotniczą. Kadłub: ${Math.round(this.sub.hull * 100)}%.`, 'danger');
+        }
+      }
+    }
+    this._planes = this._planes.filter(p => !p.destroyed);
 
     // Update enemies + handle depth charge / ASROC effects
     for (const enemy of this.enemies) {
@@ -538,6 +600,7 @@ export class GameScene extends Phaser.Scene {
             this._logEvent(tf('log_sunk_missile', { lbl: target.label || tr('log_dd_hunt').split(' ')[0] }));
             this._shipLog(`Cel zatopiony rakietą — ${target.label || 'niszczyciel'}. Nam. ${mb2}°, dyst. ${mr2}m.`, 'good');
             this.mission?.onEnemyDestroyed(target);
+            this.campaign?.onEnemyDestroyed(target);
           }
         } else {
           const mb3 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
@@ -570,6 +633,7 @@ export class GameScene extends Phaser.Scene {
             const tr2 = this._rng(this.sub.x, this.sub.y, target.x, target.y);
             this._shipLog(`Cel zatopiony torpedą Mk.48 — ${target.label || 'niszczyciel'}. Nam. ${tb2}°, dyst. ${tr2}m.`, 'good');
             this.mission?.onEnemyDestroyed(target);
+            this.campaign?.onEnemyDestroyed(target);
           } else {
             this._logEvent(tr('log_hit_torp'));
             const tb3 = this._brg(this.sub.x, this.sub.y, target.x, target.y);
@@ -616,6 +680,7 @@ export class GameScene extends Phaser.Scene {
             this._shipLog(`Cel handlowy zatopiony torpedą — ${m.label}. Nam. ${mb}°, dyst. ${mr}m.`, 'good');
             this._radio.trigger('merchant_sunk');
             this.mission?.onMerchantDestroyed(m);
+            this.campaign?.onMerchantDestroyed(m);
           } else {
             const mb = this._brg(this.sub.x, this.sub.y, m.x, m.y);
             this._logEvent(tf('log_merchant_hit', { lbl: m.label }));
@@ -646,9 +711,10 @@ export class GameScene extends Phaser.Scene {
 
     // Aktualizacja misji
     this.mission?.update();
+    this.campaign?.update(dt);
 
-    // Piaskownica — ciągłe uzupełnianie wrogów
-    if (!this._gameOver && this._enemiesSpawned) {
+    // Piaskownica — ciągłe uzupełnianie wrogów (wyłączona podczas kampanii)
+    if (!this._gameOver && this._enemiesSpawned && !this.campaign?._active) {
       this._sandboxUpdate(dt);
     }
 
@@ -708,6 +774,7 @@ export class GameScene extends Phaser.Scene {
     for (const t of this.sub.torpedoes) t.gfx.x = -this.camX;
     for (const m of this.sub.missiles)  m.gfx.x = -this.camX;
     for (const m of this.merchants)     m.gfx.x = -this.camX;
+    for (const p of this._planes)       p.gfx.x = -this.camX;
   }
 
   // ── HUD ────────────────────────────────────────────────────────────────────
@@ -1747,30 +1814,11 @@ export class GameScene extends Phaser.Scene {
     // Usuń cel treningowy
     for (const m of this.merchants) { if (m.gfx) m.gfx.destroy(); }
     this.merchants = [];
+    this.tutorial  = null;
 
-    // Cel misji — BPK «NIEUSTRASZONY»: pozycjonuj ~2800-3600px od gracza
-    const subX = this.sub.x;
-    const side  = Math.random() < 0.5 ? 1 : -1;
-    const dist  = 2800 + Math.random() * 800;
-    const tX    = Phaser.Math.Clamp(subX + side * dist, 400, WORLD_W - 400);
-    const hw    = 900 + Math.random() * 600;
-    const pL    = Math.max(80, tX - hw);
-    const pR    = Math.min(WORLD_W - 80, tX + hw);
-
-    this._missionTarget = new Enemy(this, tX, pL, pR, 'BPK «NIEUSTRASZONY»');
-    this._missionTarget.patrolSpeed *= 0.65;   // wolniejszy patrol — łatwiej namierzyć sonarowo
-    this.enemies.push(this._missionTarget);
-
-    // Start misji
-    this.mission = new MissionSystem(this);
-    this.mission.startMission1(this._missionTarget);
-
-    // Reset i spawn dodatkowych wrogów (escort) po opóźnieniu
-    this.tutorial          = null;
-    this._enemiesSpawned   = false;
-    this._enemySpawnTimer  = 35;   // escort pojawia się po 35s — daj czas na polowanie
-
-    this._logEvent('OPERACJA NEPTUN — BPK «NIEUSTRASZONY» w sektorze. Zlokalizuj i zniszcz.');
+    // Uruchom kampanię — M1 to Operacja Neptun
+    this.campaign = new CampaignManager(this);
+    this.campaign.start();
   }
 
   // ── Tryb piaskownicy — ciągłe uzupełnianie i eskalacja ────────────────────

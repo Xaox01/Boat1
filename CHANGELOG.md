@@ -4,6 +4,81 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.11.0] — 2026-05-26
+
+### Dodano — Kampania: 5 misji narracyjnych (CampaignManager)
+
+**CampaignManager.js — nowy moduł:**
+- 5 misji sekwencyjnych z ekranami odpraw, wyboru i zakończenia
+- System reputacji (`_reputation`): +Warszawa / -Moskwa — wpływa na finałowe zakończenie M5
+- Briefing overlay DOM: tytuł misji, rejon, kontekst narracyjny, cele operacyjne
+- Ekran wyboru (2 opcje) dla M2 i M5
+- Ekran ukończenia misji z aktualną reputacją i przejściem do następnej
+- Dwa zakończenia M5: BOHATER (Warszawa, wysoka reputacja) / AZYL / KONIEC (Moskwa)
+
+**Misje:**
+- **M1 — Operacja Neptun**: wykryj sonarowo i zatop BPK «NIEUSTRASZONY»
+- **M2 — Nieznany Kontakt**: klasyfikuj okręt bez IFF → wybór Moskwa/Warszawa (reputacja ±1)
+- **M3 — Eskorta STOCZNIA-7**: eskortuj statek handlowy do x>8000 przed 2 patrolami (reputacja ±1)
+- **M4 — Pole Minowe**: 8 min z aktywną grafiką min (blastR 78px, detectR 260px), awaria silnika po 90s
+- **M5 — Ostatni Rozkaz**: wybór finalny Moskwa/Warszawa (reputacja ±2), 2 zakończenia
+
+**GameScene.js — zmiany:**
+- Import `CampaignManager`; `this.campaign = null` w `create()`
+- `_startMission1Combat()` zastąpiony inicjacją `new CampaignManager(this).start()`
+- `campaign?.update(dt)` w pętli update
+- `campaign?.onEnemyDestroyed()` i `campaign?.onMerchantDestroyed()` podpięte przy zniszczeniu celów
+- Sandbox (`_sandboxUpdate`) blokowany gdy `campaign._active` — brak nieplanowanych spawnów
+
+---
+
+## [0.10.77] — 2026-05-24
+
+### Dodano — TutorialBot (automatyczny tester samouczka)
+
+**TutorialBot.js — nowy moduł:**
+- Bot autonomicznie przechodzi przez wszystkie 5 faz samouczka bez udziału gracza
+- Uruchomienie: URL `?tutbot` lub komenda DevConsole `tbot` / `tbot stop`
+- Panel DOM na górze ekranu pokazuje aktualną fazę (znika po zakończeniu)
+- Dismissal modali i ekranu powitalnego przez osobny polling (250ms), niezależny od pauzy sceny
+- Per-faza sterowanie:
+  - Faza 0: `targetBallast = 0.85`, napęd do 100% — zanurza do 55m + speed ≥22 px/s
+  - Faza 1: `targetBallast = 0.95` + napęd 45% — schodzi poniżej 215m
+  - Faza 2: gaśnie silnik (`enginePower × 0.04^dt`) — czeka na tryb nasłuch
+  - Faza 3: wywołuje `scene._firePing()` gdy `_pingCD ≤ 0`
+  - Faza 4: `sub.fireTorpedo(target.x, target.y)`, detonacja po 8s
+- Timeout per-faza: [28, 38, 25, 12, 45]s — fallback wymuszający warunki zaliczenia
+- Raport `console.table()` ze statusem (PASS/TIMEOUT) i czasem każdej fazy
+- `tbot` dodany do listy komend `help` w DevConsole
+
+---
+
+## [0.10.76] — 2026-05-23
+
+### Dodano — Głębokość kruszenia + samolot patrolowy ("kleszcze")
+
+**Głębokość kruszenia (GameScene.js):**
+- Powyżej 400m widoczna linia krytyczna — teraz działa mechanicznie
+- Poniżej 400m narastające uszkodzenia ciśnieniowe: `excess² × 0.014 / s`
+- Przy 500m ≈ 0.0035 HP/s; przy 600m ≈ 0.014 HP/s — bardzo szybkie niszczenie
+- Trzaski kadłuba: co malejący interwał (9s → 1.2s) shake + flash czerwony >440m
+- Log "Kadłub skrzypi" przy excess > 0.6 (powyżej ~520m)
+
+**PatrolPlane.js — nowy moduł:**
+- Samolot patrolowy przelatuje przez sektor co 85–140s (po spawnie wrogów)
+- Prędkość 540 px/s, leci nad powierzchnią (SURFACE_Y − 38)
+- Pixel-art sylwetka: kadłub + skrzydła + stateczniki + gondole silników z "odrzutem"
+- Trzy tryby wykrycia łodzi:
+  - Wzrokowe: dx < 320px i głębokość < 40m
+  - MAD/hydrofonowe: dx < 520px, głębokość < 110m, noise > 0.35
+  - Kawitacja: dx < 420px, głębokość < 170m i sub.cavitating
+- 4 bomby głębinowe z predykcją prędkości łodzi (velocity lead)
+- Bomby: blast radius 85px, max dmg 30% HP; wzorowane na Enemy.charges
+- Eksplozja: orange/yellow flash + shake + log "Bomba głębinowa z powietrza!"
+- `_applyCamera()` obsługuje gfx.x dla każdego aktywnego samolotu
+
+---
+
 ## [0.10.75] — 2026-05-23
 
 ### Zmieniono — Pixel-art dno oceanu (Ocean.js)
