@@ -481,6 +481,7 @@ export class TutorialMission {
   _hideStepModal() {
     window.removeEventListener('keydown', this._stepKeyHandler);
     this._tsContBtnCleanup?.();
+    if (this._inIntro) this.scene.scene.resume();   // resume jeśli scena była wstrzymana
     this._inIntro = false;
     this._stepEl.classList.remove('vis');
     setTimeout(() => { this._stepEl.style.display = 'none'; }, 280);

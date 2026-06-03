@@ -440,6 +440,7 @@ export class DevConsole {
           this._print('  clear         — wyczyść log');
           this._print('── TESTOWANIE ───────────────────────────────────────────', DIM_CLR);
           this._print('  skiptut       — pomiń samouczek i przejdź do walki (też: notut)');
+          this._print('  tbot [stop]   — auto-bot testujący samouczek (też URL: ?tutbot)');
           this._print('── MAPA TESTOWA ─────────────────────────────────────────', DIM_CLR);
           this._print('  testmap       — załaduj mapę testową (5 stref, god mode)');
           this._print('  resetmap      — wyjdź z trybu testowego');
@@ -1004,6 +1005,32 @@ export class DevConsole {
             this._print('Brak aktywnego samouczka — spawnowano wrogów testowych.', DIM_CLR);
           } else {
             this._print('Samouczek już nieaktywny.', DIM_CLR);
+          }
+          break;
+        }
+
+        case 'tbot': {
+          const sub2 = args[0]?.toLowerCase();
+          const bot  = s._tutBot;
+          if (!bot) { this._print('TutorialBot niedostępny', DANGER_CLR); break; }
+          if (sub2 === 'stop') {
+            bot.stop();
+            this._print('TutorialBot zatrzymany', DIM_CLR);
+          } else if (sub2 === 'reset') {
+            bot.stop();
+            this._print('TutorialBot zresetowany', DIM_CLR);
+          } else {
+            // tbot / tbot start
+            if (!s.tutorial) {
+              this._print('Brak aktywnego samouczka — uruchom grę bez ?notutorial', DANGER_CLR);
+              break;
+            }
+            const ok = bot.start();
+            if (ok) {
+              this._print('TutorialBot START — obserwuj konsolę przeglądarki', HDR_CLR);
+            } else {
+              this._print('Nie udało się uruchomić — sprawdź czy samouczek jest aktywny', WARN_CLR);
+            }
           }
           break;
         }
