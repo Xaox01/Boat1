@@ -105,10 +105,14 @@ export class CampaignManager {
     this.startAtMission(0);
   }
 
-  startAtMission(idx) {
+  startAtMission(idx, skipBriefing = false) {
     this._active = true;
     const clamped = Math.max(0, Math.min(4, idx));
-    this._showBriefing(clamped, () => this._setupMission(clamped));
+    if (skipBriefing) {
+      this._setupMission(clamped);
+    } else {
+      this._showBriefing(clamped, () => this._setupMission(clamped));
+    }
   }
 
   update(dt) {

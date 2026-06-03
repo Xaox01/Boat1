@@ -256,22 +256,18 @@ export class GameScene extends Phaser.Scene {
     const missionIdx  = missionUrl !== null ? parseInt(missionUrl, 10) - 1 : -1;
     const validMisUrl = missionIdx >= 0 && missionIdx <= 4;
 
-    if (fromSave) {
+    if (skipTutUrl) {
+      this._spawnTestEnemies();
+    } else if (validMisUrl) {
+      this._startCampaignAt(missionIdx);
+    } else if (fromSave) {
       const save = SaveSystem.load();
       if (save) {
         this._restoreFromSave(save);
-      } else if (skipTutUrl) {
-        this._spawnTestEnemies();
-      } else if (validMisUrl) {
-        this._startCampaignAt(missionIdx);
       } else {
         this._startTutorial();
         if (tutBotUrl) this.time.delayedCall(400, () => this._tutBot.start());
       }
-    } else if (skipTutUrl) {
-      this._spawnTestEnemies();
-    } else if (validMisUrl) {
-      this._startCampaignAt(missionIdx);
     } else {
       this._startTutorial();
       if (tutBotUrl) this.time.delayedCall(400, () => this._tutBot.start());
@@ -1826,7 +1822,7 @@ export class GameScene extends Phaser.Scene {
     this.campaign.start();
   }
 
-  _startCampaignAt(idx) {
+  _startCampaignAt(idx, skipBriefing = false) {
     for (const e of this.enemies) { e.gfx?.destroy(); e.fireGfx?.destroy(); e._sprite?.destroy(); }
     this.enemies = [];
     for (const m of this.merchants) m.gfx?.destroy();
@@ -1836,7 +1832,7 @@ export class GameScene extends Phaser.Scene {
     this._enemiesSpawned = false;
 
     this.campaign = new CampaignManager(this);
-    this.campaign.startAtMission(idx);
+    this.campaign.startAtMission(idx, skipBriefing);
   }
 
   // ── Tryb piaskownicy — ciągłe uzupełnianie i eskalacja ────────────────────

@@ -1040,11 +1040,11 @@ export class DevConsole {
         case 'mission': {
           const mIdx = parseInt(args[0], 10) - 1;
           if (isNaN(mIdx) || mIdx < 0 || mIdx > 4) {
-            this._print('Użycie: mis <1–5>  — skocz do misji kampanii', DANGER_CLR);
+            this._print('Użycie: mis <1–5>  — skocz do misji kampanii (bez briefingu)', DANGER_CLR);
             break;
           }
-          s._startCampaignAt(mIdx);
-          this._print(`Misja ${mIdx + 1} — briefing zaraz.`, HDR_CLR);
+          s._startCampaignAt(mIdx, true);
+          this._print(`Misja ${mIdx + 1} — start (bez briefingu).`, HDR_CLR);
           break;
         }
 
