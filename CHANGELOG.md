@@ -4,6 +4,18 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.11.1] — 2026-05-26
+
+### Dodano — Testowanie misji: URL ?mission=N i komenda DevConsole `mis N`
+
+- `?mission=N` (N=1–5) — startuje grę bezpośrednio od wybranej misji, pomija tutorial
+- DevConsole `mis N` — skacze do misji N w trakcie gry (cleanup enemies/merchants, nowy CampaignManager)
+- `CampaignManager.startAtMission(idx)` — publiczna metoda do startu od dowolnej misji
+- `GameScene._startCampaignAt(idx)` — helper wywoływany przez URL i DevConsole
+- `mis <1–5>` dodane do listy komend `help`
+
+---
+
 ## [0.11.0] — 2026-05-26
 
 ### Dodano — Kampania: 5 misji narracyjnych (CampaignManager)

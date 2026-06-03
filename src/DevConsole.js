@@ -441,6 +441,7 @@ export class DevConsole {
           this._print('── TESTOWANIE ───────────────────────────────────────────', DIM_CLR);
           this._print('  skiptut       — pomiń samouczek i przejdź do walki (też: notut)');
           this._print('  tbot [stop]   — auto-bot testujący samouczek (też URL: ?tutbot)');
+          this._print('  mis <1–5>     — skocz do misji kampanii (też URL: ?mission=N)');
           this._print('── MAPA TESTOWA ─────────────────────────────────────────', DIM_CLR);
           this._print('  testmap       — załaduj mapę testową (5 stref, god mode)');
           this._print('  resetmap      — wyjdź z trybu testowego');
@@ -1032,6 +1033,18 @@ export class DevConsole {
               this._print('Nie udało się uruchomić — sprawdź czy samouczek jest aktywny', WARN_CLR);
             }
           }
+          break;
+        }
+
+        case 'mis':
+        case 'mission': {
+          const mIdx = parseInt(args[0], 10) - 1;
+          if (isNaN(mIdx) || mIdx < 0 || mIdx > 4) {
+            this._print('Użycie: mis <1–5>  — skocz do misji kampanii', DANGER_CLR);
+            break;
+          }
+          s._startCampaignAt(mIdx);
+          this._print(`Misja ${mIdx + 1} — briefing zaraz.`, HDR_CLR);
           break;
         }
 

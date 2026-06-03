@@ -102,8 +102,13 @@ export class CampaignManager {
   // ── Public API ─────────────────────────────────────────────────────────────
 
   start() {
+    this.startAtMission(0);
+  }
+
+  startAtMission(idx) {
     this._active = true;
-    this._showBriefing(0, () => this._setupMission(0));
+    const clamped = Math.max(0, Math.min(4, idx));
+    this._showBriefing(clamped, () => this._setupMission(clamped));
   }
 
   update(dt) {
