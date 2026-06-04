@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { ASROC, HomingTorpedo } from './EnemyASROC.js';
+import { mem } from './SessionMemory.js';
 
 export const STATE = { PATROL: 0, ALERT: 1, HUNT: 2, SEARCH: 3, WITHDRAW: 4 };
 
@@ -364,8 +365,11 @@ export class Enemy {
                 * Math.max(0, 1 - ndist / (BASE_HYDROPHONE * 1.4));
       if (str > bestDecoyStr) { bestDecoyStr = str; bestDecoy = nm; }
     }
-    // Wabia maskuje okręt — im głośniejsza, tym mniejszy skuteczny zasięg hydrofonu
-    const decoyMask = Math.min(0.88, bestDecoyStr * 2.2);
+    // Rejestruj nowy wabik w pamięci sesji
+    if (bestDecoy) mem.onDecoy(bestDecoy, this.scene);
+    // Wabia maskuje okręt — nasycenie redukuje jej skuteczność
+    const rawMask  = Math.min(0.88, bestDecoyStr * 2.2);
+    const decoyMask = rawMask * (1 - mem.decoySat);
 
     let range = this._hydro * sub.noiseEffective * (1 - decoyMask);
     if (sub.belowThermocline) range *= THERMO_MASK;
@@ -451,6 +455,10 @@ export class Enemy {
       this._drListenTimer = 0;
       this._searchSpecCD  = 10;
       this.pingTimer = Math.min(this.pingTimer, 1.8);
+
+      // Zapis wzorców gracza do pamięci sesji
+      if (sub.belowThermocline) mem.onThermoHide(this.scene);
+      mem.onEscape(this._lastKnownVX || 0, this.scene);
     }
 
     // Po zakończeniu SEARCH bez sukcesu — przesuń patrol na ostatnią pozycję gracza
@@ -721,6 +729,20 @@ export class Enemy {
         speed: CHARGE_FALL_SPD + Math.random() * 32,
         exploded: false, explodeTimer: 0,
       });
+    }
+
+    // Adaptacja do termokliny — dodaj 2 ładunki celujące PONIŻEJ 200m
+    if (mem.thermoAdaptive) {
+      const thermoY = this.scene.THERMO_Y;
+      for (const xOff of [0, this.dir * 60]) {
+        const deepY = Phaser.Math.Clamp(thermoY + 60 + Math.random() * 80, SURF + 30, FLOOR - 30);
+        this.charges.push({
+          x: this.x + xOff, y: SURF + 10,
+          targetY: deepY,
+          speed: CHARGE_FALL_SPD * 0.85,   // wolniejsze — bardziej przemyślane
+          exploded: false, explodeTimer: 0,
+        });
+      }
     }
   }
 

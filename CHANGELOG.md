@@ -4,6 +4,33 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.12.6] — 2026-05-26
+
+### Dodano — AI: adaptacyjne zachowanie wrogów (SessionMemory)
+
+**SessionMemory.js — nowy singleton pamięci sesji:**
+- Przechowuje wzorce taktyczne gracza wykryte przez wrogów
+- Resetowany przy każdym starcie gry (`sessionMem.reset()` w `create()`)
+- Każda adaptacja loguje jednorazową wiadomość do shipLog
+
+**Wzorzec 1: Termoklina**
+- Po 3-krotnej ucieczce gracza pod termoklinem → `thermoAdaptive = true`
+- Każde wywołanie `_dropPattern()` dodaje 2 extra zarzuty celujące w głębokość 60–140px poniżej termokliny
+- Log: "[HYDROAK.] Wróg dostosowuje głębokość ataku..."
+
+**Wzorzec 2: Kierunek ucieczki**
+- Przy każdej utracie kontaktu HUNT→SEARCH: zapisuje kierunek ruchu gracza (VX)
+- Po 4 próbkach w tym samym kierunku: `escapeDir ≠ 0`
+- BLOCKER zajmuje pozycję w kierunku dominującym + bonus do 300px wg liczby próbek
+- Log: "[STARSZY OF.] Wróg przewiduje ucieczkę w PRAWĄ/LEWĄ stronę..."
+
+**Wzorzec 3: Wabiki (noisemakers)**
+- Każdy nowy wabik wykryty przez enemy → `decoyCount++`, `decoySat += 0.13`
+- `decoyMask` redukowany przez `(1 - decoySat)` — przy 6 wabikach skuteczność spada do ~22%
+- Log przy 4. użyciu: "[HYDROAK.] Wróg ignoruje nasze wabiki — nasycenie akustyczne"
+
+---
+
 ## [0.12.5] — 2026-05-26
 
 ### Zmieniono — AI wrogów: skalowanie trudności + agresywniejsze zachowanie

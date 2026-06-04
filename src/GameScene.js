@@ -17,6 +17,7 @@ import { applyI18n, t as tr, tf } from './i18n.js';
 import { PatrolPlane } from './PatrolPlane.js';
 import { TutorialBot } from './TutorialBot.js';
 import { CampaignManager } from './CampaignManager.js';
+import { mem as sessionMem } from './SessionMemory.js';
 
 const WORLD_W       = 12000;
 const SURFACE_Y     = 80;
@@ -82,6 +83,7 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.camX = 0;
+    sessionMem.reset();   // czyść pamięć wzorców przy każdym nowym starcie
 
     this.STATE = STATE;   // udostępnij dla bota i innych modułów
 
@@ -1880,13 +1882,16 @@ export class GameScene extends Phaser.Scene {
     driver._role        = 'DRIVER';
     driver._blockTarget = null;
 
-    // BLOCKER — drugi co do odległości, zajmuje pozycję na przewidywanej trasie ucieczki
+    // BLOCKER — zajmuje pozycję na przewidywanej trasie ucieczki
+    // Jeśli mem zapamiętał dominujący kierunek — używa go zamiast obecnej prędkości
     if (hunters.length >= 2) {
-      const blocker = hunters[1];
-      blocker._role = 'BLOCKER';
-      // Blokuje w kierunku przewidywanego ruchu — pred. 4s ruchu łodzi
-      const escapeDir = Math.sign(subVX) || -Math.sign(driver.x - subX);
-      blocker._blockTarget = subX + escapeDir * 480;
+      const blocker  = hunters[1];
+      blocker._role  = 'BLOCKER';
+      const memDir   = sessionMem.escapeDir;
+      const escapeDir = memDir !== 0 ? memDir : (Math.sign(subVX) || -Math.sign(driver.x - subX));
+      // Im więcej próbek — tym dalej bloker wysuwa się w ten kierunek (max +300px)
+      const memBonus  = Math.min(300, sessionMem.escapeSamples.length * 25);
+      blocker._blockTarget = subX + escapeDir * (480 + memBonus);
     }
 
     // LISTENER — pozostałe, jeśli są — utrzymują peryferia sensoryczną
