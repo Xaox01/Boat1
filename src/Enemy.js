@@ -928,7 +928,7 @@ export class Enemy {
 
       // Loguj tylko pierwszy strzał w serii (nie spamuj)
       if (this._gunCD >= this._gunCDBase) {
-        this.scene._shipLog?.('[WRÓG] Otwarcie ognia z działa — wypłyń na powierzchnię!', 'danger');
+        this.scene._shipLog?.('[WRÓG] Otwarcie ognia z działa — zanurz się natychmiast!', 'danger');
       }
     }
 
