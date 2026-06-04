@@ -259,7 +259,7 @@ export class GameScene extends Phaser.Scene {
     if (skipTutUrl) {
       this._spawnTestEnemies();
     } else if (validMisUrl) {
-      this._startCampaignAt(missionIdx);
+      this._startCampaignAt(missionIdx, true);
     } else if (fromSave) {
       const save = SaveSystem.load();
       if (save) {
