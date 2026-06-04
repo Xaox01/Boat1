@@ -39,7 +39,7 @@ const SUB_SVG = `
   <path d="M 808 -16 Q 820 -22 832 -16" fill="none" stroke="${ACCENT}" stroke-width="0.8"/>
   <circle cx="430" cy="140" r="14" fill="none" stroke="${ACCENT}" stroke-width="0.7" opacity="0.7"/>
   <circle cx="430" cy="140" r="6" fill="${ACCENT}" fill-opacity="0.18" stroke="${ACCENT}" stroke-width="0.5"/>
-  <text x="430" y="143" fill="${ACCENT}" font-size="6" font-family="monospace" text-anchor="middle" opacity="0.85">VM-A</text>
+  <text x="430" y="143" fill="${ACCENT}" font-size="6" font-family="monospace" text-anchor="middle" opacity="0.85">К-481</text>
   ${[120,134,148,162].map(y=>`<rect x="1240" y="${y-4}" width="76" height="8" fill="none" stroke="${ACCENT}" stroke-width="0.5" opacity="0.6"/><circle cx="1316" cy="${y}" r="3.5" fill="none" stroke="${ACCENT}" stroke-width="0.7"/><circle cx="1316" cy="${y}" r="1.2" fill="${ACCENT}" opacity="0.7"/>`).join('')}
   <line x1="0" y1="262" x2="1400" y2="262" stroke="${ACCENT}" stroke-width="0.4" opacity="0.3" stroke-dasharray="6 4"/>
   <text x="6" y="272" fill="${ACCENT}" font-size="7" font-family="monospace" opacity="0.5">WATERLINE</text>
@@ -58,7 +58,7 @@ const SUB_SVG = `
     <line x1="1280" y1="232" x2="1390" y2="232" stroke="${ACCENT}" stroke-width="0.5"/>
     <text x="1394" y="244" fill="${ACCENT}" font-size="8" font-family="monospace" text-anchor="end" letter-spacing="1.5">4× WYRZUTNIA 533mm</text>
   </g>
-  <text x="1394" y="74" fill="${ACCENT}" font-size="9" font-family="monospace" text-anchor="end" letter-spacing="3" opacity="0.85">PR. 671RTM · K-244</text>
+  <text x="1394" y="74" fill="${ACCENT}" font-size="9" font-family="monospace" text-anchor="end" letter-spacing="3" opacity="0.85">PR. 671RTM · К-481</text>
 </svg>`;
 
 function buildMenuHTML(saveInfo) {
@@ -312,23 +312,23 @@ function buildMenuHTML(saveInfo) {
     <div id="menu-top">
       <div id="menu-top-left">
         <div id="menu-pulse"></div>
-        <span>STACJA DOWODZENIA  //  TERMINAL 04</span>
+        <span>К-481  //  ПОКОИ КОМАНДИРА</span>
       </div>
       <div id="menu-top-right">
         <span id="menu-clock">UTC --:--:--</span>
-        <span>POZ. 67°N 14°E</span>
-        <span class="online">● ONLINE</span>
+        <span>POZ. 70°N 18°E · NW-7</span>
+        <span class="online">● CISZA RADIOWA</span>
       </div>
     </div>
 
     <div id="menu-center">
       <div id="menu-left-col">
         <div>
-          <div id="menu-title-eyebrow">★  PROJEKT 671 — SYMULATOR ★</div>
+          <div id="menu-title-eyebrow">★  LISTOPAD 1983  ·  MORZE NORWESKIE  ★</div>
           <h1 id="menu-title-main">CZERWONY</h1>
           <h1 id="menu-title-sub">PAŹDZIERNIK</h1>
           <div id="menu-title-ru">КРАСНЫЙ  ОКТЯБРЬ</div>
-          <div id="menu-title-desc">SYMULATOR OKRĘTU PODWODNEGO  ·  1983  ·  ATLANTYK PÓŁNOCNY</div>
+          <div id="menu-title-desc">SYMULATOR OKRĘTU PODWODNEGO  ·  К-481  ·  OBIEKT K-7</div>
         </div>
         <div id="menu-sub">${SUB_SVG}</div>
       </div>
@@ -348,13 +348,14 @@ function buildMenuHTML(saveInfo) {
           <div id="menu-briefing-body">
             ${hasSave ? `
               Ostatni patrol: <span style="color:#f3ede0">${saveInfo.date}</span><br>
-              Fala zagrożenia: <span style="color:#f3ede0">${saveInfo.wave}</span><br>
-              Kadłub: <span style="color:${saveInfo.hull < 40 ? '#ff7070' : saveInfo.hull < 70 ? '#ffdd44' : '#f3ede0'}">${saveInfo.hull}%</span><br>
-              Zatopiono: <span style="color:#f3ede0">${saveInfo.kills}/3 statków</span>
+              Głębokość operacyjna: <span style="color:#f3ede0">${saveInfo.wave ? saveInfo.wave * 40 + 180 : 220} m</span><br>
+              Integralność kadłuba: <span style="color:${saveInfo.hull < 40 ? '#ff7070' : saveInfo.hull < 70 ? '#ffdd44' : '#f3ede0'}">${saveInfo.hull}%</span><br>
+              Status misji: <span style="color:${ACCENT}">AKTYWNA · ABLE ARCHER</span>
             ` : `
-              Brak aktywnego patrolu.<br>
-              Status flotylli: <span style="color:#f3ede0">4 / 6 okrętów aktywnych</span><br>
-              Pogoda: <span style="color:#f3ede0">sztorm 7°B, widoczność 800m</span>
+              DEPESZA GRU — 03:47 UTC<br>
+              Kontakt ALFA: <span style="color:#f3ede0">USS DALLAS · kl. LA</span><br>
+              ABLE ARCHER 83: <span style="color:${ACCENT}">STAN GOTOWOŚCI</span><br>
+              <span style="opacity:0.55;font-size:10px">Towarzyszu Komandorze — czekamy na twój rozkaz.</span>
             `}
           </div>
         </div>
@@ -365,25 +366,25 @@ function buildMenuHTML(saveInfo) {
       <div id="menu-telemetry">
         <div class="telem-item">
           <span class="telem-label">GŁĘBOKOŚĆ</span>
-          <span class="telem-value" id="telem-depth">187<span class="telem-unit">m</span></span>
+          <span class="telem-value" id="telem-depth">243<span class="telem-unit">m</span></span>
         </div>
         <div class="telem-item">
           <span class="telem-label">PRĘDKOŚĆ</span>
-          <span class="telem-value" id="telem-speed">8.0<span class="telem-unit">kn</span></span>
+          <span class="telem-value" id="telem-speed">6.0<span class="telem-unit">kn</span></span>
         </div>
         <div class="telem-item">
-          <span class="telem-label">KURS</span>
-          <span class="telem-value" id="telem-heading">274<span class="telem-unit">°</span></span>
+          <span class="telem-label">NAMIAR</span>
+          <span class="telem-value" id="telem-heading">127<span class="telem-unit">°</span></span>
         </div>
         <div class="telem-item">
           <span class="telem-label">REAKTOR</span>
-          <span class="telem-value" id="telem-reactor">62<span class="telem-unit">%</span></span>
+          <span class="telem-value" id="telem-reactor">71<span class="telem-unit">%</span></span>
         </div>
       </div>
       <div id="menu-version">
-        <span>v0.7.4-alpha</span>
-        <span>BUILD 19831024</span>
-        <span class="v-accent">NIESKLASYFIKOWANE</span>
+        <span>v0.11.1-alpha</span>
+        <span>BUILD 19831101</span>
+        <span class="v-accent">ŚCIŚLE TAJNE</span>
       </div>
     </div>
   `;
@@ -401,7 +402,7 @@ export class Menu {
     this._onKey = this._handleKey.bind(this);
     this._sweepAngle = 0;
     this._startTime = 0;
-    this._telem = { depth: 187, speed: 8, heading: 274, reactor: 62 };
+    this._telem = { depth: 243, speed: 6, heading: 127, reactor: 71 };
     this._inSettings = false;
 
     this._settingsDefs = [
