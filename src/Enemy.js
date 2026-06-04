@@ -163,6 +163,16 @@ export class Enemy {
     this._fireParts  = [];
     this._emberParts = [];
 
+    // VDS — Sonar Zmienny Głębokości (opuszczany poniżej termokliny)
+    this._vdsState      = 'ready';   // 'ready' | 'active' | 'cooldown'
+    this._vdsTimer      = 0;
+    this._vdsNoContactT = 0;         // czas bez świeżego kontaktu (trigger do deployu)
+    this._vdsTowing     = false;     // czy okręt zwalnia (ciągnąc kabel)
+
+    // Torpedy bezpośrednie SET-65 / Mk.46 analog
+    this._directTorps   = [];        // aktywne torpedy {x, y, vx, vy, life, hit}
+    this._directTorpCD  = 18 + Math.random() * 15;
+
     // Skalowanie wg trudności — nadpisuje stałe globalne per-instancja
     this._initDifficulty();
   }
@@ -192,6 +202,11 @@ export class Enemy {
     this.hedgehogCD = this._hedgeCDBase  * (0.4 + Math.random() * 0.8);
     this.chargeCD   = 0;
 
+    // VDS i torpedy — skalowanie
+    this._vdsCooldownBase   = 95  / (0.65 + D * 0.55);  // easy≈155s, normal≈95s, hard≈58s
+    this._directTorpCDBase  = 42  / (0.65 + D * 0.55);  // easy≈68s,  normal≈42s, hard≈26s
+    this._directTorpCD = this._directTorpCDBase * (0.5 + Math.random() * 0.6);
+
     // Flagi nowego zachowania
     this._prevHunt       = false;  // wykrywa wejście w HUNT
     this._searchSpecCD   = 12;     // cooldown spekulatywnych zarzutów w SEARCH
@@ -211,6 +226,9 @@ export class Enemy {
     this.needsReinforcement  = false;
     this._withdrawing        = true;
     this.state               = STATE.WITHDRAW;
+    this._vdsState           = 'ready';
+    this._vdsTowing          = false;
+    this._directTorps        = [];
   }
 
   // Wywoływane z GameScene gdy torpeda lub rakieta trafi
@@ -249,6 +267,8 @@ export class Enemy {
     this._updateCharges(dt, sub);
     this._updateASROC(dt, sub);
     this._updateHedgehog(dt, sub);
+    this._updateVDS(dt, sub);
+    this._updateDirectTorpedo(dt, sub);
     this._updateFireParts(dt);
     this._draw();
   }
@@ -511,7 +531,8 @@ export class Enemy {
       this._listening = false;
     }
 
-    const speedMult = this._listening ? 0.05 : 1.0;
+    const speedMult = this._vdsTowing  ? 0.12
+                   : this._listening  ? 0.05 : 1.0;
 
     switch (this.state) {
       case STATE.PATROL: {
@@ -701,6 +722,147 @@ export class Enemy {
     }
 
     this.charges = this.charges.filter(c => !c.exploded || c.explodeTimer > 0);
+  }
+
+  // ── VDS — Sonar Zmienny Głębokości ────────────────────────────────────────
+  // Opuszczany na kabel poniżej termokliny — kontruje ukrywanie się gracza.
+  // Okręt zwalnia do 12% prędkości, kabel trzyma sensor w stałej głębokości.
+
+  _updateVDS(dt, sub) {
+    if (this._sinking || this.destroyed || this.hull < 0.25) return;
+
+    // Śledź czas bez świeżego kontaktu (contact age rośnie → wróg nie wie gdzie jesteś)
+    if (this._contactAge > 1.5) this._vdsNoContactT += dt;
+    else                         this._vdsNoContactT  = 0;
+
+    switch (this._vdsState) {
+      case 'ready': {
+        // Warunek deployu: brak kontaktu przez 8s, gracz ukrywa się pod termoklinem
+        const wantDeploy = this._vdsNoContactT >= 8
+          && (this.state === STATE.ALERT || this.state === STATE.SEARCH || this.state === STATE.HUNT)
+          && sub.belowThermocline;
+        if (wantDeploy) {
+          this._vdsState  = 'active';
+          this._vdsTimer  = 32 + Math.random() * 8;   // aktywny 32-40s
+          this._vdsTowing = true;
+          this.scene._shipLog?.('[HYDROAK.] Wróg opuszcza sonar na kablu — penetracja termokliny!', 'danger');
+          this.scene._logEvent?.('VDS AKTYWNY — sonar poniżej termokliny.');
+        }
+        break;
+      }
+      case 'active': {
+        this._vdsTimer -= dt;
+        // Pozycja sensora: za rufą okrętu, 85px poniżej termokliny
+        const THERMO = this.scene.THERMO_Y;
+        const sensorX = this.x - this.dir * 35;
+        const sensorY = THERMO + 85;
+
+        // Wykrycie gracza w zasięgu sensora (320px) — IGNORUJE termoklinem
+        const dx = sub.x - sensorX;
+        const dy = sub.y - sensorY;
+        if (Math.sqrt(dx * dx + dy * dy) < 320) {
+          this.detectTimer   = Math.min(this.detectTimer + dt * 1.6, this._huntT + 1);
+          this.lastKnownSubX = sub.x;
+          this.lastKnownSubY = sub.y;
+          this._contactAge   = 0;
+          this._vdsNoContactT = 0;
+          this.revealTimer   = Math.max(this.revealTimer, 5.0);
+        }
+
+        if (this._vdsTimer <= 0) {
+          this._vdsState  = 'cooldown';
+          this._vdsTimer  = this._vdsCooldownBase;
+          this._vdsTowing = false;
+          this.scene._logEvent?.('VDS wycofany.');
+        }
+        break;
+      }
+      case 'cooldown': {
+        this._vdsTimer -= dt;
+        if (this._vdsTimer <= 0) {
+          this._vdsState    = 'ready';
+          this._vdsNoContactT = 0;
+        }
+        break;
+      }
+    }
+  }
+
+  // ── Torpeda bezpośrednia SET-65 / Mk.46 ───────────────────────────────────
+  // Szybka torpeda nienaprowadzana, odpalana ze świeżego kontaktu na znany cel.
+  // W przeciwieństwie do ASROC — brak homing. Wymaga dobrego rozwiązania ogniowego.
+
+  _updateDirectTorpedo(dt, sub) {
+    if (this._sinking || this.destroyed) return;
+
+    this._directTorpCD = Math.max(0, this._directTorpCD - dt);
+
+    // ── Odpalenie ───────────────────────────────────────────────────────────
+    const WORLD_W = this.scene.WORLD_W;
+    let dx = this.lastKnownSubX - this.x;
+    if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
+    const dist = Math.abs(dx);
+
+    const canFire = this.state === STATE.HUNT
+      && this._directTorpCD <= 0
+      && this._contactAge < 4.5       // tylko ze świeżego kontaktu
+      && dist > 400 && dist < 1700
+      && this.hull > 0.15;
+
+    if (canFire) {
+      // Dead reckoning: predykcja pozycji z lead time ~8s
+      const flightT = dist / 175;
+      const tgtX = this.lastKnownSubX + (this._lastKnownVX || 0) * flightT * 0.65;
+      const tgtY = Phaser.Math.Clamp(
+        this.lastKnownSubY + (this._lastKnownVY || 0) * flightT * 0.50,
+        this.scene.SURFACE_Y + 20, this.scene.OCEAN_FLOOR_Y - 20
+      );
+      const angle = Math.atan2(tgtY - this.y, tgtX - this.x);
+      this._directTorps.push({
+        x: this.x, y: this.scene.SURFACE_Y + 8,
+        vx: Math.cos(angle) * 175,
+        vy: Math.sin(angle) * 175,
+        life: 13, hit: false,
+        trail: [],
+      });
+      this._directTorpCD = this._directTorpCDBase;
+      this.scene._shipLog?.('[WRÓG] Torpeda odpalona — kurs na К-481!', 'danger');
+      this.scene._logEvent?.('Torpeda wroga — bezpośrednia!');
+    }
+
+    // ── Update aktywnych torped ─────────────────────────────────────────────
+    for (const t of this._directTorps) {
+      if (t.hit) continue;
+      t.x    += t.vx * dt;
+      t.y    += t.vy * dt;
+      t.life -= dt;
+
+      // Ślad bąbelków
+      t.trail.push({ x: t.x, y: t.y, age: 0 });
+      if (t.trail.length > 12) t.trail.shift();
+      for (const p of t.trail) p.age += dt;
+
+      // Trafienie gracza
+      const hx = sub.x - t.x;
+      const hy = sub.y - t.y;
+      if (Math.sqrt(hx * hx + hy * hy) < 18) {
+        t.hit = true;
+        const dmg = 0.28 + Math.random() * 0.06;
+        if (sub.applyDamage) sub.applyDamage(dmg, 'TORPEDA BEZPOŚREDNIA');
+        else sub.hull = Math.max(0, sub.hull - dmg);
+        this.scene._impactFX?.trigger(t.x, t.y);
+        this.scene._shake?.(350, 0.012);
+        this.scene.cameras.main.flash(200, 255, 80, 40, false);
+        this.scene._shipLog?.('TRAFIENIE — torpeda bezpośrednia. Kadłub uszkodzony!', 'danger');
+      }
+
+      // Upłynął czas życia — cicha eksplozja
+      if (t.life <= 0 && !t.hit) {
+        t.hit = true;
+        this.scene._impactFX?.trigger(t.x, t.y);
+      }
+    }
+    this._directTorps = this._directTorps.filter(t => !t.hit || t.life > -0.5);
   }
 
   _dropPattern(sub) {
@@ -1234,6 +1396,44 @@ export class Enemy {
         g.fillStyle(0xffffff, 0.22);
         g.fillCircle(c.x, c.y - 9, 3);
       }
+    }
+
+    // ── VDS — kabel i sensor ───────────────────────────────────────────────
+    if (this._vdsState === 'active') {
+      const THERMO  = this.scene.THERMO_Y;
+      const sensorX = this.x - this.dir * 35;
+      const sensorY = THERMO + 85;
+      const pulse   = 0.5 + 0.5 * Math.sin(Date.now() * 0.006);
+      // Kabel
+      g.lineStyle(1.5, 0x44ddff, 0.55);
+      g.strokeLineShape(new Phaser.Geom.Line(this.x, this.scene.SURFACE_Y + 4, sensorX, sensorY));
+      // Sensor — okrąg z pulsowaniem
+      g.lineStyle(1.2, 0x00ffff, 0.18 + pulse * 0.12);
+      g.strokeCircle(sensorX, sensorY, 320);
+      g.lineStyle(2, 0x00ffff, 0.55 + pulse * 0.35);
+      g.strokeCircle(sensorX, sensorY, 8);
+      g.fillStyle(0x00ffff, 0.70 + pulse * 0.20);
+      g.fillCircle(sensorX, sensorY, 4);
+    }
+
+    // ── Torpedy bezpośrednie ───────────────────────────────────────────────
+    for (const t of this._directTorps) {
+      if (t.hit) continue;
+      // Ślad
+      for (let i = 0; i < t.trail.length; i++) {
+        const p   = t.trail[i];
+        const frc = (i / t.trail.length) * Math.max(0, 1 - p.age * 1.2);
+        g.fillStyle(0xaaddff, frc * 0.40);
+        g.fillCircle(p.x, p.y, 2.5 + frc * 3);
+      }
+      // Korpus torpedy
+      g.save();
+      g.translateCanvas(t.x, t.y);
+      g.fillStyle(0xddeecc, 0.90);
+      g.fillEllipse(0, 0, 20, 7);
+      g.fillStyle(0xff8844, 0.80);
+      g.fillCircle(-10, 0, 3.5);
+      g.restore();
     }
 
     // ── Okręt — widoczny tylko po trafieniu echem sonaru ──────────────────

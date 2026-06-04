@@ -4,6 +4,29 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.12.7] — 2026-05-26
+
+### Dodano — Nowa broń wrogów: VDS i torpeda bezpośrednia SET-65
+
+**VDS — Variable Depth Sonar (Sonar Zmienny Głębokości):**
+- Deploy gdy: brak kontaktu przez 8s + gracz pod termoklinem + wróg w ALERT/SEARCH/HUNT
+- Sensor opuszczany na kablu do THERMO_Y + 85px — wykrywa gracza **niezależnie od termokliny**
+- Zasięg: 320px | Czas aktywności: 32-40s | Cooldown: easy≈155s, normal≈95s, hard≈58s
+- Okręt zwalnia do 12% prędkości podczas holowania kabla
+- Wizual: niebieska linia kablowa od rufy + pulsujący sensor z kółkiem zasięgu
+- Log: "[HYDROAK.] Wróg opuszcza sonar na kablu — penetracja termokliny!"
+
+**Torpeda bezpośrednia SET-65/Mk.46 analog:**
+- Warunek: HUNT + contactAge < 4.5s (świeży kontakt) + dystans 400-1700px
+- Prędkość: 175px/s | Czas życia: 13s | Uszkodzenie: 0.28-0.34
+- Dead reckoning z lead time — kompensuje prędkość gracza (VX×0.65, VY×0.50)
+- Nienaprowadzana (nie homing) — można uniknąć ruchem prostopadłym
+- Cooldown: easy≈68s, normal≈42s, hard≈26s
+- Wizual: biały korpus z pomarańczową głowicą + ślad bąbelkowy
+- Log: "[WRÓG] Torpeda odpalona — kurs na К-481!"
+
+---
+
 ## [0.12.6] — 2026-05-26
 
 ### Dodano — AI: adaptacyjne zachowanie wrogów (SessionMemory)
