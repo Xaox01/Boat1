@@ -161,6 +161,40 @@ export class Enemy {
     this.fireGfx    = scene.add.graphics().setDepth(4).setBlendMode(Phaser.BlendModes.ADD);
     this._fireParts  = [];
     this._emberParts = [];
+
+    // Skalowanie wg trudności — nadpisuje stałe globalne per-instancja
+    this._initDifficulty();
+  }
+
+  _initDifficulty() {
+    const diff = window._gameSettings?.difficulty?.key ?? 'normal';
+    const D    = { easy: 0.60, normal: 1.0, hard: 1.50 }[diff] ?? 1.0;
+    this._D = D;
+
+    // Wykrywanie
+    this._hydro   = BASE_HYDROPHONE * (0.70 + D * 0.50);   // easy≈374, normal≈480, hard≈635
+    this._alertT  = ALERT_THRESHOLD / (0.55 + D * 0.55);   // easy≈2.9s, normal≈2.2s, hard≈1.5s
+    this._huntT   = HUNT_THRESHOLD  / (0.55 + D * 0.55);   // easy≈9.6s, normal≈7.0s, hard≈4.8s
+    this._searchDurBase = SEARCH_DURATION * (0.70 + D * 0.50);  // easy≈35s, normal≈50s, hard≈70s
+
+    // Broń
+    this._asrocCDBase  = ASROC_COOLDOWN  / (0.65 + D * 0.55);  // easy≈91s, normal≈70s, hard≈43s
+    this._chargeCDBase = CHARGE_COOLDOWN / (0.65 + D * 0.55);  // easy≈16s, normal≈13s, hard≈8s
+    this._hedgeCDBase  = HEDGE_COOLDOWN  / (0.65 + D * 0.55);  // easy≈31s, normal≈24s, hard≈15s
+
+    // Ruch i taktyka
+    this._huntSpdMult = 0.75 + D * 0.35;   // easy≈0.96, normal≈1.10, hard≈1.28
+    this._drMaxAge    = 7 + D * 6;          // easy≈7.6s, normal≈10s, hard≈13s (dłuższe DR)
+
+    // Nadpisz cooldowny ustawione już w konstruktorze
+    this.asrocCD    = this._asrocCDBase  * (0.6 + Math.random() * 0.6);
+    this.hedgehogCD = this._hedgeCDBase  * (0.4 + Math.random() * 0.8);
+    this.chargeCD   = 0;
+
+    // Flagi nowego zachowania
+    this._prevHunt       = false;  // wykrywa wejście w HUNT
+    this._searchSpecCD   = 12;     // cooldown spekulatywnych zarzutów w SEARCH
+    this._patrolUpdated  = false;  // czy patrol był już przesunięty na pozycję gracza
   }
 
   // Inicjuje animację tonięcia — niszczyciel tonie przez ~7.5s zanim destroyed=true
@@ -333,7 +367,7 @@ export class Enemy {
     // Wabia maskuje okręt — im głośniejsza, tym mniejszy skuteczny zasięg hydrofonu
     const decoyMask = Math.min(0.88, bestDecoyStr * 2.2);
 
-    let range = BASE_HYDROPHONE * sub.noiseEffective * (1 - decoyMask);
+    let range = this._hydro * sub.noiseEffective * (1 - decoyMask);
     if (sub.belowThermocline) range *= THERMO_MASK;
 
     // Strefa ciszy akustycznej — tuż pod okrętem, własna śruba zagłusza dziobowy hydrofor
@@ -346,7 +380,7 @@ export class Enemy {
            : 1.0;
 
     if (dist < range) {
-      this.detectTimer      = Math.min(this.detectTimer + dt * (1 - decoyMask * 0.6), HUNT_THRESHOLD + 1);
+      this.detectTimer      = Math.min(this.detectTimer + dt * (1 - decoyMask * 0.6), this._huntT + 1);
       this.lastBearingToSub = Math.atan2(dy, dx);
       this.lastKnownSubX    = sub.x;
       this.lastKnownSubY    = sub.y;
@@ -368,12 +402,12 @@ export class Enemy {
       this.detectTimer = Math.max(0, this.detectTimer - decay * dt);
     }
 
-    this.detectionLevel = Phaser.Math.Clamp(this.detectTimer / HUNT_THRESHOLD, 0, 1);
+    this.detectionLevel = Phaser.Math.Clamp(this.detectTimer / this._huntT, 0, 1);
 
     const prev = this.state;
-    if      (this.detectTimer >= HUNT_THRESHOLD)  this.state = STATE.HUNT;
-    else if (this.detectTimer >= ALERT_THRESHOLD) this.state = STATE.ALERT;
-    else if (this.detectTimer >  0)               this.state = STATE.ALERT;
+    if      (this.detectTimer >= this._huntT)  this.state = STATE.HUNT;
+    else if (this.detectTimer >= this._alertT) this.state = STATE.ALERT;
+    else if (this.detectTimer >  0)            this.state = STATE.ALERT;
     else if (this.searchTimer >  0) {
       this.state = STATE.SEARCH;
       this.searchTimer -= dt;
@@ -399,13 +433,35 @@ export class Enemy {
       }
     }
 
-    if (prev === STATE.HUNT && this.state !== STATE.HUNT && this.state !== STATE.WITHDRAW) {
-      this.searchTimer  = SEARCH_DURATION;
-      this.overshootX   = null;
-      this._contactAge  = 0;
-      this._drListenTimer = 0;
-      this.pingTimer = Math.min(this.pingTimer, 1.8); // ping burst tuż po utracie kontaktu
+    // Wejście w HUNT — burst sonarowy
+    if (prev !== STATE.HUNT && this.state === STATE.HUNT) {
+      this.pingTimer = 0.3;   // natychmiastowy ping
+      // Drugi ping po 2.5s
+      this.scene.time?.delayedCall(2500, () => {
+        if (!this.destroyed && !this._sinking && this.state === STATE.HUNT) {
+          this.activePings.push({ r: 0, alpha: 0.75 });
+        }
+      });
     }
+
+    if (prev === STATE.HUNT && this.state !== STATE.HUNT && this.state !== STATE.WITHDRAW) {
+      this.searchTimer    = this._searchDurBase;
+      this.overshootX     = null;
+      this._contactAge    = 0;
+      this._drListenTimer = 0;
+      this._searchSpecCD  = 10;
+      this.pingTimer = Math.min(this.pingTimer, 1.8);
+    }
+
+    // Po zakończeniu SEARCH bez sukcesu — przesuń patrol na ostatnią pozycję gracza
+    if (prev === STATE.SEARCH && this.state === STATE.PATROL && !this._patrolUpdated) {
+      this._patrolUpdated = true;
+      const spread = 700 + this._D * 200;
+      const WORLD_W = this.scene.WORLD_W;
+      this.patrolLeft  = Math.max(0,       this.lastKnownSubX - spread);
+      this.patrolRight = Math.min(WORLD_W, this.lastKnownSubX + spread);
+    }
+    if (this.state === STATE.HUNT) this._patrolUpdated = false;
 
     // Wycofanie nadpisuje inne stany gdy okręt krytycznie uszkodzony
     if (this._withdrawing || this.hull < 0.10) {
@@ -472,7 +528,7 @@ export class Enemy {
         break;
       }
       case STATE.HUNT: {
-        const drAge   = Math.min(this._contactAge, 9);
+        const drAge   = Math.min(this._contactAge, this._drMaxAge);
         const drTargX = this.lastKnownSubX + this._lastKnownVX * drAge * DR_VX_WEIGHT;
         let   dx      = drTargX - this.x;
         if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
@@ -507,10 +563,9 @@ export class Enemy {
           // else: optymalna strefa — nie ruszaj się, tylko pinguj
         } else {
           // DRIVER lub SOLO — agresywny pościg, dwufazowy DR
-          // Faza 1 (contactAge < 3s): sprint; Faza 2 (>6s DR): spowolnienie + nasłuch
-          const huntSpd = this._contactAge < 3  ? HUNT_SPEED * 1.18
+          const huntSpd = this._contactAge < 3  ? HUNT_SPEED * 1.18 * this._huntSpdMult
                         : this._contactAge > 6  ? HUNT_SPEED * 0.52
-                        : HUNT_SPEED;
+                        : HUNT_SPEED * this._huntSpdMult;
 
           if (this.overshootX === null) {
             if (Math.abs(dx) > 20) this.dir = Math.sign(dx);
@@ -584,10 +639,20 @@ export class Enemy {
   _updateCharges(dt, sub) {
     this.chargeCD = Math.max(0, this.chargeCD - dt);
 
-    // Spekulacyjne zarzuty podczas przeszukiwania
-    if (this.state === STATE.SEARCH && this.chargeCD <= 0 && Math.random() < 0.014) {
-      this._dropPattern(sub);
-      this.chargeCD = CHARGE_COOLDOWN * 1.8;
+    // Spekulacyjne zarzuty podczas przeszukiwania — regularnie + szansa losowa
+    this._searchSpecCD = Math.max(0, (this._searchSpecCD || 12) - dt);
+    if (this.state === STATE.SEARCH && this.chargeCD <= 0) {
+      const specChance = 0.008 + this._D * 0.009;
+      if (this._searchSpecCD <= 0 || Math.random() < specChance) {
+        this._dropPattern(sub);
+        // Dodatkowe zarzuty na flankach
+        this.charges.push(
+          { x: this.x + 200 * this._D, y: this.scene.SURFACE_Y + 10, targetY: sub.y + Phaser.Math.Between(-50, 50), speed: CHARGE_FALL_SPD, exploded: false, explodeTimer: 0 },
+          { x: this.x - 200 * this._D, y: this.scene.SURFACE_Y + 10, targetY: sub.y + Phaser.Math.Between(-50, 50), speed: CHARGE_FALL_SPD, exploded: false, explodeTimer: 0 }
+        );
+        this.chargeCD      = this._chargeCDBase * 1.6;
+        this._searchSpecCD = 10 + Math.random() * 6;
+      }
     }
 
     // Zarzuty gdy w fazie podejścia
@@ -598,7 +663,7 @@ export class Enemy {
 
       if (Math.abs(dx) < 85 && this.chargeCD <= 0) {
         this._dropPattern(sub);
-        this.chargeCD   = CHARGE_COOLDOWN;
+        this.chargeCD   = this._chargeCDBase;
         this.overshootX = this.x + this.dir * HUNT_OVERSHOOT;
       }
     }
@@ -692,7 +757,8 @@ export class Enemy {
         leadX + Phaser.Math.Between(-45, 45),  // lekki rozrzut
         leadY
       ));
-      this.asrocCD     = ASROC_COOLDOWN;
+      // W HUNT cooldown krótszy — agresywna odpowiedź ogniowa
+      this.asrocCD     = this.state === STATE.HUNT ? this._asrocCDBase * 0.70 : this._asrocCDBase;
       this.recentASROC = true;
     }
 
@@ -734,7 +800,7 @@ export class Enemy {
 
       if (approach && dist > HEDGE_MIN_DIST && dist < HEDGE_MAX_DIST) {
         this._fireHedgehog();
-        this.hedgehogCD = HEDGE_COOLDOWN;
+        this.hedgehogCD = this._hedgeCDBase;
       }
     }
 

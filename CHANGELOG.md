@@ -4,6 +4,32 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.12.5] — 2026-05-26
+
+### Zmieniono — AI wrogów: skalowanie trudności + agresywniejsze zachowanie
+
+**Skalowanie per-instancja wg trudności (`_initDifficulty()`):**
+| Parametr | Easy | Normal | Hard |
+|---|---|---|---|
+| Zasięg hydrofonu | ~374px | 480px | ~635px |
+| Próg ALERT | ~2.9s | 2.2s | ~1.5s |
+| Próg HUNT | ~9.6s | 7.0s | ~4.8s |
+| ASROC cooldown | ~91s | 70s | ~43s |
+| Zarzuty cooldown | ~16s | 13s | ~8s |
+| Hedgehog cooldown | ~31s | 24s | ~15s |
+| Prędkość HUNT | ×0.96 | ×1.10 | ×1.28 |
+| Dead-reckoning | 7.6s | 10s | 13s |
+| SEARCH czas | ~35s | 50s | ~70s |
+
+**Nowe zachowania:**
+- Ping burst przy wejściu w HUNT — natychmiastowy ping + drugi po 2.5s
+- ASROC cooldown w HUNT skrócony o 30% (szybsza odpowiedź ogniowa)
+- SEARCH: regularne spekulatywne zarzuty co ~10-16s + zarzuty na flankach ±200px
+- Po zakończeniu SEARCH — patrol przesuwa się na ostatnią poznaną pozycję gracza (±700px)
+- Dead-reckoning: dłuższy horyzont predykcji (7–13s zależnie od trudności)
+
+---
+
 ## [0.12.4] — 2026-05-26
 
 ### Dodano — Tryb Sandbox w menu głównym
