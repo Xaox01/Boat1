@@ -4,6 +4,19 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.12.3] — 2026-05-26
+
+### Zmieniono — Mission1: dwa wrogowie, mechanika wywiadu, prawdziwy pościg
+
+- Dwa wrogie okręty: USS DALLAS (wolny, dalej) + FREGATA ESCORT (szybsza, blokuje dostęp)
+- Mechanika wywiadu biernego: gracz musi zebrać 35s w zasięgu <2000px, poniżej termokliny i w ciszy — oba wrogi mają niezależne timery pingów (Dallas 22s, eskorta 16s)
+- Wykrycie podczas pingu: oba okręty przechodzą w HUNT na 14s, intel opada 2.5x szybciej
+- Po pingu [Q]: Dallas + eskorta wchodzą w STATE.HUNT — Dallas strzela torpedą (naturalnie przez AI), eskorta zrzuca zarzuty
+- HUD karta aktualizowana co klatkę: pokazuje m.in. czas do następnego pingu obu wrogów
+- Zampolit pojawia się automatycznie po 50s misji (overlay bez pauzy)
+
+---
+
 ## [0.12.2] — 2026-05-26
 
 ### Zmieniono — Mission1: architektura ciągłej gry (bez step-modali)
