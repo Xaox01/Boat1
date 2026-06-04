@@ -383,25 +383,7 @@ export class Enemy {
     const dy   = sub.y - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // Wabie akustyczne — sprawdź czy głośniejsze od okrętu gracza
-    const noisemakers = this.scene.noisemakers || [];
-    let bestDecoy = null, bestDecoyStr = 0;
-    for (const nm of noisemakers) {
-      const ndx   = nm.x - this.x;
-      const ndy   = nm.y - this.y;
-      const ndist = Math.sqrt(ndx * ndx + ndy * ndy);
-      // Siła wabii: pełna moc * zanik z wiekiem * zanik z dystansem
-      const str = nm.noise * (1 - nm.age / nm.lifetime)
-                * Math.max(0, 1 - ndist / (BASE_HYDROPHONE * 1.4));
-      if (str > bestDecoyStr) { bestDecoyStr = str; bestDecoy = nm; }
-    }
-    // Rejestruj nowy wabik w pamięci sesji
-    if (bestDecoy) mem.onDecoy(bestDecoy, this.scene);
-    // Wabia maskuje okręt — nasycenie redukuje jej skuteczność
-    const rawMask  = Math.min(0.88, bestDecoyStr * 2.2);
-    const decoyMask = rawMask * (1 - mem.decoySat);
-
-    let range = this._hydro * sub.noiseEffective * (1 - decoyMask);
+    let range = this._hydro * sub.noiseEffective;
     if (sub.belowThermocline) range *= THERMO_MASK;
 
     // Strefa ciszy akustycznej — tuż pod okrętem, własna śruba zagłusza dziobowy hydrofor
@@ -414,7 +396,7 @@ export class Enemy {
            : 1.0;
 
     if (dist < range) {
-      this.detectTimer      = Math.min(this.detectTimer + dt * (1 - decoyMask * 0.6), this._huntT + 1);
+      this.detectTimer      = Math.min(this.detectTimer + dt, this._huntT + 1);
       this.lastBearingToSub = Math.atan2(dy, dx);
       this.lastKnownSubX    = sub.x;
       this.lastKnownSubY    = sub.y;
@@ -423,12 +405,6 @@ export class Enemy {
       this._lastKnownVY     = sub.vy || 0;
     } else {
       this._contactAge += dt;
-
-      // W HUNT z aktywną wabią → niszczyciel skieruje się na wabię zamiast okrętu
-      if (bestDecoy && decoyMask > 0.25 && (this.state === STATE.HUNT || this.state === STATE.ALERT)) {
-        this.lastKnownSubX = bestDecoy.x;
-        this.lastKnownSubY = this.scene.SURFACE_Y;
-      }
 
       // Zanik: szybszy pod termoklinem (nagroda za krycie się), wolniejszy na otwartej wodzie
       const huntDecay = sub.belowThermocline ? HUNT_DECAY_THERMO : HUNT_DECAY_BASE;

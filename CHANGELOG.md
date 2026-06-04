@@ -4,6 +4,28 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.12.9] — 2026-05-26
+
+### Dodano — Miny morskie [T]
+
+- Gracz zrzuca minę morską klawiszem **[T]** — mina unosi się 18px pod powierzchnią
+- 3 sekundy uzbrajaania po zrzucie (ochrona przed samozniszczeniem)
+- Mina eksploduje gdy wróg przepłynie w promieniu 90px: uszkodzenie 0.45 kadłuba
+- Zapas: 3 miny — licznik w HUD (pomarańczowy gdy 1, czerwony gdy 0)
+- Rysowanie: klasyczny korpus ze szpikulcami (8 kolców), czerwony gdy uzbrojony, żółty gdy się uzbraja
+- Kolizja sprawdzana w `_drawMines()` — wywołuje `onEnemyDestroyed` jeśli wróg zatopiony
+
+### Usunięto — Wabiki akustyczne (noisemakers)
+
+- Usunięto `deployNoisemaker()`, `noisemakers[]`, `noisemakerCount` z Submarine.js
+- Usunięto całą logikę decoy detection z Enemy.js (`bestDecoy`, `decoyMask`, `decoySat`)
+- Usunięto wzorzec #3 (wabiki) z SessionMemory.js — zostały tylko termoklina i kierunek ucieczki
+- Usunięto `_drawNoisemakers()` z GameScene.js → zastąpiona przez `_drawMines()`
+- Klawisz [T] przepiętny: Wabia → Mina morska
+- HUD etykieta: "Wabia" → "Miny"
+
+---
+
 ## [0.12.8] — 2026-05-26
 
 ### Dodano — Działo okrętowe + lepsza AI ASROC i torpedy

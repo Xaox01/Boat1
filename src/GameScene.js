@@ -95,7 +95,7 @@ export class GameScene extends Phaser.Scene {
     this.sub   = new Submarine(this, CAM_W / 2, SURFACE_Y + 225); // ~270m — poniżej termokliny (test sonaru)
     this.sub.infiniteAmmo = (this._getCfg() || {}).infiniteAmmo ?? false;
     // Alias dla EnemyASROC — torpedy sprawdzają ten array
-    Object.defineProperty(this, 'noisemakers', { get: () => this.sub.noisemakers });
+    Object.defineProperty(this, 'noisemakers', { get: () => [] }); // legacy — wabiki usunięte
 
     // Niszczyciele pojawią się po opóźnieniu — gracz ma czas na zanurzenie
     this.enemies          = [];
@@ -390,13 +390,13 @@ export class GameScene extends Phaser.Scene {
       if (t) { t.cmdDetonate = true; this._logEvent(tr('log_detonate')); }
     }
 
-    // T = wyrzuć wabię akustyczną
+    // T = zrzuć minę morską
     if (Phaser.Input.Keyboard.JustDown(this.keys.t)) {
-      if (this.sub.deployNoisemaker()) {
-        this._logEvent(tr('log_decoy_fired'));
-        this._shipLog(`Wyrzucono wabię akustyczną. Pozostało: ${this.sub.noisemakerCount}.`, 'good');
+      if (this.sub.deployMine()) {
+        this._logEvent(`Mina morska zrzucona. Pozostało: ${this.sub.mineCount}.`);
+        this._shipLog(`Mina morska zrzucona — uzbraja się po 3s. Pozostało: ${this.sub.mineCount}.`, 'warn');
       } else {
-        this._logEvent(tr('log_no_decoys'));
+        this._logEvent('Brak min morskich.');
       }
     }
 
@@ -760,7 +760,7 @@ export class GameScene extends Phaser.Scene {
     this._updateTargetPanel();
     this._checkEvents();
     this._drawAimReticle();
-    this._drawNoisemakers();
+    this._drawMines();
 
   }
 
@@ -999,9 +999,9 @@ export class GameScene extends Phaser.Scene {
       this._setText(hudClock, `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`);
     }
 
-    const nm = this.sub.noisemakerCount;
-    this._setText(hudNoisemakers, `${nm}`);
-    this._setCol(hudNoisemakers, nm === 0 ? '#ff4a4a' : nm === 1 ? '#ffcc44' : '#88ddff');
+    const mc = this.sub.mineCount;
+    this._setText(hudNoisemakers, `${mc}`);
+    this._setCol(hudNoisemakers, mc === 0 ? '#ff4a4a' : mc === 1 ? '#ffcc44' : '#ff8800');
 
     if (hudPing) {
       const pc = this._pingCD || 0;
@@ -1707,42 +1707,73 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  // ── Wabie akustyczne — rysowanie ──────────────────────────────────────────
+  // ── Miny morskie — rysowanie i kolizje ────────────────────────────────────
 
-  _drawNoisemakers() {
+  _drawMines() {
     if (!this._nmGfx) {
       this._nmGfx = this.add.graphics().setDepth(14);
     }
     const g = this._nmGfx;
     g.clear();
 
-    const t   = Date.now() * 0.001;
     const cam = this.camX;
 
-    for (const nm of this.sub.noisemakers) {
-      const sx  = nm.x - cam;
-      const sy  = nm.y;
-      const frac = nm.age / nm.lifetime;
-      const alpha = 1 - frac * 0.6;
+    for (const mine of this.sub.mines) {
+      const sx = mine.x - cam;
+      const sy = mine.y;
+      const col = mine.armed ? 0xff4400 : 0xffaa00;
 
-      // Pierścień pulsujący — sygnał akustyczny
-      const pulse = 0.5 + 0.5 * Math.sin(t * 6);
-      g.lineStyle(1.5, 0x44aaff, alpha * 0.35 * pulse);
-      g.strokeCircle(sx, sy, 28 + pulse * 12);
+      // Korpus miny
+      g.fillStyle(col, 0.90);
+      g.fillCircle(sx, sy, 7);
+      g.lineStyle(1.5, col, 0.70);
+      g.strokeCircle(sx, sy, 7);
 
-      // Bąbelki / ikona wabii
-      g.fillStyle(0x88ddff, alpha * 0.80);
-      g.fillCircle(sx, sy, 5);
-      g.fillStyle(0x0055aa, alpha * 0.55);
-      g.fillCircle(sx, sy, 3);
+      // Kolce (klasyczna mina morska) — 8 kierunków
+      for (let i = 0; i < 8; i++) {
+        const a  = (i / 8) * Math.PI * 2;
+        const r1 = 7, r2 = 13;
+        g.lineStyle(1.5, col, 0.65);
+        g.strokeLineShape(new Phaser.Geom.Line(
+          sx + Math.cos(a) * r1, sy + Math.sin(a) * r1,
+          sx + Math.cos(a) * r2, sy + Math.sin(a) * r2
+        ));
+      }
 
-      // Mały tekst czas życia (pasek postępu pod wabią)
-      const barW = 20;
-      const filled = (1 - frac) * barW;
-      g.fillStyle(0x003366, 0.50);
-      g.fillRect(sx - barW / 2, sy + 8, barW, 3);
-      g.fillStyle(0x44aaff, alpha * 0.80);
-      g.fillRect(sx - barW / 2, sy + 8, filled, 3);
+      // Impuls sonarowy gdy mina uzbrojona (gracz ją widzi na sonarze)
+      if (mine.armed) {
+        const pulse = 0.3 + 0.3 * Math.sin(Date.now() * 0.005);
+        g.lineStyle(1, 0xff6600, pulse * 0.4);
+        g.strokeCircle(sx, sy, mine.blastR);
+      } else {
+        // Pasek uzbrajaania
+        const pct = 1 - mine.armT / 3.0;
+        g.fillStyle(0xffaa00, 0.40);
+        g.fillRect(sx - 10, sy + 10, 20 * pct, 2);
+      }
+
+      // Kolizja z wrogami (tylko miny uzbrojone)
+      if (!mine.armed) continue;
+      for (const e of this.enemies.filter(en => !en.destroyed && !en._sinking)) {
+        const dx = e.x - mine.x;
+        const dy = e.y - mine.y;
+        if (Math.sqrt(dx * dx + dy * dy) < mine.blastR) {
+          mine.exploded = true;
+          e.hull -= 0.45;
+          e.onHit();
+          this._impactFX.trigger(mine.x, mine.y);
+          this._shake(450, 0.018);
+          this.cameras.main.flash(280, 255, 140, 50, false);
+          const brg = this._brg(this.sub.x, this.sub.y, e.x, e.y);
+          this._shipLog(`MINA! Trafienie — ${e.label || 'niszczyciel'}. Nam. ${brg}°. Kadłub: ${Math.round(e.hull * 100)}%.`, 'good');
+          this._logEvent(`Mina — trafienie w ${e.label || 'cel'}.`);
+          if (e.hull <= 0) {
+            e.startSinking();
+            this.mission?.onEnemyDestroyed(e);
+            this.campaign?.onEnemyDestroyed(e);
+          }
+        }
+      }
     }
   }
 

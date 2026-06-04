@@ -73,9 +73,9 @@ export class Submarine {
     this.missileFireCD = 0;
     this.noiseSurge    = 0;   // chwilowy skok hałasu po odpaleniu rakiety
 
-    // Wabie akustyczne (noisemakers)
-    this.noisemakerCount = 5;
-    this.noisemakers     = [];   // aktywne wabie w wodzie
+    // Miny morskie
+    this.mineCount = 3;
+    this.mines     = [];   // aktywne miny w wodzie
 
 
     this.infiniteAmmo = false;
@@ -123,15 +123,16 @@ export class Submarine {
     return tube.id;
   }
 
-  deployNoisemaker() {
-    if (this.noisemakerCount <= 0 && !this.infiniteAmmo) return false;
-    if (!this.infiniteAmmo) this.noisemakerCount--;
-    this.noisemakers.push({
-      x:        this.x,
-      y:        this.y,
-      age:      0,
-      lifetime: 45,        // 45s aktywności
-      noise:    1.2,       // silny sygnał akustyczny — wabik dla torped
+  deployMine() {
+    if (this.mineCount <= 0 && !this.infiniteAmmo) return false;
+    if (!this.infiniteAmmo) this.mineCount--;
+    this.mines.push({
+      x:       this.x,
+      y:       this.scene.SURFACE_Y - 18,  // unosi się tuż pod powierzchnią
+      armed:   false,
+      armT:    3.0,    // uzbrajanie po 3s (ochrona przed natychmiastowym samozniszczeniem)
+      age:     0,
+      blastR:  90,
     });
     return true;
   }
@@ -281,9 +282,12 @@ export class Submarine {
     for (const m of this.missiles.filter(m => m.dead)) m.destroy();
     this.missiles = this.missiles.filter(m => !m.dead);
 
-    // Wabie akustyczne — starzenie i usuwanie
-    for (const n of this.noisemakers) n.age += dt;
-    this.noisemakers = this.noisemakers.filter(n => n.age < n.lifetime);
+    // Miny — uzbrajanie
+    for (const m of this.mines) {
+      m.age += dt;
+      if (!m.armed && m.armT > 0) { m.armT -= dt; if (m.armT <= 0) m.armed = true; }
+    }
+    this.mines = this.mines.filter(m => !m.exploded);
   }
 
   // ── Input ──────────────────────────────────────────────────────────────────

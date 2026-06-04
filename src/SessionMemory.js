@@ -10,22 +10,14 @@ export const mem = {
   escapeSamples:  [],      // ostatnie 12 próbek (±1)
   escapeDir:      0,       // dominujący: -1 lewo, 0 brak, +1 prawo
 
-  // ── Wzorzec 3: Wabiki ────────────────────────────────────────────────────
-  decoyCount:     0,       // łączna liczba wdrożonych wabików
-  decoySat:       0.0,     // nasycenie: 0 = pełna skuteczność, 0.78 = prawie żadna
-  _knownDecoys:   null,    // WeakSet znanych wabików (deduplikacja)
-
   // ── Logi jednorazowe ─────────────────────────────────────────────────────
   _logThermo:  false,
-  _logDecoy:   false,
   _logEscape:  false,
 
   reset() {
-    this.thermoHides = 0;  this.thermoAdaptive = false;
-    this.escapeSamples = []; this.escapeDir = 0;
-    this.decoyCount = 0;   this.decoySat = 0;
-    this._logThermo  = false; this._logDecoy = false; this._logEscape = false;
-    this._knownDecoys = new WeakSet();
+    this.thermoHides    = 0;  this.thermoAdaptive = false;
+    this.escapeSamples  = []; this.escapeDir      = 0;
+    this._logThermo     = false; this._logEscape   = false;
   },
 
   // Wróg stracił kontakt — gracz był pod termoklinem
@@ -62,22 +54,4 @@ export const mem = {
       scene?._logEvent('AI ADAPTACJA: kierunek blokowania zaktualizowany.');
     }
   },
-
-  // Wróg wykrył wabik — rejestruj nasycenie
-  onDecoy(noisemaker, scene) {
-    if (!this._knownDecoys) this._knownDecoys = new WeakSet();
-    if (this._knownDecoys.has(noisemaker)) return;
-    this._knownDecoys.add(noisemaker);
-    this.decoyCount++;
-    this.decoySat = Math.min(0.78, this.decoyCount * 0.13);
-    if (this.decoyCount === 4 && !this._logDecoy) {
-      this._logDecoy = true;
-      scene?._shipLog(
-        '[HYDROAK.] Wróg ignoruje nasze wabiki — zbyt wiele użyć, nasycenie akustyczne.',
-        'warn'
-      );
-      scene?._logEvent('AI ADAPTACJA: wabiki prawie nieskuteczne.');
-    }
-  },
 };
-
