@@ -164,14 +164,19 @@ export class Enemy {
     this._emberParts = [];
 
     // VDS — Sonar Zmienny Głębokości (opuszczany poniżej termokliny)
-    this._vdsState      = 'ready';   // 'ready' | 'active' | 'cooldown'
+    this._vdsState      = 'ready';
     this._vdsTimer      = 0;
-    this._vdsNoContactT = 0;         // czas bez świeżego kontaktu (trigger do deployu)
-    this._vdsTowing     = false;     // czy okręt zwalnia (ciągnąc kabel)
+    this._vdsNoContactT = 0;
+    this._vdsTowing     = false;
 
     // Torpedy bezpośrednie SET-65 / Mk.46 analog
-    this._directTorps   = [];        // aktywne torpedy {x, y, vx, vy, life, hit}
+    this._directTorps   = [];
     this._directTorpCD  = 18 + Math.random() * 15;
+
+    // Działo okrętowe (76mm / 127mm) — ostrzeliwuje gracza na powierzchni
+    this._gunShells     = [];        // {x, y, vx, life}
+    this._gunCD         = 8 + Math.random() * 5;
+    this._gunFlash      = 0;         // timer flesza lufy
 
     // Skalowanie wg trudności — nadpisuje stałe globalne per-instancja
     this._initDifficulty();
@@ -202,10 +207,12 @@ export class Enemy {
     this.hedgehogCD = this._hedgeCDBase  * (0.4 + Math.random() * 0.8);
     this.chargeCD   = 0;
 
-    // VDS i torpedy — skalowanie
+    // VDS, torpedy i działo — skalowanie
     this._vdsCooldownBase   = 95  / (0.65 + D * 0.55);  // easy≈155s, normal≈95s, hard≈58s
     this._directTorpCDBase  = 42  / (0.65 + D * 0.55);  // easy≈68s,  normal≈42s, hard≈26s
     this._directTorpCD = this._directTorpCDBase * (0.5 + Math.random() * 0.6);
+    this._gunCDBase    = 2.6 / (0.55 + D * 0.65);       // easy≈3.5s, normal≈2.6s, hard≈1.7s
+    this._gunRange     = 720 + D * 130;                  // easy≈800px, normal≈850px, hard≈915px
 
     // Flagi nowego zachowania
     this._prevHunt       = false;  // wykrywa wejście w HUNT
@@ -229,6 +236,7 @@ export class Enemy {
     this._vdsState           = 'ready';
     this._vdsTowing          = false;
     this._directTorps        = [];
+    this._gunShells          = [];
   }
 
   // Wywoływane z GameScene gdy torpeda lub rakieta trafi
@@ -269,6 +277,7 @@ export class Enemy {
     this._updateHedgehog(dt, sub);
     this._updateVDS(dt, sub);
     this._updateDirectTorpedo(dt, sub);
+    this._updateNavalGun(dt, sub);
     this._updateFireParts(dt);
     this._draw();
   }
@@ -803,30 +812,45 @@ export class Enemy {
     if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
     const dist = Math.abs(dx);
 
+    // Torpeda tylko ze świeżego lub dobrego kontaktu
+    const tContactFresh = this._contactAge < 2.0;    // pewna pozycja → bracket
+    const tContactGood  = this._contactAge < 5.0;    // akceptowalna → singiel
+    // Gracz zbliża się do wroga → łatwiej trafić (cel się nie oddala)
+    const approaching   = Math.sign(dx) !== Math.sign(this._lastKnownVX || 0);
+
     const canFire = this.state === STATE.HUNT
       && this._directTorpCD <= 0
-      && this._contactAge < 4.5       // tylko ze świeżego kontaktu
-      && dist > 400 && dist < 1700
+      && (tContactFresh || (tContactGood && approaching))
+      && dist > 380 && dist < 1800
       && this.hull > 0.15;
 
     if (canFire) {
-      // Dead reckoning: predykcja pozycji z lead time ~8s
       const flightT = dist / 175;
       const tgtX = this.lastKnownSubX + (this._lastKnownVX || 0) * flightT * 0.65;
       const tgtY = Phaser.Math.Clamp(
         this.lastKnownSubY + (this._lastKnownVY || 0) * flightT * 0.50,
         this.scene.SURFACE_Y + 20, this.scene.OCEAN_FLOOR_Y - 20
       );
-      const angle = Math.atan2(tgtY - this.y, tgtX - this.x);
-      this._directTorps.push({
-        x: this.x, y: this.scene.SURFACE_Y + 8,
-        vx: Math.cos(angle) * 175,
-        vy: Math.sin(angle) * 175,
-        life: 13, hit: false,
-        trail: [],
-      });
+      const baseAngle = Math.atan2(tgtY - this.y, tgtX - this.x);
+
+      const _spawnTorp = (angleOffset = 0) => {
+        const a = baseAngle + angleOffset;
+        this._directTorps.push({
+          x: this.x, y: this.scene.SURFACE_Y + 8,
+          vx: Math.cos(a) * 175, vy: Math.sin(a) * 175,
+          life: 13, hit: false, trail: [],
+        });
+      };
+
+      _spawnTorp(0);
+      // Świeży kontakt → bracket (dwie torpedy z rozrzutem kątowym)
+      if (tContactFresh && this._D >= 1.0) {
+        _spawnTorp(0.10);   // ~6° spread — zamknie pole ucieczki
+      }
+
       this._directTorpCD = this._directTorpCDBase;
-      this.scene._shipLog?.('[WRÓG] Torpeda odpalona — kurs na К-481!', 'danger');
+      const count = (tContactFresh && this._D >= 1.0) ? 'Dwie torpedy odpalono' : 'Torpeda odpalona';
+      this.scene._shipLog?.(`[WRÓG] ${count} — kurs na К-481!`, 'danger');
       this.scene._logEvent?.('Torpeda wroga — bezpośrednia!');
     }
 
@@ -863,6 +887,73 @@ export class Enemy {
       }
     }
     this._directTorps = this._directTorps.filter(t => !t.hit || t.life > -0.5);
+  }
+
+  // ── Działo okrętowe (76mm / 127mm) ────────────────────────────────────────
+  // Ostrzeliwuje gracza gdy wypłynie zbyt blisko. Każdy pocisk leci poziomo
+  // przy powierzchni. Gracz musi szybko zanurzyć się lub odskoczyć za zasięg.
+
+  _updateNavalGun(dt, sub) {
+    if (this._sinking || this.destroyed || this.hull < 0.12) return;
+
+    this._gunCD    = Math.max(0, this._gunCD - dt);
+    this._gunFlash = Math.max(0, this._gunFlash - dt);
+
+    const WORLD_W  = this.scene.WORLD_W;
+    let dx = sub.x - this.x;
+    if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
+    const dist      = Math.abs(dx);
+    const surfaced  = sub.depthMetres < 38;   // gracz blisko powierzchni
+
+    // ── Warunek otwarcia ognia ───────────────────────────────────────────────
+    // Statek widzi gracza wzrokowo gdy wypłynął — nawet w PATROL (bez sonaru)
+    const gunState  = this.state === STATE.HUNT || this.state === STATE.ALERT
+                   || this.state === STATE.PATROL;
+    const canFire   = surfaced
+      && gunState
+      && dist < this._gunRange
+      && this._gunCD <= 0
+      && this.hull > 0.12;
+
+    if (canFire) {
+      // Prędkość pocisku: 440px/s; kompensacja ruchu gracza
+      const speed    = 440;
+      const flightT  = dist / speed;
+      const aimX     = sub.x + (sub.vx || 0) * flightT * 0.75;
+      const dir      = Math.sign(aimX - this.x);
+      this._gunShells.push({ x: this.x, y: this.scene.SURFACE_Y - 3, vx: dir * speed, life: flightT + 0.6 });
+      this._gunCD   = this._gunCDBase;
+      this._gunFlash = 0.12;
+
+      // Loguj tylko pierwszy strzał w serii (nie spamuj)
+      if (this._gunCD >= this._gunCDBase) {
+        this.scene._shipLog?.('[WRÓG] Otwarcie ognia z działa — wypłyń na powierzchnię!', 'danger');
+      }
+    }
+
+    // ── Aktualizacja pocisków ───────────────────────────────────────────────
+    for (const s of this._gunShells) {
+      s.x    += s.vx * dt;
+      s.life -= dt;
+
+      if (!s.hit && surfaced) {
+        const hx = sub.x - s.x;
+        const hy = sub.y - s.y;
+        if (Math.sqrt(hx * hx + hy * hy) < 22) {
+          s.hit  = true;
+          s.life = 0;
+          const dmg = 0.14 + Math.random() * 0.08;
+          if (sub.applyDamage) sub.applyDamage(dmg, 'DZIAŁO OKRĘTOWE');
+          else sub.hull = Math.max(0, sub.hull - dmg);
+          this.scene._impactFX?.trigger(s.x, s.y);
+          this.scene._shake?.(180, 0.007);
+          this.scene.cameras.main.flash(120, 255, 200, 60, false);
+          this.scene._shipLog?.(`TRAFIENIE — działo okrętowe. Kadłub: ${Math.round(sub.hull * 100)}%. Zanurz się!`, 'danger');
+          this.scene._logEvent?.('Trafienie z działa wroga!');
+        }
+      }
+    }
+    this._gunShells = this._gunShells.filter(s => s.life > 0 && !s.hit);
   }
 
   _dropPattern(sub) {
@@ -919,12 +1010,34 @@ export class Enemy {
     if (Math.abs(dx) > WORLD_W / 2) dx -= Math.sign(dx) * WORLD_W;
     const dist = Math.abs(dx);
 
-    const canFire = (this.state === STATE.HUNT || this.state === STATE.SEARCH
-                    || this.state === STATE.WITHDRAW)  // defensywny strzał podczas ucieczki
-                  && this.asrocCD <= 0
-                  && dist > ASROC_MIN_DIST
-                  && dist < ASROC_MAX_DIST
-                  && this.hull > 0.1;   // nie odpala gdy prawie zatopiony
+    // ── Jakość rozwiązania ogniowego ─────────────────────────────────────────
+    // Kontakt świeży (<3s) → pewny strzał. Kontakt dobry (<6s) → strzał jeśli
+    // gracz robi hałas (siedzi w miejscu lub przyspiesza → łatwiejszy cel).
+    // Kontakt stary (>6s) → czekaj na lepszą okazję (nie marnuj rakiet).
+    const contactFresh    = this._contactAge < 3.0;
+    const contactGood     = this._contactAge < 6.5;
+    const playerNoisy     = sub.noiseEffective > 0.30;  // gracz się porusza
+    const playerSlow      = Math.hypot(sub.vx, sub.vy) < 10;  // cel prawie nieruchomy
+
+    // Lepsze rozwiązanie: świeży kontakt LUB gracz głośny i kontakt nie za stary
+    const solutionOk = contactFresh
+      || (contactGood && playerNoisy)
+      || (contactGood && playerSlow);
+
+    // Koordynacja: jeśli sojusznik właśnie wystrzelił ASROC, odczekaj 12s
+    const allyJustFired = (this.scene.enemies || []).some(
+      e => e !== this && !e.destroyed && !e._sinking
+        && e._asrocCDBase && e.asrocCD > e._asrocCDBase * 0.88
+    );
+
+    const canFire = solutionOk
+      && !allyJustFired
+      && (this.state === STATE.HUNT || this.state === STATE.SEARCH
+          || this.state === STATE.WITHDRAW)
+      && this.asrocCD <= 0
+      && dist > ASROC_MIN_DIST
+      && dist < ASROC_MAX_DIST
+      && this.hull > 0.1;
 
     if (canFire) {
       // Velocity lead — kompensuje ruch łodzi podczas lotu rakiety
@@ -1414,6 +1527,24 @@ export class Enemy {
       g.strokeCircle(sensorX, sensorY, 8);
       g.fillStyle(0x00ffff, 0.70 + pulse * 0.20);
       g.fillCircle(sensorX, sensorY, 4);
+    }
+
+    // ── Pociski działa okrętowego ─────────────────────────────────────────
+    for (const s of this._gunShells) {
+      // Smuga dymu za pociskiem
+      g.lineStyle(2, 0xddddaa, 0.28);
+      g.strokeLineShape(new Phaser.Geom.Line(s.x, s.y, s.x - s.vx * 0.04, s.y));
+      // Pocisk
+      g.fillStyle(0xffffee, 0.95);
+      g.fillEllipse(s.x, s.y, 13, 4);
+    }
+    // Flesch wylotowy
+    if (this._gunFlash > 0) {
+      const fx = this.x + this.dir * 32;
+      g.fillStyle(0xffee44, this._gunFlash / 0.12);
+      g.fillCircle(fx, this.scene.SURFACE_Y - 2, 7 + this._gunFlash * 30);
+      g.fillStyle(0xffffff, this._gunFlash / 0.12 * 0.6);
+      g.fillCircle(fx, this.scene.SURFACE_Y - 2, 3);
     }
 
     // ── Torpedy bezpośrednie ───────────────────────────────────────────────

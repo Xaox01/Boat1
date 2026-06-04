@@ -4,6 +4,31 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.12.8] — 2026-05-26
+
+### Dodano — Działo okrętowe + lepsza AI ASROC i torpedy
+
+**Działo okrętowe (76mm/127mm):**
+- Ostrzeliwuje gracza gdy depthMetres < 38 i dystans < 850px (skalowany wg trudności)
+- Aktywne we wszystkich stanach — nawet PATROL widzi okręt na powierzchni
+- Pocisk: 440px/s z lead compensation (VX×0.75), uszkodzenie 0.14-0.22
+- Cooldown: easy≈3.5s, normal≈2.6s, hard≈1.7s (szybki ogień seryjny)
+- Wizual: żółto-biały pocisk + smuga dymu + flesch wylotowy z lufy
+- Log: "[WRÓG] Otwarcie ognia z działa" przy pierwszym strzale w serii
+
+**Lepsza AI ASROC — jakość rozwiązania ogniowego:**
+- Świeży kontakt (< 3s) → strzał pewny
+- Dobry kontakt (< 6.5s) + gracz głośny LUB prawie nieruchomy → strzał
+- Stary kontakt → wstrzymaj (nie marnuj rakiet)
+- Koordynacja: jeśli sojusznik właśnie wystrzelił ASROC → odczekaj 12s
+
+**Lepsza AI torped bezpośrednich:**
+- Uwzględnia geometrię: gracza zbliżającego się do wroga trudniej ominąć
+- Bracket firing (Normal+Hard): świeży kontakt < 2s → dwie torpedy z 6° rozrzutem kątowym
+- Lepszy DR: separation approach vs retreat detection
+
+---
+
 ## [0.12.7] — 2026-05-26
 
 ### Dodano — Nowa broń wrogów: VDS i torpeda bezpośrednia SET-65
