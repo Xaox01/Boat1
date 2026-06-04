@@ -50,6 +50,7 @@ const HUNT_DECAY_BASE   = 0.35;   // normalna utrata w HUNT (było 0.25) — nag
 const DR_VX_WEIGHT      = 0.60;   // współczynnik dead-reckoning (predykcja ruchu łodzi)
 const REINFORCE_DELAY   = 18;     // sekundy HUNT bez likwidacji → wezwanie posiłków
 
+
 export class Enemy {
   constructor(scene, x, patrolLeft, patrolRight, label) {
     this.scene = scene;
@@ -1625,9 +1626,9 @@ export class Enemy {
     if (this._hedgehogFlash > 0) {
       const frac = this._hedgehogFlash / 0.55;
       g.fillStyle(0xffffff, frac * 0.95 * shipAlpha);
-      g.fillCircle(d * 46, -10, 3.5 + (1 - frac) * 16);
+      g.fillCircle(this.dir * 46, -10, 3.5 + (1 - frac) * 16);
       g.fillStyle(0xff8800, frac * 0.80 * shipAlpha);
-      g.fillCircle(d * 46, -10, 2 + (1 - frac) * 9);
+      g.fillCircle(this.dir * 46, -10, 2 + (1 - frac) * 9);
     }
 
     // Wskaźnik ASROC gotowy
