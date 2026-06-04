@@ -4,6 +4,36 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.12.0] — 2026-05-26
+
+### Dodano — Misja 1: OBIEKT K-7 (К-481, Morze Norweskie, 1983)
+
+**Mission1.js — nowy plik, zastępuje TutorialMission jako domyślny start:**
+- Tematyka: radziecki okręt podwodny К-481 (klasa Victor III), listopad 1983, Morze Norweskie
+- Intro: ekran briefingu z czerwoną paletą (sowiecka estetyka), zamiast zielonej ORP KONDOR
+- Faza 1 — ZANURZENIE BOJOWE: zejdź do 50m + prędkość ≥ 20px/s
+- Faza 2 — WARSTWA IZOTERMICZNA: zejdź poniżej termokliny (>200m)
+- Faza 3 — TRYB NASŁUCH: wycisz silniki, utrzymaj listenMode przez 3s
+- Faza 4 — IDENTYFIKACJA: ping [Q] ujawnia "USS DALLAS (kl. LA)"
+- Faza 5 — DEPESZA Z MOSKWY: dialog decyzji (ABLE ARCHER 83):
+  - "WYKONAJ ROZKAZ — ODPAL TORPEDĘ" → zakończenie wojenne
+  - "ODMÓW — PRZERWIJ MISJĘ" → zakończenie pokojowe z kontekstem historycznym
+- USS DALLAS spawniętyjako Enemy "KONTAKT ALFA", odkrywany po pingu sonarowym
+- Fix: faza 5 nie blokuje się na karcie — po kliknięciu "PODJĄĆ DECYZJĘ" pojawia się dialog
+- GameScene: `_startTutorial()` używa teraz Mission1 zamiast TutorialMission
+
+### Zmieniono — Menu główne: klimat К-481 i ABLE ARCHER
+
+- Podnapis: `LISTOPAD 1983 · MORZE NORWESKIE · OBIEKT K-7`
+- Nagłówek: `К-481 // ПОКОИ КОМАНДИРА`, POZ. `70°N 18°E · NW-7`
+- Status: `● CISZA RADIOWA` zamiast `● ONLINE`
+- SVG okrętu: `PR. 671RTM · К-481` zamiast K-244
+- Briefing bez zapisu: DEPESZA GRU — KONTAKT ALFA, ABLE ARCHER STAN GOTOWOŚCI
+- Telemetria: głębokość 243m, namiar 127° (kurs na KONTAKT ALFA), reaktor 71%
+- Etykieta "KURS" → "NAMIAR", BUILD `19831101`, klasyfikacja `ŚCIŚLE TAJNE`
+
+---
+
 ## [0.11.1] — 2026-05-26
 
 ### Dodano — Testowanie misji: URL ?mission=N i komenda DevConsole `mis N`
