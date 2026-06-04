@@ -4,6 +4,28 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.12.1] — 2026-05-26
+
+### Zmieniono — Mission1: rozbudowa psychologiczna (7 faz, 3 zakończenia)
+
+**Nowe fazy (było 5, jest 7):**
+- Faza 4 — MELDUNEK ZAMPOLITA: overlay z zampolitem, wybór odpowiedzi (potwierdź/zakwestionuj) wpływa na treść zakończenia
+- Faza 6 — UCIECZKA I ŚLEDZENIE: po pingu USS DALLAS przechodzi w STATE.HUNT i aktywnie poluje na gracza przez 20 sekund
+
+**Rozszerzone mechaniki:**
+- USS DALLAS po identyfikacji (ping) ustawia state = STATE.HUNT — realny pościg
+- Głosy załogi przez shipLog: [HYDROAK.], [ZAMPOLIT], [STARSZY OF.] w kluczowych momentach
+- `_zampolit_questioned` flag — odpowiedź zampolita zmienia linię tekstu w każdym z zakończeń
+
+**Trzy zakończenia zamiast dwóch:**
+- ODPAL TORPEDĘ → "właśnie wywołałeś wojnę" — różny tekst zależnie od wyboru zampolita
+- ODMÓW → trybunał + kontekst historyczny (ABLE ARCHER kończy się 11.11.1983)
+- ZAŻĄDAJ POTWIERDZENIA → Moskwa krzyczy, gracz milczy 22s, Dallas odchodzi — moralne zwycięstwo przez bezczynność
+
+**Intro:** zaktualizowana lista faz (7 kroków)
+
+---
+
 ## [0.12.0] — 2026-05-26
 
 ### Dodano — Misja 1: OBIEKT K-7 (К-481, Morze Norweskie, 1983)
