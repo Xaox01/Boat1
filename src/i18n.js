@@ -8,6 +8,7 @@ const DICT = {
     menu_cont:       'KONTYNUUJ',
     menu_archive:    'ARCHIWUM',
     menu_fleet:      'FLOTYLLA',
+    menu_sandbox:    'TRYB SANDBOX',
     menu_settings:   'USTAWIENIA',
 
     menu_main_title: 'MENU GŁÓWNE',
@@ -276,6 +277,7 @@ const DICT = {
     menu_cont:       'CONTINUE',
     menu_archive:    'ARCHIVE',
     menu_fleet:      'FLEET',
+    menu_sandbox:    'SANDBOX MODE',
     menu_settings:   'SETTINGS',
 
     menu_main_title: 'MAIN MENU',

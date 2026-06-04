@@ -4,6 +4,19 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.12.4] — 2026-05-26
+
+### Dodano — Tryb Sandbox w menu głównym
+
+- Pozycja "TRYB SANDBOX" (F4) w menu głównym zamiast wyłączonej FLOTYLLI
+- Kliknięcie uruchamia grę bez samouczka i misji — tryb swobodny z wrogami
+- Flaga `window._gameSettings.sandboxMode` przekazywana do GameScene
+- GameScene.create(): `sandboxMode || skipTutUrl` → `_spawnTestEnemies()`
+- Skrót klawiszowy F4 obsługiwany w `_handleKey()`
+- Klucze i18n: `menu_sandbox` (PL: "TRYB SANDBOX", EN: "SANDBOX MODE")
+
+---
+
 ## [0.12.3] — 2026-05-26
 
 ### Zmieniono — Mission1: dwa wrogowie, mechanika wywiadu, prawdziwy pościg

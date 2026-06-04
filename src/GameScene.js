@@ -257,7 +257,9 @@ export class GameScene extends Phaser.Scene {
     const missionIdx  = missionUrl !== null ? parseInt(missionUrl, 10) - 1 : -1;
     const validMisUrl = missionIdx >= 0 && missionIdx <= 4;
 
-    if (skipTutUrl) {
+    const sandboxMode = (window._gameSettings || {}).sandboxMode === true;
+
+    if (skipTutUrl || sandboxMode) {
       this._spawnTestEnemies();
     } else if (validMisUrl) {
       this._startCampaignAt(missionIdx, true);

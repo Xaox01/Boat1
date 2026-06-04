@@ -66,8 +66,8 @@ function buildMenuHTML(saveInfo) {
   const items = [
     { key: 'new',    labelKey: 'menu_new',      code: 'F1', disabled: false    },
     { key: 'cont',   labelKey: 'menu_cont',     code: 'F2', disabled: !hasSave },
-    { key: 'briefs', labelKey: 'menu_archive',  code: 'F3', disabled: true     },
-    { key: 'fleet',  labelKey: 'menu_fleet',    code: 'F4', disabled: true     },
+    { key: 'briefs',   labelKey: 'menu_archive',  code: 'F3', disabled: true  },
+    { key: 'sandbox',  labelKey: 'menu_sandbox',  code: 'F4', disabled: false },
     { key: 'set',    labelKey: 'menu_settings', code: 'F5', disabled: false    },
   ];
 
@@ -655,6 +655,11 @@ export class Menu {
       window._gameSettings = window._gameSettings || this._getSettings();
       this.hide();
       this._resolve?.({ fromSave: true });
+    } else if (key === 'sandbox') {
+      window._gameSettings = { ...this._getSettings(), sandboxMode: true };
+      SaveSystem.clear();
+      this.hide();
+      this._resolve?.({ fromSave: false });
     } else if (key === 'set') {
       this._showSettings();
     }
@@ -689,6 +694,9 @@ export class Menu {
     } else if (e.key === 'F2' && !this._items[1]?.disabled) {
       e.preventDefault();
       this._setSelected(1); this._activate(1);
+    } else if (e.key === 'F4') {
+      e.preventDefault();
+      this._setSelected(3); this._activate(3);
     } else if (e.key === 'F5') {
       e.preventDefault();
       this._setSelected(4); this._showSettings();
