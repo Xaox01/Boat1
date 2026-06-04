@@ -1710,49 +1710,129 @@ export class GameScene extends Phaser.Scene {
   // ── Miny morskie — rysowanie i kolizje ────────────────────────────────────
 
   _drawMines() {
-    if (!this._nmGfx) {
-      this._nmGfx = this.add.graphics().setDepth(14);
-    }
-    const g = this._nmGfx;
-    g.clear();
-
+    if (!this._nmGfx) this._nmGfx = this.add.graphics().setDepth(14);
+    const g   = this._nmGfx;
     const cam = this.camX;
+    const now = Date.now() * 0.001;
+    g.clear();
 
     for (const mine of this.sub.mines) {
       const sx = mine.x - cam;
       const sy = mine.y;
-      const col = mine.armed ? 0xff4400 : 0xffaa00;
 
-      // Korpus miny
-      g.fillStyle(col, 0.90);
-      g.fillCircle(sx, sy, 7);
-      g.lineStyle(1.5, col, 0.70);
-      g.strokeCircle(sx, sy, 7);
+      // ── Bąbelki wynurzania ────────────────────────────────────────────────
+      for (const b of mine.bubbles) {
+        const a = Math.max(0, 1 - b.age / 1.4);
+        g.fillStyle(0x88ccff, a * 0.55);
+        g.fillCircle(b.x - cam, b.y, b.r * (1 + b.age * 0.5));
+      }
 
-      // Kolce (klasyczna mina morska) — 8 kierunków
-      for (let i = 0; i < 8; i++) {
-        const a  = (i / 8) * Math.PI * 2;
-        const r1 = 7, r2 = 13;
-        g.lineStyle(1.5, col, 0.65);
+      // ── Splash po dotarciu na powierzchnię ────────────────────────────────
+      if (mine.splashT > 0) {
+        const prog = 1 - mine.splashT / 0.70;
+        const r1 = prog * 28, r2 = prog * 18, r3 = prog * 10;
+        g.lineStyle(1.5, 0x88ccff, (1 - prog) * 0.55);
+        g.strokeCircle(sx, mine.targetY, r1);
+        g.lineStyle(1.0, 0x88ccff, (1 - prog) * 0.40);
+        g.strokeCircle(sx, mine.targetY, r2);
+        g.lineStyle(0.8, 0xffffff, (1 - prog) * 0.30);
+        g.strokeCircle(sx, mine.targetY, r3);
+      }
+
+      if (mine.rising) {
+        // ── Mina wynurza się — prosta ikona w ruchu ───────────────────────
+        g.fillStyle(0x445566, 0.75);
+        g.fillCircle(sx, sy, 6);
+        g.lineStyle(1, 0x88aacc, 0.50);
+        g.strokeCircle(sx, sy, 6);
+        continue;
+      }
+
+      // ── Łańcuch kotwiczny ─────────────────────────────────────────────────
+      g.lineStyle(1, 0x3a4a55, 0.40);
+      for (let yy = sy + 12; yy < OCEAN_FLOOR_Y - 10; yy += 8) {
+        g.fillStyle(0x3a4a55, 0.30);
+        g.fillCircle(sx, yy, 1.5);
+      }
+
+      const R      = 11;   // promień korpusu miny
+      const SPIKES = 8;
+      const pulse  = 0.5 + 0.5 * Math.sin(now * 4.2);
+      const blink  = !mine.armed && mine.armT < 1.0 && Math.sin(now * 12) > 0;
+
+      // ── Strefa rażenia (tylko uzbrojona) ─────────────────────────────────
+      if (mine.armed) {
+        const dp = 0.10 + 0.06 * Math.sin(now * 2.8);
+        g.lineStyle(1, 0xff3300, dp);
+        g.strokeCircle(sx, sy, mine.blastR);
+        g.fillStyle(0xff2200, 0.025);
+        g.fillCircle(sx, sy, mine.blastR);
+      }
+
+      // ── Poświata zewnętrzna ───────────────────────────────────────────────
+      if (mine.armed) {
+        g.fillStyle(0xff2200, 0.10 + 0.08 * pulse);
+        g.fillCircle(sx, sy, R + 10);
+        g.fillStyle(0xff4400, 0.14 + 0.10 * pulse);
+        g.fillCircle(sx, sy, R + 5);
+      }
+
+      // ── Szpikulce z kulkami (kontaktowe detonatory) ───────────────────────
+      const spikeCol  = mine.armed ? 0xcc2200 : (blink ? 0xffdd00 : 0x556677);
+      const tipCol    = mine.armed ? 0xff4400 : 0x8899aa;
+      for (let i = 0; i < SPIKES; i++) {
+        const a   = (i / SPIKES) * Math.PI * 2 - Math.PI / SPIKES;
+        const r1  = R, r2 = R + 8;
+        g.lineStyle(1.5, spikeCol, 0.80);
         g.strokeLineShape(new Phaser.Geom.Line(
           sx + Math.cos(a) * r1, sy + Math.sin(a) * r1,
           sx + Math.cos(a) * r2, sy + Math.sin(a) * r2
         ));
+        // Kulka na końcu szpikulca
+        g.fillStyle(tipCol, 0.90);
+        g.fillCircle(sx + Math.cos(a) * (r2 + 2.5), sy + Math.sin(a) * (r2 + 2.5), 2.5);
       }
 
-      // Impuls sonarowy gdy mina uzbrojona (gracz ją widzi na sonarze)
-      if (mine.armed) {
-        const pulse = 0.3 + 0.3 * Math.sin(Date.now() * 0.005);
-        g.lineStyle(1, 0xff6600, pulse * 0.4);
-        g.strokeCircle(sx, sy, mine.blastR);
-      } else {
-        // Pasek uzbrajaania
-        const pct = 1 - mine.armT / 3.0;
-        g.fillStyle(0xffaa00, 0.40);
-        g.fillRect(sx - 10, sy + 10, 20 * pct, 2);
+      // ── Korpus — 3 warstwy (cień, metal, highlight) ───────────────────────
+      // Cień
+      g.fillStyle(0x111a22, 0.65);
+      g.fillCircle(sx + 1.5, sy + 1.5, R);
+      // Metalowe ciało
+      const bodyCol = mine.armed
+        ? (blink ? 0xff3300 : 0xcc2200)
+        : 0x2a3d4f;
+      g.fillStyle(bodyCol, 0.95);
+      g.fillCircle(sx, sy, R);
+      // Obrys
+      const rimCol = mine.armed ? 0xff6644 : 0x445566;
+      g.lineStyle(1.5, rimCol, 0.75);
+      g.strokeCircle(sx, sy, R);
+      // Metalowy połysk — jasna elipsa w górnym-lewym kwadrancie
+      g.fillStyle(mine.armed ? 0xff9977 : 0x6a8a9a, 0.35);
+      g.fillEllipse(sx - R * 0.32, sy - R * 0.32, R * 0.7, R * 0.45);
+      // Detonator centralny
+      g.fillStyle(mine.armed ? 0xff6600 : 0x334455, 0.90);
+      g.fillCircle(sx, sy, 3.5);
+      g.fillStyle(mine.armed ? 0xffcc44 : 0x556677, 0.80);
+      g.fillCircle(sx, sy, 1.8);
+
+      // ── Łuk postępu uzbrajaania ───────────────────────────────────────────
+      if (!mine.armed) {
+        const pct  = 1 - mine.armT / 3.0;
+        const arcR = R + 5;
+        // Tło łuku (szare)
+        g.lineStyle(2, 0x334455, 0.40);
+        g.beginPath();
+        g.arc(sx, sy, arcR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2, false);
+        g.strokePath();
+        // Wypełnienie postępu (pomarańczowe)
+        g.lineStyle(2.5, blink ? 0xffdd00 : 0xffaa00, 0.85);
+        g.beginPath();
+        g.arc(sx, sy, arcR, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2, false);
+        g.strokePath();
       }
 
-      // Kolizja z wrogami (tylko miny uzbrojone)
+      // ── Kolizja z wrogami (tylko uzbrojone) ───────────────────────────────
       if (!mine.armed) continue;
       for (const e of this.enemies.filter(en => !en.destroyed && !en._sinking)) {
         const dx = e.x - mine.x;

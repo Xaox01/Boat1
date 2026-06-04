@@ -128,11 +128,16 @@ export class Submarine {
     if (!this.infiniteAmmo) this.mineCount--;
     this.mines.push({
       x:       this.x,
-      y:       this.scene.SURFACE_Y - 18,  // unosi się tuż pod powierzchnią
+      y:       this.y,                         // startuje na głębokości łodzi
+      targetY: this.scene.SURFACE_Y - 18,      // docelowa pozycja pod powierzchnią
+      rising:  true,                           // animacja wynurzania aktywna
+      bubbles: [],                             // ślad bąbelkowy podczas wynurzania
+      splashT: 0,                              // timer animacji fali powierzchniowej
       armed:   false,
-      armT:    3.0,    // uzbrajanie po 3s (ochrona przed natychmiastowym samozniszczeniem)
+      armT:    3.0,
       age:     0,
       blastR:  90,
+      exploded: false,
     });
     return true;
   }
@@ -282,10 +287,28 @@ export class Submarine {
     for (const m of this.missiles.filter(m => m.dead)) m.destroy();
     this.missiles = this.missiles.filter(m => !m.dead);
 
-    // Miny — uzbrajanie
+    // Miny — animacja wynurzania i uzbrajanie
     for (const m of this.mines) {
       m.age += dt;
-      if (!m.armed && m.armT > 0) { m.armT -= dt; if (m.armT <= 0) m.armed = true; }
+
+      // Aktualizuj bąbelki (niezależnie od stanu)
+      for (const b of m.bubbles) { b.age += dt; b.y -= 22 * dt; }
+      m.bubbles = m.bubbles.filter(b => b.age < 1.4);
+
+      if (m.rising) {
+        m.y = Math.max(m.targetY, m.y - 75 * dt);
+        // Bąbelki podczas wynurzania
+        if (Math.random() < 0.55) {
+          m.bubbles.push({ x: m.x + (Math.random() - 0.5) * 8, y: m.y + 6, age: 0, r: 1.5 + Math.random() * 2.5 });
+        }
+        if (m.y <= m.targetY) {
+          m.rising  = false;
+          m.splashT = 0.70;   // start animacji fali powierzchniowej
+        }
+      } else {
+        if (m.splashT > 0) m.splashT = Math.max(0, m.splashT - dt);
+        if (!m.armed && m.armT > 0) { m.armT -= dt; if (m.armT <= 0) m.armed = true; }
+      }
     }
     this.mines = this.mines.filter(m => !m.exploded);
   }
