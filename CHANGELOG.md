@@ -4,6 +4,20 @@ Wszystkie zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepac
 
 ---
 
+## [0.12.2] — 2026-05-26
+
+### Zmieniono — Mission1: architektura ciągłej gry (bez step-modali)
+
+- Zastąpiono system PHASES+step-modali maszyną stanów (S.DIVE → S.LISTEN → S.APPROACH → S.PING → S.EVADE → S.DONE)
+- Jedyna pauza: ekran intro na starcie i finalna decyzja — reszta to ciągła rozgrywka
+- HUD karta aktualizowana co klatkę: pokazuje aktualny cel, pasek postępu i hint bez przerywania gry
+- Dallas aktywnie pinguje co ~30s podczas APPROACH — 5s przed pingiem ostrzeżenie, gracz musi wyciszyć silniki
+- Jeśli gracz wykryty: Dallas przechodzi w HUNT na 15s, potem wraca do PATROL
+- Zampolit pojawia się jako overlay na dole (nie pauzuje gry) — gracz może dalej manewrować podczas czytania i wyboru
+- Overlay zampolita auto-zamyka się po 20s jeśli gracz nie odpowie
+
+---
+
 ## [0.12.1] — 2026-05-26
 
 ### Zmieniono — Mission1: rozbudowa psychologiczna (7 faz, 3 zakończenia)
