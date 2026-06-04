@@ -172,6 +172,7 @@ export class Mission1 {
 
   update(dt) {
     if (this._complete || this._phase < 0 || this._advancing || this._inIntro) return;
+    if (this._phase >= PHASES.length - 1) return;  // faza decyzji obsługiwana przez _showChoice()
     const phase = PHASES[this._phase];
     if (!phase) return;
 
@@ -652,6 +653,10 @@ export class Mission1 {
       : '';
     this._tsGoal.textContent = intro.goal;
 
+    this._tsContBtn.textContent = phase.step === TOTAL_STEPS
+      ? '▸ PODJĄĆ DECYZJĘ  [Enter]'
+      : '▸ WYKONAJ ZADANIE  [Enter]';
+
     this._stepEl.style.display = 'block';
     requestAnimationFrame(() => requestAnimationFrame(() => this._stepEl.classList.add('vis')));
 
@@ -671,7 +676,12 @@ export class Mission1 {
       this._stepEl.style.display = 'none';
       this._inIntro = false;
       this.scene.scene.resume();
-      this._showCard(PHASES[this._phase]);
+      if (this._phase >= PHASES.length - 1) {
+        this._complete = true;
+        this._showChoice();
+      } else {
+        this._showCard(PHASES[this._phase]);
+      }
     }, 260);
   }
 
