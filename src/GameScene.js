@@ -8,6 +8,7 @@ import { Merchant } from './Merchant.js';
 import { MissionSystem } from './MissionSystem.js';
 import { SaveSystem } from './SaveSystem.js';
 import { TutorialMission } from './TutorialMission.js';
+import { Mission1 } from './Mission1.js';
 import { DevConsole } from './DevConsole.js';
 import { TorpedoLaunchFX } from './TorpedoLaunchFX.js';
 import { ImpactFX } from './ImpactFX.js';
@@ -1802,16 +1803,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   _startTutorial() {
-    // Cel treningowy — jeden statek, bliżej gracza, wolno dryfujący
-    const trainingTarget = new Merchant(this, 900, 1, 'CEL TRENINGOWY');
-    trainingTarget.speed = 1;   // prawie nieruchomy — zawsze widoczny na ekranie
-    this.merchants.push(trainingTarget);
-
-    this._enemiesSpawned = true;   // blokuj auto-spawn wrogów podczas tutorialu
+    this._enemiesSpawned  = true;
     this._enemySpawnTimer = 0;
-
-    this.tutorial = new TutorialMission(this);
-    this.tutorial.start(trainingTarget);
+    this.tutorial = new Mission1(this);
+    this.tutorial.start();
   }
 
   _startMission1Combat() {
