@@ -81,5 +81,3 @@ export const mem = {
   },
 };
 
-// Inicjuj WeakSet przy imporcie
-mem._knownDecoys = new WeakSet();
